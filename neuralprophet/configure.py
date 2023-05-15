@@ -1,33 +1,27 @@
 from __future__ import annotations
 
-import inspect
 import logging
 import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
-from typing import Union
+from typing import Type, Union
 
 import numpy as np
 import pandas as pd
 import torch
 
-from neuralprophet import df_utils, utils, utils_torch
+from neuralprophet import df_utils, np_types, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
 
 
-def from_kwargs(cls, kwargs):
-    return cls(**{k: v for k, v in kwargs.items() if k in inspect.signature(cls).parameters})
-
-
 @dataclass
 class Model:
-    num_hidden_layers: int
-    d_hidden: int
+    lagged_reg_layers: Optional[List[int]]
 
 
 @dataclass
@@ -36,15 +30,16 @@ class Normalization:
     global_normalization: bool
     global_time_normalization: bool
     unknown_data_normalization: bool
-    local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
-    global_data_params: dict = None  # dict where keys are names of variables
+    local_data_params: dict = field(default_factory=dict)  # nested dict (key1: name of dataset, key2: name of variable)
+    global_data_params: dict = field(default_factory=dict)  # dict where keys are names of variables
 
     def init_data_params(
         self,
         df,
         config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
         config_regressors=None,
-        config_events=None,
+        config_events: Optional[ConfigEvents] = None,
+        config_seasonality: Optional[ConfigSeasonality] = None,
     ):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
@@ -56,6 +51,7 @@ class Normalization:
             config_lagged_regressors=config_lagged_regressors,
             config_regressors=config_regressors,
             config_events=config_events,
+            config_seasonality=config_seasonality,
             global_normalization=self.global_normalization,
             global_time_normalization=self.global_normalization,
         )
@@ -89,24 +85,22 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    quantiles: Union[list, None]
-    learning_rate: Union[float, None]
-    epochs: Union[int, None]
-    batch_size: Union[int, None]
+    learning_rate: Optional[float]
+    epochs: Optional[int]
+    batch_size: Optional[int]
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
-    optimizer: Union[str, torch.optim.Optimizer]
+    optimizer: Union[str, Type[torch.optim.Optimizer]]
+    quantiles: List[float] = field(default_factory=list)
     optimizer_args: dict = field(default_factory=dict)
-    scheduler: torch.optim.lr_scheduler._LRScheduler = None
+    scheduler: Optional[Type[torch.optim.lr_scheduler._LRScheduler]] = None
     scheduler_args: dict = field(default_factory=dict)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
-    reg_lambda_trend: float = None
-    trend_reg_threshold: Union[bool, float] = None
-    reg_lambda_season: float = None
+    reg_lambda_trend: Optional[float] = None
+    trend_reg_threshold: Optional[Union[bool, float]] = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
-    early_stopping: bool = False
     lr_finder_args: dict = field(default_factory=dict)
 
     def __post_init__(self):
@@ -120,7 +114,7 @@ class Train:
         self.set_scheduler()
 
     def set_loss_func(self):
-        if type(self.loss_func) == str:
+        if isinstance(self.loss_func, str):
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
                 self.loss_func = torch.nn.SmoothL1Loss(reduction="none")
             elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
@@ -226,7 +220,8 @@ class Train:
         )
 
     def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
-        progress = (e + iter_progress) / float(self.epochs)
+        # Ignore type warning of epochs possibly being None (does not work with dataclasses)
+        progress = (e + iter_progress) / float(self.epochs)  # type: ignore
         if reg_start_pct == reg_full_pct:
             reg_progress = float(progress > reg_start_pct)
         else:
@@ -242,12 +237,12 @@ class Train:
 
 @dataclass
 class Trend:
-    growth: str
-    changepoints: list
+    growth: np_types.GrowthMode
+    changepoints: Optional[list]
     n_changepoints: int
     changepoints_range: float
     trend_reg: float
-    trend_reg_threshold: Union[bool, float]
+    trend_reg_threshold: Optional[Union[bool, float]]
     trend_global_local: str
 
     def __post_init__(self):
@@ -263,7 +258,9 @@ class Trend:
             self.n_changepoints = len(self.changepoints)
             self.changepoints = pd.to_datetime(self.changepoints).sort_values().values
 
-        if type(self.trend_reg_threshold) == bool:
+        if self.trend_reg_threshold is None:
+            pass
+        elif isinstance(self.trend_reg_threshold, bool):
             if self.trend_reg_threshold:
                 self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
                 log.debug(f"Trend reg threshold automatically set to: {self.trend_reg_threshold}")
@@ -285,7 +282,7 @@ class Trend:
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
                 self.trend_reg = 0
-                if self.trend_reg_threshold > 0:
+                if self.trend_reg_threshold and self.trend_reg_threshold > 0:
                     log.info("Trend reg threshold ignored due to no changepoints.")
         else:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
@@ -306,19 +303,21 @@ class Trend:
 class Season:
     resolution: int
     period: float
-    arg: str
+    arg: np_types.SeasonalityArgument
+    condition_name: Optional[str]
 
 
 @dataclass
-class AllSeason:
-    mode: str = "additive"
+class ConfigSeasonality:
+    mode: np_types.SeasonalityMode = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0
-    yearly_arg: Union[str, bool, int] = "auto"
-    weekly_arg: Union[str, bool, int] = "auto"
-    daily_arg: Union[str, bool, int] = "auto"
+    yearly_arg: np_types.SeasonalityArgument = "auto"
+    weekly_arg: np_types.SeasonalityArgument = "auto"
+    daily_arg: np_types.SeasonalityArgument = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
-    global_local: str = "local"
+    global_local: np_types.SeasonGlobalLocalMode = "local"
+    condition_name: Optional[str] = None
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
@@ -326,9 +325,9 @@ class AllSeason:
             self.reg_lambda = 0.001 * self.reg_lambda
         self.periods = OrderedDict(
             {
-                "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
-                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg),
-                "daily": Season(resolution=6, period=1, arg=self.daily_arg),
+                "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg, condition_name=None),
+                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg, condition_name=None),
+                "daily": Season(resolution=6, period=1, arg=self.daily_arg, condition_name=None),
             }
         )
 
@@ -337,14 +336,15 @@ class AllSeason:
             log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.global_local))
             self.global_local = "global"
 
-    def append(self, name, period, resolution, arg):
-        self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
+    def append(self, name, period, resolution, arg, condition_name):
+        self.periods[name] = Season(resolution=resolution, period=period, arg=arg, condition_name=condition_name)
 
 
 @dataclass
 class AR:
     n_lags: int
     ar_reg: Optional[float] = None
+    ar_layers: Optional[List[int]] = None
 
     def __post_init__(self):
         if self.ar_reg is not None and self.ar_reg > 0:
@@ -383,6 +383,7 @@ class LaggedRegressor:
     as_scalar: bool
     normalize: Union[bool, str]
     n_lags: int
+    lagged_reg_layers: Optional[List[int]]
 
     def __post_init__(self):
         if self.reg_lambda is not None:
@@ -395,8 +396,8 @@ ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
 
 @dataclass
 class Regressor:
-    reg_lambda: float
-    normalize: str
+    reg_lambda: Optional[float]
+    normalize: Union[str, bool]
     mode: str
 
 
@@ -407,7 +408,7 @@ ConfigFutureRegressors = OrderedDictType[str, Regressor]
 class Event:
     lower_window: int
     upper_window: int
-    reg_lambda: float
+    reg_lambda: Optional[float]
     mode: str
 
 
@@ -416,11 +417,11 @@ ConfigEvents = OrderedDictType[str, Event]
 
 @dataclass
 class Holidays:
-    country: str
+    country: Union[str, List[str]]
     lower_window: int
     upper_window: int
     mode: str = "additive"
-    reg_lambda: float = None
+    reg_lambda: Optional[float] = None
     holiday_names: set = field(init=False)
 
     def init_holidays(self, df=None):

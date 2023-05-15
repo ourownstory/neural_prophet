@@ -25,7 +25,7 @@ jobs:
           python-version: "3.10"
       - run: python -m pip install flake8
       - name: flake8
-        uses: liskin/gh-problem-matcher-wrap@v1
+        uses: liskin/gh-problem-matcher-wrap@v2
         with:
           linters: flake8
           run: flake8 neuralprophet scripts
@@ -41,7 +41,7 @@ jobs:
           python-version: "3.10"
       - run: python -m pip install isort
       - name: isort
-        uses: liskin/gh-problem-matcher-wrap@v1
+        uses: liskin/gh-problem-matcher-wrap@v2
         with:
           linters: isort
           run: isort --check --diff neuralprophet tests scripts
@@ -55,3 +55,28 @@ jobs:
         uses: psf/black@stable
         with:
           jupyter: true
+
+  pyright:
+    runs-on: ubuntu-latest
+    env:
+      POETRY_VIRTUALENVS_CREATE: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Cache poetry
+        id: poetry-cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: poetry
+      - name: Setup poetry
+        if: steps.poetry-cache.outputs.cache-hit != 'true'
+        uses: snok/install-poetry@v1
+      - name: Install dependencies
+        run: poetry install --with=docs,pyright
+      - name: pyright
+        uses: jakebailey/pyright-action@v1

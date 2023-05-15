@@ -4,13 +4,15 @@ import numpy as np
 import pandas as pd
 
 from neuralprophet.plot_model_parameters_plotly import get_dynamic_axis_range
-from neuralprophet.utils import set_y_as_percent
+from neuralprophet.plot_utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotly")
 
 try:
+    import plotly.express as px
     import plotly.graph_objs as go
     from plotly.subplots import make_subplots
+    from plotly_resampler import register_plotly_resampler, unregister_plotly_resampler
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
@@ -40,7 +42,17 @@ layout_args = {
 }
 
 
-def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(700, 210)):
+def plot(
+    fcst,
+    quantiles,
+    xlabel="ds",
+    ylabel="y",
+    highlight_forecast=None,
+    line_per_origin=False,
+    figsize=(700, 210),
+    resampler_active=False,
+    plotly_static=False,
+):
     """
     Plot the NeuralProphet forecast
 
@@ -60,11 +72,20 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             Print a line per forecast of one per forecast age
         figsize : tuple
             Width, height in inches.
+        resampler_active : bool
+            Flag whether to activate the plotly-resampler
+        plotly_static: bool
+            Flag whether to generate a static svg image
 
     Returns
     -------
         Plotly figure
     """
+    if resampler_active:
+        register_plotly_resampler(mode="auto")
+    else:
+        unregister_plotly_resampler()
+
     cross_marker_color = "blue"
     cross_symbol = "x"
 
@@ -77,16 +98,12 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     if line_per_origin:
         colname = "origin-"
         step = 0
-    # all yhat column names, including quantiles
-    yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
-    # without quants
-    yhat_col_names_no_qts = [
-        col_name for col_name in yhat_col_names if f"{colname}" in col_name and "%" not in col_name
-    ]
+    # all yhat column names
+    yhat_col_names = [col_name for col_name in fcst.columns if col_name.startswith(colname) and "%" not in col_name]
     data = []
 
     if highlight_forecast is None or line_per_origin:
-        for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
+        for i, yhat_col_name in enumerate(yhat_col_names):
             data.append(
                 go.Scatter(
                     name=yhat_col_name,
@@ -132,7 +149,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
         if line_per_origin:
             num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
+            for i, yhat_col_name in enumerate(yhat_col_names):
                 x = [ds[-(1 + i + steps_from_last)]]
                 y = [fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]]
                 data.append(
@@ -208,11 +225,22 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
         **layout_args,
     )
     fig = go.Figure(data=data, layout=layout)
-
+    unregister_plotly_resampler()
+    if plotly_static:
+        fig = fig.show("svg")
     return fig
 
 
-def plot_components(m, fcst, df_name="__df__", forecast_in_focus=None, one_period_per_season=True, figsize=(700, 210)):
+def plot_components(
+    m,
+    fcst,
+    plot_configuration,
+    df_name="__df__",
+    one_period_per_season=False,
+    figsize=(700, 210),
+    resampler_active=False,
+    plotly_static=False,
+):
     """
     Plot the NeuralProphet forecast components.
 
@@ -222,134 +250,34 @@ def plot_components(m, fcst, df_name="__df__", forecast_in_focus=None, one_perio
             Fitted model
         fcst : pd.DataFrame
             Output of m.predict
+        plot_configuration: dict
+            dict of configured components to plot
         df_name : str
             ID from time series that should be plotted
-        forecast_in_focus : int
-            n-th step ahead forecast AR-coefficients to plot
         one_period_per_season : bool
             Plot one period per season, instead of the true seasonal components of the forecast.
         figsize : tuple
             Width, height in inches.
+        resampler_active : bool
+            Flag whether to activate the plotly-resampler
+        plotly_static: bool
+            Flag whether to generate a static svg image
 
     Returns
     -------
         Plotly figure
     """
     log.debug("Plotting forecast components")
+    if resampler_active:
+        register_plotly_resampler(mode="auto")
+    else:
+        unregister_plotly_resampler()
     fcst = fcst.fillna(value=np.nan)
-
-    # Identify components to be plotted
-    # as dict, minimum: {plot_name, comp_name}
-    components = []
-
-    # Plot  trend
-    components.append({"plot_name": "Trend", "comp_name": "trend"})
-
-    # Plot  seasonalities, if present
-    if m.model.config_season is not None:
-        for name in m.model.config_season.periods:
-            components.append(
-                {
-                    "plot_name": f"{name} seasonality",
-                    "comp_name": name,
-                }
-            )
-    # AR
-    if m.model.n_lags > 0:
-        if forecast_in_focus is None:
-            components.append(
-                {
-                    "plot_name": "Auto-Regression",
-                    "comp_name": "ar",
-                    "num_overplot": m.n_forecasts,
-                    "bar": True,
-                }
-            )
-        else:
-            components.append(
-                {
-                    "plot_name": f"AR ({forecast_in_focus})-ahead",
-                    "comp_name": f"ar{forecast_in_focus}",
-                }
-            )
-
-    # Add lagged regressors
-    if m.model.config_lagged_regressors is not None:
-        for name in m.model.config_lagged_regressors.keys():
-            if forecast_in_focus is None:
-                components.append(
-                    {
-                        "plot_name": f'Lagged Regressor "{name}"',
-                        "comp_name": f"lagged_regressor_{name}",
-                        "num_overplot": m.n_forecasts,
-                        "bar": True,
-                    }
-                )
-            else:
-                components.append(
-                    {
-                        "plot_name": f'Lagged Regressor "{name}" ({forecast_in_focus})-ahead',
-                        "comp_name": f"lagged_regressor_{name}{forecast_in_focus}",
-                    }
-                )
-                # 'add_x': True})
-    # Add Events
-    if "events_additive" in fcst.columns:
-        components.append(
-            {
-                "plot_name": "Additive Events",
-                "comp_name": "events_additive",
-            }
-        )
-    if "events_multiplicative" in fcst.columns:
-        components.append(
-            {
-                "plot_name": "Multiplicative Events",
-                "comp_name": "events_multiplicative",
-                "multiplicative": True,
-            }
-        )
-
-    # Add Regressors
-    if "future_regressors_additive" in fcst.columns:
-        components.append(
-            {
-                "plot_name": "Additive Future Regressors",
-                "comp_name": "future_regressors_additive",
-            }
-        )
-    if "future_regressors_multiplicative" in fcst.columns:
-        components.append(
-            {
-                "plot_name": "Multiplicative Future Regressors",
-                "comp_name": "future_regressors_multiplicative",
-                "multiplicative": True,
-            }
-        )
-    # Plot  quantiles as a separate component, if present
-    if len(m.model.quantiles) > 1 and forecast_in_focus is None:
-        for i in range(1, len(m.model.quantiles)):
-            components.append(
-                {
-                    "plot_name": "Uncertainty",
-                    "comp_name": f"yhat1 {round(m.model.quantiles[i] * 100, 1)}%",
-                    "fill": True,
-                }
-            )
-    elif len(m.model.quantiles) > 1 and forecast_in_focus is not None:
-        for i in range(1, len(m.model.quantiles)):
-            components.append(
-                {
-                    "plot_name": "Uncertainty",
-                    "comp_name": f"yhat{forecast_in_focus} {round(m.model.quantiles[i] * 100, 1)}%",
-                    "num_overplot": forecast_in_focus,
-                    "fill": True,
-                }
-            )
+    components_to_plot = plot_configuration["components_list"]
 
     # set number of axes based on selected plot_names and sort them according to order in components
-    panel_names = list(set(next(iter(dic.values())).lower() for dic in components))
-    panel_order = [x for dic in components for x in panel_names if x in dic["plot_name"].lower()]
+    panel_names = list(set(next(iter(dic.values())).lower() for dic in components_to_plot))
+    panel_order = [x for dic in components_to_plot for x in panel_names if x in dic["plot_name"].lower()]
     npanel = len(panel_names)
     figsize = figsize if figsize else (700, 210 * npanel)
 
@@ -365,7 +293,7 @@ def plot_components(m, fcst, df_name="__df__", forecast_in_focus=None, one_perio
     )
 
     multiplicative_axes = []
-    for comp in components:
+    for comp in components_to_plot:
         name = comp["plot_name"].lower()
         j = panel_order.index(name)
 
@@ -375,20 +303,22 @@ def plot_components(m, fcst, df_name="__df__", forecast_in_focus=None, one_perio
             or ("lagged_regressor" in name and "ahead" in name)
             or ("uncertainty" in name)
         ):
-            trace_object = get_forecast_component_props(fcst=fcst, **comp)
+            trace_object = get_forecast_component_props(fcst=fcst, df_name=df_name, **comp)
 
         elif "event" in name or "future regressor" in name:
-            trace_object = get_forecast_component_props(fcst=fcst, **comp)
+            trace_object = get_forecast_component_props(fcst=fcst, df_name=df_name, **comp)
 
         elif "season" in name:
-            if m.config_season.mode == "multiplicative":
+            if m.config_seasonality.mode == "multiplicative":
                 comp.update({"multiplicative": True})
             if one_period_per_season:
                 comp_name = comp["comp_name"]
                 trace_object = get_seasonality_props(m, fcst, df_name, **comp)
             else:
                 comp_name = f"season_{comp['comp_name']}"
-                trace_object = get_forecast_component_props(fcst=fcst, comp_name=comp_name, plot_name=comp["plot_name"])
+                trace_object = get_forecast_component_props(
+                    fcst=fcst, df_name=df_name, comp_name=comp_name, plot_name=comp["plot_name"]
+                )
 
         elif "auto-regression" in name or "lagged regressor" in name:
             trace_object = get_multiforecast_component_props(fcst=fcst, **comp)
@@ -406,12 +336,15 @@ def plot_components(m, fcst, df_name="__df__", forecast_in_focus=None, one_perio
         yaxis.update(trace_object["yaxis"])
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
-            fig.add_trace(trace, j + 1, 1)
+            fig.add_trace(trace, row=j + 1, col=1)  # adapt var name to plotly-resampler
         fig.update_layout(legend={"y": 0.1, "traceorder": "reversed"})
 
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
+    unregister_plotly_resampler()
+    if plotly_static:
+        fig = fig.show("svg")
     return fig
 
 
@@ -450,7 +383,6 @@ def get_forecast_component_props(
             Add fill between signal and x(y=0) axis
         num_overplot: int
             the number of forecast in focus
-
     Returns
     -------
         Dictionary with plotly traces, xaxis and yaxis
@@ -657,7 +589,6 @@ def get_multiforecast_component_props(
                 )
 
     if num_overplot is None or focus > 1:
-
         y = fcst[f"{comp_name}"]
         y = y.values
         y[-1] = 0
@@ -724,7 +655,7 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     # Compute seasonality from Jan 1 through a single period.
     start = pd.to_datetime("2017-01-01 0000")
 
-    period = m.config_season.periods[comp_name].period
+    period = m.config_seasonality.periods[comp_name].period
     if m.data_freq == "B":
         period = 5
         start += pd.Timedelta(days=1)
@@ -739,18 +670,17 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     days = pd.to_datetime(np.linspace(start.value, end.value, plot_points, endpoint=False))
     df_y = pd.DataFrame({"ds": days})
     df_y["ID"] = df_name
-
     if quick:
         predicted = m.predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
     else:
-        predicted = m.predict_seasonal_components(df_y)[comp_name]
+        predicted = m.predict_seasonal_components(df_y)[["ds", "ID", comp_name]]
 
     traces = []
     traces.append(
         go.Scatter(
             name="Seasonality: " + comp_name,
             x=df_y["ds"],
-            y=predicted,
+            y=predicted[comp_name],
             mode="lines",
             line=go.scatter.Line(color=prediction_color, width=line_width, shape="spline", smoothing=1),
             showlegend=False,
@@ -783,3 +713,203 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
         yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
+
+
+def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
+    """Plot the NeuralProphet forecast components.
+
+    Parameters
+    ----------
+        scores : dict
+            nonconformity scores
+        alpha : float
+            user-specified significance level of the prediction interval
+        q : float or list
+            prediction interval width (or q) for symmetric prediction interval or
+            for upper and lower prediction interval, respectively
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+        resampler_active : bool
+            Flag whether to activate the plotly-resampler
+
+    Returns
+    -------
+        plotly.graph_objects.Figure
+            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
+    """
+    if resampler_active:
+        register_plotly_resampler(mode="auto")
+    else:
+        unregister_plotly_resampler()
+    if not isinstance(q, list):
+        q_sym = q
+        scores = scores["noncon_scores"]
+        confidence_levels = np.arange(len(scores)) / len(scores)
+        fig = px.line(
+            pd.DataFrame({"Confidence Level": confidence_levels, "One-Sided Interval Width": scores}),
+            x="Confidence Level",
+            y="One-Sided Interval Width",
+            title=f"{method} One-Sided Interval Width with q",
+            width=600,
+            height=400,
+        )
+        fig.add_vline(
+            x=1 - alpha,
+            annotation_text=f"(1-alpha) = {1 - alpha}",
+            annotation_position="top left",
+            line_width=1,
+            line_color="green",
+        )
+        fig.add_hline(
+            y=q,
+            annotation_text=f"q1 = {round(q_sym, 2)}",
+            annotation_position="top left",
+            line_width=1,
+            line_color="red",
+        )
+        fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+        return fig
+    else:
+        q_lo, q_hi = q
+        scores_lo = scores["noncon_scores_lo"]
+        scores_hi = scores["noncon_scores_hi"]
+        alpha_lo, alpha_hi = alpha
+        confidence_levels = np.arange(len(scores_lo)) / len(scores_lo)
+        fig = px.line(
+            pd.DataFrame(
+                {
+                    "Confidence Level": confidence_levels,
+                    "One-Sided Lower Interval Width": scores_lo,
+                    "One-Sided Upper Interval Width": scores_hi,
+                }
+            ),
+            x="Confidence Level",
+            y=["One-Sided Lower Interval Width", "One-Sided Upper Interval Width"],
+            title=f"{method} One-Sided Interval Width with q",
+            width=600,
+            height=400,
+        )
+        fig.add_vline(
+            x=1 - alpha_lo,
+            annotation_text=f"(1-alpha) = {round(1-alpha_lo, 10)}",
+            annotation_position="top left",
+            line_width=1,
+            line_color="green",
+        )
+        fig.add_vline(
+            x=1 - alpha_hi,
+            annotation_text=f"(1-alpha) = {round(1 - alpha_hi, 10)}",
+            annotation_position="bottom left",
+            line_width=1,
+            line_color="green",
+        )
+        fig.add_hline(
+            y=q_lo,
+            annotation_text=f"q1_lo = {round(q_lo, 2)}",
+            annotation_position="top left",
+            line_width=1,
+            line_color="red",
+        )
+        fig.add_hline(
+            y=q_hi,
+            annotation_text=f"q1_hi = {round(q_hi, 2)}",
+            annotation_position="bottom left",
+            line_width=1,
+            line_color="red",
+        )
+        fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+        unregister_plotly_resampler()
+        return fig
+
+
+def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
+    """Plot the nonconformity scores as well as the one-sided interval width (q).
+
+    Parameters
+    ----------
+        q_hats : dataframe
+            prediction interval widths (or q) for each timestep
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+        resampler_active : bool
+            Flag whether to activate the plotly-resampler
+
+    Returns
+    -------
+        plotly.graph_objects.Figure
+            Figure showing the q-values for each timestep
+    """
+    if resampler_active:
+        register_plotly_resampler(mode="auto")
+    else:
+        unregister_plotly_resampler()
+    # check if q_hats contains q_hat_sym
+    if "q_hat_sym" in q_hats.columns:
+        q_hats_sym = q_hats["q_hat_sym"]
+        timestep_numbers = list(range(1, len(q_hats_sym) + 1))
+        fig = px.line(
+            pd.DataFrame({"Timestep Number": timestep_numbers, "One-Sided Interval Width": q_hats_sym}),
+            x="Timestep Number",
+            y="One-Sided Interval Width",
+            title=f"{method} One-Sided Interval Width with q per Timestep",
+            width=600,
+            height=400,
+        )
+    else:
+        q_hats_lo = q_hats["q_hat_lo"]
+        q_hats_hi = q_hats["q_hat_hi"]
+        timestep_numbers = list(range(1, len(q_hats_lo) + 1))
+        fig = px.line(
+            pd.DataFrame(
+                {
+                    "Timestep Number": timestep_numbers,
+                    "One-Sided Lower Interval Width": q_hats_lo,
+                    "One-Sided Upper Interval Width": q_hats_hi,
+                }
+            ),
+            x="Timestep Number",
+            y=["One-Sided Lower Interval Width", "One-Sided Upper Interval Width"],
+            title=f"{method} One-Sided Interval Width with q per Timestep",
+            width=600,
+            height=400,
+        )
+    fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+    unregister_plotly_resampler()
+    return fig
+
+
+def conformal_plot_plotly(fig, df_cp_lo, df_cp_hi, plotting_backend):
+    """Plot conformal prediction intervals and quantile regression intervals in one plot
+
+    Parameters
+    ----------
+        fig : plotly.graph_objects.Figure
+            Figure showing the quantile regression intervals
+        df_cp_lo : dataframe
+            dataframe containing the lower bound of the conformal prediction intervals
+        df_cp_hi : dataframe
+            dataframe containing the upper bound of the conformal prediction intervals
+    """
+    col_lo = df_cp_lo.columns
+    trace_cp_lo = go.Scatter(
+        name=f"cp_{col_lo[1]}", x=df_cp_lo["ds"], y=df_cp_lo[col_lo[1]], mode="lines", line=dict(color="red")
+    )
+
+    col_hi = df_cp_hi.columns
+    trace_cp_hi = go.Scatter(
+        name=f"cp_{col_hi[1]}", x=df_cp_hi["ds"], y=df_cp_hi[col_hi[1]], mode="lines", line=dict(color="red")
+    )
+
+    fig.add_trace(trace_cp_lo)
+    fig.add_trace(trace_cp_hi)
+    if plotting_backend == "plotly-static":
+        fig = fig.show("svg")
+    return fig

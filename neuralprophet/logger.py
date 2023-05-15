@@ -2,8 +2,10 @@
 import collections
 from typing import Any, Mapping, Optional
 
+import pytorch_lightning as pl
+from pytorch_lightning.callbacks import TQDMProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.utilities.distributed import rank_zero_only
+from pytorch_lightning.utilities.rank_zero import rank_zero_only
 
 
 class MetricsLogger(TensorBoardLogger):
@@ -40,3 +42,26 @@ class MetricsLogger(TensorBoardLogger):
                 else:
                     pass
         return
+
+
+class ProgressBar(TQDMProgressBar):
+    """
+    Custom progress bar for PyTorch Lightning for only update every epoch, not every batch.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.epochs = kwargs.pop("epochs")
+        super().__init__(*args, **kwargs)
+
+    def on_train_epoch_start(self, trainer: "pl.Trainer", *_) -> None:
+        self.main_progress_bar.reset(self.epochs)
+        self.main_progress_bar.set_description(f"Epoch {trainer.current_epoch + 1}")
+        self._update_n(self.main_progress_bar, trainer.current_epoch + 1)
+
+    def on_train_batch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", *_) -> None:
+        pass
+
+    def _update_n(self, bar, value: int) -> None:
+        if not bar.disable:
+            bar.n = value
+            bar.refresh()

@@ -19,6 +19,8 @@ logs/
 *.pt
 tests/metrics/*.json
 tests/metrics/*.svg
+.vscode/launch.json
+.vscode/settings.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

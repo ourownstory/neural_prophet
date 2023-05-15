@@ -44,7 +44,7 @@ extensions = [
     "nbsphinx_link",
     "sphinx_fontawesome",
 ]
-
+html_sourcelink_suffix = ""
 
 # Here to describe what format of files are parsed
 source_suffix = {
@@ -93,6 +93,11 @@ html_static_path = ["_static", "images/np_highres.svg"]
 #     "sidebar/ethical-ads.html",
 #     "sidebar/scroll-end.html",
 # ] }
+
+nbsphinx_execute_arguments = [
+    "--InlineBackend.figure_formats={'svg'}",
+    "--InlineBackend.rc=figure.dpi=96",
+]
 
 # change index.rst to contents.rst for custom landing page feature
 master_doc = "contents"

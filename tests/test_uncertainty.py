@@ -4,11 +4,10 @@ import logging
 import os
 import pathlib
 
-import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
 
-from neuralprophet import NeuralProphet
+from neuralprophet import NeuralProphet, uncertainty_evaluate
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -23,83 +22,6 @@ NROWS = 256
 EPOCHS = 1
 BATCH_SIZE = 128
 LR = 1.0
-
-PLOT = False
-
-
-def test_uncertainty_estimation_plot():
-    log.info("testing: Uncertainty Estimation Plotting")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    # Without auto-regression enabled
-    m = NeuralProphet(
-        n_forecasts=7,
-        quantiles=[0.25, 0.75],
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    metrics_df = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
-    forecast = m.predict(future)
-    m.plot(forecast)
-    # m.plot_last_forecast(forecast, include_previous_forecasts=10)
-    fig1 = m.plot_components(forecast)
-    fig2 = m.plot_parameters()
-    if PLOT:
-        plt.show()
-    # With auto-regression enabled
-    m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
-        quantiles=[0.25, 0.75],
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    metrics_df = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
-    forecast = m.predict(future)
-    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    fig0 = m.plot(forecast)
-    fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10)
-    fig2 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plot_history_data=True)
-    fig3 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plot_history_data=False)
-    fig4 = m.plot_components(forecast)
-    fig5 = m.plot_parameters()
-    if PLOT:
-        plt.show()
-    ## Global Model Plot
-    df1 = df.copy(deep=True)
-    df1["ID"] = "df1"
-    df2 = df.copy(deep=True)
-    df2["ID"] = "df2"
-    df_global = pd.concat((df1, df2))
-    m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
-        quantiles=[0.25, 0.75],
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    metrics_df = m.fit(df_global, freq="D")
-    future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
-    forecast = m.predict(future)
-    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    log.info("Plot forecast with many IDs - Raise exceptions")
-    with pytest.raises(Exception):
-        m.plot(forecast)
-    with pytest.raises(Exception):
-        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
-    with pytest.raises(Exception):
-        m.plot_components(forecast)
-    forecast = m.predict(df_global)
-    with pytest.raises(Exception):
-        m.plot(forecast)
-    with pytest.raises(Exception):
-        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
-    with pytest.raises(Exception):
-        m.plot_components(forecast)
 
 
 def test_uncertainty_estimation_peyton_manning():
@@ -177,13 +99,6 @@ def test_uncertainty_estimation_peyton_manning():
         n_historic_predictions=360,
     )
     forecast = m.predict(df=future_df)
-    # print(forecast.to_string())
-
-    if PLOT:
-        fig1 = m.plot(forecast)
-        fig2 = m.plot_components(forecast)
-        fig3 = m.plot_parameters()
-        plt.show()
 
 
 def test_uncertainty_estimation_yosemite_temps():
@@ -198,17 +113,10 @@ def test_uncertainty_estimation_yosemite_temps():
         learning_rate=LR,
     )
 
-    metrics = m.fit(df, freq="5min")
+    metrics_df = m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
     forecast = m.predict(future)
-    # print(forecast.to_string())
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    if PLOT:
-        fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=3)
-        fig2 = m.plot(forecast)
-        fig3 = m.plot_components(forecast)
-        fig4 = m.plot_parameters()
-        plt.show()
 
 
 def test_uncertainty_estimation_air_travel():
@@ -222,16 +130,9 @@ def test_uncertainty_estimation_air_travel():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    metrics = m.fit(df, freq="MS")
+    metrics_df = m.fit(df, freq="MS")
     future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
     forecast = m.predict(future)
-    # print(forecast.to_string())
-
-    if PLOT:
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
-        plt.show()
 
 
 def test_uncertainty_estimation_multiple_quantiles():
@@ -252,13 +153,91 @@ def test_uncertainty_estimation_multiple_quantiles():
             batch_size=BATCH_SIZE,
             learning_rate=LR,
         )
-        metrics = m.fit(df, freq="MS")
+        metrics_df = m.fit(df, freq="MS")
         future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
         forecast = m.predict(future)
-        # print(forecast.to_string())
 
-        if PLOT:
-            fig1 = m.plot(forecast)
-            fig2 = m.plot_components(forecast)
-            fig3 = m.plot_parameters()
-            plt.show()
+
+def test_split_conformal_prediction():
+    log.info("testing: Naive Split Conformal Prediction Air Travel")
+    df = pd.read_csv(AIR_FILE)
+    m = NeuralProphet(
+        seasonality_mode="multiplicative",
+        loss_func="MSE",
+        quantiles=[0.05, 0.95],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+
+    train_df, test_df = m.split_df(df, freq="MS", valid_p=0.2)
+    train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
+    metrics_df = m.fit(train_df, freq="MS")
+
+    alpha = 0.1
+    decompose = False
+    for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
+        for show_all_PI in [True, False]:
+            future = m.make_future_dataframe(
+                test_df,
+                periods=50,
+                n_historic_predictions=len(test_df),
+            )
+            forecast = m.conformal_predict(
+                future,
+                calibration_df=cal_df,
+                alpha=alpha,
+                method=method,
+                decompose=decompose,
+                show_all_PI=show_all_PI,
+            )
+            eval_df = uncertainty_evaluate(forecast)
+
+
+def test_asymmetrical_quantiles():
+    log.info(
+        "testing: Naive Split Conformal Prediction and Conformalized Quantile Regression " "with asymmetrical quantiles"
+    )
+    df = pd.read_csv(AIR_FILE)
+    m = NeuralProphet(
+        seasonality_mode="multiplicative",
+        loss_func="MSE",
+        quantiles=[0.05, 0.95],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+
+    train_df, test_df = m.split_df(df, freq="MS", valid_p=0.2)
+    train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
+    metrics_df = m.fit(train_df, freq="MS")
+
+    alpha = (0.03, 0.07)
+    decompose = False
+    future = m.make_future_dataframe(
+        test_df,
+        periods=50,
+        n_historic_predictions=len(test_df),
+    )
+
+    # should raise value error if method is naive and alpha is not a float
+    method = "naive"
+    with pytest.raises(ValueError):
+        forecast = m.conformal_predict(
+            future,
+            calibration_df=cal_df,
+            alpha=alpha,
+            method=method,
+            decompose=decompose,
+        )
+
+    # should not raise value error if method is cqr and alpha is not a float
+    method = "cqr"
+    forecast = m.conformal_predict(
+        future,
+        calibration_df=cal_df,
+        alpha=alpha,
+        method=method,
+        decompose=decompose,
+    )
+    eval_df = uncertainty_evaluate(forecast)

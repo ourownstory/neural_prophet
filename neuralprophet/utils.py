@@ -4,26 +4,25 @@ import logging
 import math
 import os
 import sys
-import warnings
 from collections import OrderedDict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable, Optional, Union
 
-import holidays as pyholidays
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
 
-from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
+from neuralprophet.hdays_utils import get_country_holidays
+from neuralprophet.logger import ProgressBar
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigLaggedRegressors
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality, Train
 
 log = logging.getLogger("NP.utils")
 
 
-def save(forecaster, path):
+def save(forecaster, path: str):
     """save a fitted np model to a disk file.
 
     Parameters
@@ -38,15 +37,13 @@ def save(forecaster, path):
         >>> from neuralprophet import save
         >>> save(forecaster, "test_save_model.np")
     """
-    # Remove non-serializable components (model, trainer, metrics)
-    for attr in ["metrics", "model", "trainer"]:
+    # Remove the Lightning trainer since it does not serialise correcly with torch.save
+    for attr in ["trainer"]:
         setattr(forecaster, attr, None)
-    # Add the model back in after saving (workaround for PyTorch Lightning)
-    forecaster.restore_from_checkpoint()
     torch.save(forecaster, path)
 
 
-def load(path):
+def load(path: str):
     """retrieve a fitted model from a .np file that was saved by save.
 
     Parameters
@@ -102,7 +99,7 @@ def reg_func_trend(weights, threshold=None):
             regularization loss
     """
     # weights dimensions:
-    # local: quantiles, nb_time_series, segments + 1
+    # local: quantiles, num_time_series, segments + 1
     # global: quantiles, segments + 1
     # we do the average of all the sum of weights per time series and per quantile. equivalently
     abs_weights = torch.abs(weights)
@@ -116,7 +113,30 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
-def reg_func_events(config_events, config_country_holidays, model):
+def _regularize_weights(weights, reg_lambda):
+    """
+    Regularization of weights
+
+    Parameters
+    ----------
+        weights : torch.Tensor
+            Model weights to be regularized towards zero
+        reg_lambda : float
+            Regularization strength
+
+    Returns
+    -------
+        torch.Tensor
+            Regularization loss
+    """
+    reg_loss = 0.0
+    if reg_lambda is not None:
+        for offset in weights.keys():
+            reg_loss += reg_lambda * reg_func_abs(weights[offset])
+    return reg_loss
+
+
+def reg_func_events(config_events: Optional[ConfigEvents], config_country_holidays, model):
     """
     Regularization of events coefficients to induce sparcity
 
@@ -135,22 +155,16 @@ def reg_func_events(config_events, config_country_holidays, model):
         scalar
             Regularization loss
     """
+
     reg_events_loss = 0.0
     if config_events is not None:
         for event, configs in config_events.items():
-            reg_lambda = configs.reg_lambda
-            if reg_lambda is not None:
-                weights = model.get_event_weights(event)
-                for offset in weights.keys():
-                    reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
+            reg_events_loss += _regularize_weights(model.get_event_weights(event), configs.reg_lambda)
 
     if config_country_holidays is not None:
-        reg_lambda = config_country_holidays.reg_lambda
-        if reg_lambda is not None:
-            for holiday in config_country_holidays.holiday_names:
-                weights = model.get_event_weights(holiday)
-                for offset in weights.keys():
-                    reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
+        for holiday in config_country_holidays.holiday_names:
+            reg_events_loss += _regularize_weights(model.get_event_weights(holiday), config_country_holidays.reg_lambda)
+
     return reg_events_loss
 
 
@@ -171,11 +185,11 @@ def reg_func_covariates(config_lagged_regressors: ConfigLaggedRegressors, model)
             Regularization loss
     """
     reg_covariate_loss = 0.0
+    weights = model.get_covar_weights()
     for covariate, configs in config_lagged_regressors.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
-            weights = model.get_covar_weights(covariate)
-            loss = torch.mean(utils_torch.penalize_nonzero(weights)).squeeze()
+            loss = torch.mean(utils_torch.penalize_nonzero(weights[covariate])).squeeze()
             reg_covariate_loss += reg_lambda * loss
 
     return reg_covariate_loss
@@ -201,7 +215,7 @@ def reg_func_regressors(config_regressors, model):
     for regressor, configs in config_regressors.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
-            weight = model.get_reg_weights(regressor)
+            weight = model.future_regressors.get_reg_weights(regressor)
             reg_regressor_loss += reg_lambda * reg_func_abs(weight)
 
     return reg_regressor_loss
@@ -249,12 +263,12 @@ def symmetric_total_percentage_error(values, estimates):
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def config_season_to_model_dims(config_season):
+def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
     Parameters
     ----------
-        config_season : configure.AllSeason
+        config_seasonality : configure.ConfigSeasonality
             NeuralProphet seasonal model configuration
 
     Returns
@@ -262,25 +276,25 @@ def config_season_to_model_dims(config_season):
         dict(int)
             Input dims for TimeNet model
     """
-    if config_season is None or len(config_season.periods) < 1:
+    if config_seasonality is None or len(config_seasonality.periods) < 1:
         return None
     seasonal_dims = OrderedDict({})
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         resolution = period.resolution
-        if config_season.computation == "fourier":
+        if config_seasonality.computation == "fourier":
             resolution = 2 * resolution
         seasonal_dims[name] = resolution
     return seasonal_dims
 
 
-def get_holidays_from_country(country, df=None):
+def get_holidays_from_country(country: Union[str, Iterable[str]], df=None):
     """
     Return all possible holiday names of given country
 
     Parameters
     ----------
-        country : str
-            Country name to retrieve country specific holidays
+        country : str, list
+            List of country names to retrieve country specific holidays
         df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
 
@@ -294,20 +308,20 @@ def get_holidays_from_country(country, df=None):
     else:
         dates = df["ds"].copy(deep=True)
         years = list({x.year for x in dates})
+    # support multiple countries
+    if isinstance(country, str):
+        country = [country]
 
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            holiday_names = getattr(hdays_part2, country)(years=years).values()
-    except AttributeError:
-        try:
-            holiday_names = getattr(pyholidays, country)(years=years).values()
-        except AttributeError:
-            raise AttributeError(f"Holidays in {country} are not currently supported!")
+    holidays = {}
+    for single_country in country:
+        holidays_country = get_country_holidays(single_country, years)
+        # only add holiday if it is not already in the dict
+        holidays.update(holidays_country)
+    holiday_names = holidays.values()
     return set(holiday_names)
 
 
-def config_events_to_model_dims(config_events, config_country_holidays):
+def config_events_to_model_dims(config_events: Optional[ConfigEvents], config_country_holidays):
     """
     Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
@@ -478,7 +492,7 @@ def config_regressors_to_model_dims(config_regressors):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, config_season):
+def set_auto_seasonalities(df, config_seasonality: ConfigSeasonality):
     """Set seasonalities that were left on auto or set by user.
 
     Note
@@ -495,17 +509,17 @@ def set_auto_seasonalities(df, config_season):
     ----------
         df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
-        config_season : configure.AllSeason
+        config_seasonality : configure.ConfigSeasonality
             NeuralProphet seasonal model configuration, as after __init__
     Returns
     -------
-        configure.AllSeason
+        configure.ConfigSeasonality
             Processed NeuralProphet seasonal model configuration
 
     """
     dates = df["ds"].copy(deep=True)
 
-    log.debug(f"seasonality config received: {config_season}")
+    log.debug(f"seasonality config received: {config_seasonality}")
     first = dates.min()
     last = dates.max()
     dt = dates.diff()
@@ -515,7 +529,7 @@ def set_auto_seasonalities(df, config_season):
         "weekly": ((last - first < pd.Timedelta(weeks=2)) or (min_dt >= pd.Timedelta(weeks=1))),
         "daily": ((last - first < pd.Timedelta(days=2)) or (min_dt >= pd.Timedelta(days=1))),
     }
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         arg = period.arg
         default_resolution = period.resolution
         if arg == "custom":
@@ -535,16 +549,16 @@ def set_auto_seasonalities(df, config_season):
             resolution = 0
         else:
             resolution = int(arg)
-        config_season.periods[name].resolution = resolution
+        config_seasonality.periods[name].resolution = resolution
 
     new_periods = OrderedDict({})
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         if period.resolution > 0:
             new_periods[name] = period
-    config_season.periods = new_periods
-    config_season = config_season if len(config_season.periods) > 0 else None
-    log.debug(f"seasonality config: {config_season}")
-    return config_season
+    config_seasonality.periods = new_periods
+    config_seasonality = config_seasonality if len(config_seasonality.periods) > 0 else None
+    log.debug(f"seasonality config: {config_seasonality}")
+    return config_seasonality
 
 
 def print_epoch_metrics(metrics, val_metrics=None, e=0):
@@ -582,7 +596,9 @@ def fcst_df_to_latest_forecast(fcst, quantiles, n_last=1):
     df = pd.concat((fcst[cols],), axis=1)
     df.reset_index(drop=True, inplace=True)
 
-    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name and "%" not in col_name]
+    yhat_col_names = [
+        col_name for col_name in fcst.columns if "yhat" in col_name and "%" not in col_name and "qhat" not in col_name
+    ]
     yhat_col_names_quants = [col_name for col_name in fcst.columns if "yhat" in col_name and "%" in col_name]
     n_forecast_steps = len(yhat_col_names)
     yhats = pd.concat((fcst[yhat_col_names],), axis=1)
@@ -610,28 +626,6 @@ def fcst_df_to_latest_forecast(fcst, quantiles, n_last=1):
     return df
 
 
-def set_y_as_percent(ax):
-    """Set y axis as percentage
-
-    Parameters
-    ----------
-        ax : matplotlib axis
-            Respective y axis element
-
-    Returns
-    -------
-        matplotlib axis
-            Manipulated axis element
-    """
-    warnings.filterwarnings(
-        action="ignore", category=UserWarning
-    )  # workaround until there is clear direction how to handle this recent matplotlib bug
-    yticks = 100 * ax.get_yticks()
-    yticklabels = [f"{y:.4g}%" for y in yticks]
-    ax.set_yticklabels(yticklabels)
-    return ax
-
-
 class HiddenPrints:
     def __enter__(self):
         self._original_stdout = sys.stdout
@@ -642,7 +636,7 @@ class HiddenPrints:
         sys.stdout = self._original_stdout
 
 
-def set_random_seed(seed=0):
+def set_random_seed(seed: int = 0):
     """Sets the random number generator to a fixed seed.
 
     Parameters
@@ -655,6 +649,10 @@ def set_random_seed(seed=0):
     ----
     This needs to be set each time before fitting the model.
 
+    Example
+    -------
+    >>> from neuralprophet import set_random_seed
+    >>> set_random_seed(seed=42)
     """
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -677,7 +675,7 @@ def set_logger_level(logger, log_level, include_handlers=False):
         logger.debug(f"Set log level to {log_level}")
 
 
-def set_log_level(log_level="INFO", include_handlers=False):
+def set_log_level(log_level: str = "INFO", include_handlers: bool = False):
     """Set the log level of all logger objects
 
     Parameters
@@ -688,6 +686,11 @@ def set_log_level(log_level="INFO", include_handlers=False):
             ``ERROR`` or ``CRITICAL``
         include_handlers : bool
             Include any specified file/stream handlers
+
+    Example
+    -------
+    >>> from neuralprophet import set_log_level
+    >>> set_log_level("ERROR")
     """
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
@@ -710,28 +713,33 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         suggested_lr: float
             Suggested learning rate based on gradient
     """
-    loss = lr_finder_results["loss"]
     lr = lr_finder_results["lr"]
+    loss = lr_finder_results["loss"]
     # Derive window size from num lr searches, ensure window is divisible by 2
-    half_window = math.ceil(round(len(loss) * 0.075) / 2)
-    # Initialize a Hamming filter for the convolution
-    weights = np.hamming(half_window * 2)
-    # Convolve over the loss distribution
+    half_window = math.ceil(round(len(loss) * 0.1) / 2)
+    # Pad sequence and initialialize hamming filter
+    loss = np.pad(np.array(loss), pad_width=half_window, mode="edge")
+    window = np.hamming(half_window * 2)
+    # Convolve the over the loss distribution
     try:
-        loss = np.convolve(weights / weights.sum(), loss, mode="valid")
-        # Remove min and max lr's to match the loss distribution
-        lr = lr[half_window : -(half_window - 1)] if half_window > 1 else lr[half_window:]
+        loss = np.convolve(
+            window / window.sum(),
+            loss,
+            mode="valid",
+        )[1:]
     except ValueError:
         log.warning(
             f"The number of loss values ({len(loss)}) is too small to apply smoothing with a the window size of {window}."
         )
     # Suggest the lr with steepest negative gradient
     try:
-        suggestion = lr[np.gradient(loss).argmin()]
+        # Find the steepest gradient and the minimum loss after that
+        suggestion = lr[np.argmin(np.gradient(loss))]
     except ValueError:
         log.error(
             f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of samples or manually set the learning rate."
         )
+        raise
     return (loss, lr, suggestion)
 
 
@@ -744,12 +752,16 @@ def _smooth_loss(loss, beta=0.9):
 
 
 def configure_trainer(
-    config_train: dict,
+    config_train: Train,
     config: dict,
     metrics_logger,
+    early_stopping: bool = False,
     early_stopping_target: str = "Loss",
-    minimal=False,
-    num_batches_per_epoch=100,
+    accelerator: Optional[str] = None,
+    progress_bar_enabled: bool = True,
+    metrics_enabled: bool = False,
+    checkpointing_enabled: bool = False,
+    num_batches_per_epoch: int = 100,
 ):
     """
     Configures the PyTorch Lightning trainer.
@@ -762,10 +774,18 @@ def configure_trainer(
             dictionary containing the custom PyTorch Lightning trainer configuration.
         metrics_logger : MetricsLogger
             MetricsLogger object to log metrics to.
+        early_stopping: bool
+            If True, early stopping is enabled.
         early_stopping_target : str
             Target metric to use for early stopping.
-        minimal : bool
-            If True, no metrics are logged and no progress bar is displayed.
+        accelerator : str
+            Accelerator to use for training.
+        progress_bar_enabled : bool
+            If False, no progress bar is shown.
+        metrics_enabled : bool
+            If False, no metrics are logged. Calculating metrics is computationally expensive and reduces the training speed.
+        checkpointing_enabled : bool
+            If False, no checkpointing is performed. Checkpointing reduces the training speed.
         num_batches_per_epoch : int
             Number of batches per epoch.
 
@@ -773,6 +793,8 @@ def configure_trainer(
     -------
         pl.Trainer
             PyTorch Lightning trainer
+        checkpoint_callback
+            PyTorch Lightning checkpoint callback to load the best model
     """
     config = config.copy()
 
@@ -785,32 +807,110 @@ def configure_trainer(
         if config_train.epochs is not None:
             config["max_epochs"] = config_train.epochs
 
-    # Configure the logthing-logs directory
+    # Configure the Ligthing-logs directory
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
 
+    # Accelerator
+    if isinstance(accelerator, str):
+        if (accelerator == "auto" and torch.cuda.is_available()) or accelerator == "gpu":
+            config["accelerator"] = "gpu"
+            config["devices"] = -1
+        elif (accelerator == "auto" and hasattr(torch.backends, "mps")) or accelerator == "mps":
+            if torch.backends.mps.is_available():
+                config["accelerator"] = "mps"
+                config["devices"] = 1
+        elif accelerator != "auto":
+            config["accelerator"] = accelerator
+            config["devices"] = 1
+
+        if "accelerator" in config:
+            log.info(f"Using accelerator {config['accelerator']} with {config['devices']} device(s).")
+        else:
+            log.info("No accelerator available. Using CPU for training.")
+
+    # Configure metrics
+    if metrics_enabled:
+        config["logger"] = metrics_logger
+    else:
+        config["logger"] = False
+
     # Configure callbacks
     callbacks = []
+    has_custom_callbacks = True if "callbacks" in config else False
 
-    # Configure the logger
-    if minimal:
-        config["enable_progress_bar"] = False
-        config["enable_model_summary"] = False
-        config["logger"] = False
+    # Configure checkpointing
+    has_modelcheckpoint_callback = (
+        True
+        if has_custom_callbacks
+        and any(isinstance(callback, pl.callbacks.ModelCheckpoint) for callback in config["callbacks"])
+        else False
+    )
+    if has_modelcheckpoint_callback and not checkpointing_enabled:
+        raise ValueError(
+            "Checkpointing is disabled but a ModelCheckpoint callback is provided. Please enable checkpointing or remove the callback."
+        )
+    if checkpointing_enabled:
+        if not has_modelcheckpoint_callback:
+            # Callback to access both the last and best model
+            checkpoint_callback = pl.callbacks.ModelCheckpoint(
+                monitor=early_stopping_target, mode="min", save_top_k=1, save_last=True
+            )
+            callbacks.append(checkpoint_callback)
+        else:
+            checkpoint_callback = next(
+                callback for callback in config["callbacks"] if isinstance(callback, pl.callbacks.ModelCheckpoint)
+            )
     else:
-        config["logger"] = metrics_logger
-        # Configure the progress bar, refresh every 2nd batch
-        prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=max(1, int(num_batches_per_epoch / 4)))
-        callbacks.append(prog_bar_callback)
+        config["enable_checkpointing"] = False
+        checkpoint_callback = None
+
+    # Configure the progress bar, refresh every epoch
+    has_progressbar_callback = (
+        True
+        if has_custom_callbacks
+        and any(isinstance(callback, pl.callbacks.ProgressBar) for callback in config["callbacks"])
+        else False
+    )
+    if has_progressbar_callback and not progress_bar_enabled:
+        raise ValueError(
+            "Progress bar is disabled but a ProgressBar callback is provided. Please enable the progress bar or remove the callback."
+        )
+    if progress_bar_enabled:
+        if not has_progressbar_callback:
+            prog_bar_callback = ProgressBar(refresh_rate=num_batches_per_epoch, epochs=config_train.epochs)
+            callbacks.append(prog_bar_callback)
+    else:
+        config["enable_progress_bar"] = False
 
     # Early stopping monitor
-    if config_train.early_stopping:
-        early_stop_callback = pl.callbacks.EarlyStopping(
-            monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
+    has_earlystopping_callback = (
+        True
+        if has_custom_callbacks
+        and any(isinstance(callback, pl.callbacks.EarlyStopping) for callback in config["callbacks"])
+        else False
+    )
+    if has_earlystopping_callback and not early_stopping:
+        raise ValueError(
+            "Early stopping is disabled but an EarlyStopping callback is provided. Please enable early stopping or remove the callback."
         )
-        callbacks.append(early_stop_callback)
+    if early_stopping:
+        if not metrics_enabled:
+            raise ValueError("Early stopping requires metrics to be enabled.")
+        if not has_earlystopping_callback:
+            early_stop_callback = pl.callbacks.EarlyStopping(
+                monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
+            )
+            callbacks.append(early_stop_callback)
 
-    config["callbacks"] = callbacks
+    if has_custom_callbacks:
+        config["callbacks"].extend(callbacks)
+    else:
+        config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
+    config["enable_model_summary"] = False
+    # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
+    # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#replace-sampler-ddp
+    # config["replace_sampler_ddp"] = False
 
-    return pl.Trainer(**config)
+    return pl.Trainer(**config), checkpoint_callback

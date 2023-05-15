@@ -1,29 +1,39 @@
 import logging
 import os
-import sys
 import time
 from collections import OrderedDict
-from typing import Optional, Union
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 import matplotlib
 import numpy as np
 import pandas as pd
+import pytorch_lightning as pl
 import torch
+from matplotlib import pyplot
+from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 
-from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
+from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
+from neuralprophet.data.process import (
+    _check_dataframe,
+    _convert_raw_predictions_to_raw_df,
+    _create_dataset,
+    _handle_missing_data,
+    _prepare_dataframe_to_predict,
+    _reshape_raw_predictions_to_forecst_df,
+    _validate_column_name,
+)
+from neuralprophet.data.split import _make_future_dataframe, _maybe_extend_df
+from neuralprophet.data.transform import _normalize
 from neuralprophet.logger import MetricsLogger
-from neuralprophet.plot_forecast import plot, plot_components
+from neuralprophet.plot_forecast_matplotlib import plot, plot_components
+from neuralprophet.plot_forecast_plotly import conformal_plot_plotly
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
-from neuralprophet.plot_model_parameters import plot_parameters
+from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
-
-# Ensure compatibility with python 3.7
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
+from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly, select_plotting_backend
+from neuralprophet.uncertainty import Conformal
 
 log = logging.getLogger("NP.forecaster")
 
@@ -159,16 +169,18 @@ class NeuralProphet:
             Large values (~1-100) will limit the number of nonzero coefficients dramatically.
             Small values (~0.001-1.0) will allow more non-zero coefficients.
             default: 0 no regularization of coefficients.
+        ar_layers : list of int, optional
+            array of hidden layer dimensions of the AR-Net. Specifies number of hidden layers (number of entries)
+            and layer dimension (list entry).
 
         COMMENT
         Model Config
         COMMENT
         n_forecasts : int
             Number of steps ahead of prediction time step to forecast.
-        num_hidden_layers : int, optional
-            number of hidden layer to include in AR-Net (defaults to 0)
-        d_hidden : int, optional
-            dimension of hidden layers of the AR-Net. Ignored if ``num_hidden_layers`` == 0.
+        lagged_reg_layers : list of int, optional
+            array of hidden layer dimensions of the Covar-Net. Specifies number of hidden layers (number of entries)
+            and layer dimension (list entry).
 
         COMMENT
         Train Config
@@ -187,8 +199,6 @@ class NeuralProphet:
             ----
             Default ``None``: Automatically sets the number of epochs based on dataset size.
             For best results also leave batch_size to None. For manual values, try ~5-500.
-        early_stopping : bool
-            Flag whether to use early stopping to stop training when training / validation loss is no longer improving.
         batch_size : int
             Number of samples per mini-batch.
 
@@ -295,55 +305,79 @@ class NeuralProphet:
             Options
                 * ``True``: test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
                 * (default) ``False``: no global modeling with local normalization
+        accelerator: str
+            Name of accelerator from pytorch_lightning.accelerators to use for training. Use "auto" to automatically select an available accelerator.
+            Provide `None` to deactivate the use of accelerators.
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
+        prediction_frequency: dict
+            periodic interval in which forecasts should be made.
+            More than one item only allowed for {"daily-hour": x, "weekly-day": y"} to forecast on a specific hour of a specific day of week.
+
+            Key: str
+                periodicity of the predictions to be made.
+            value: int
+                forecast origin of the predictions to be made, e.g. 7 for 7am in case of 'daily-hour'.
+
+            Options
+                * ``'hourly-minute'``: forecast once per hour at a specified minute
+                * ``'daily-hour'``: forecast once per day at a specified hour
+                * ``'weekly-day'``: forecast once per week at a specified day
+                * ``'monthly-day'``: forecast once per month at a specified day
+                * ``'yearly-month'``: forecast once per year at a specified month
     """
+
+    model: time_net.TimeNet
+    trainer: pl.Trainer
 
     def __init__(
         self,
-        growth="linear",
-        changepoints=None,
-        n_changepoints=10,
-        changepoints_range=0.8,
-        trend_reg=0,
-        trend_reg_threshold=False,
-        trend_global_local="global",
-        yearly_seasonality="auto",
-        weekly_seasonality="auto",
-        daily_seasonality="auto",
-        seasonality_mode="additive",
-        seasonality_reg=0,
-        season_global_local="global",
-        n_forecasts=1,
-        n_lags=0,
-        num_hidden_layers=0,
-        d_hidden=None,
-        ar_reg=None,
-        learning_rate=None,
-        epochs=None,
-        early_stopping=False,
-        batch_size=None,
-        loss_func="Huber",
-        optimizer="AdamW",
-        newer_samples_weight=2,
-        newer_samples_start=0.0,
-        quantiles=None,
-        impute_missing=True,
-        impute_linear=10,
-        impute_rolling=10,
-        drop_missing=False,
-        collect_metrics=True,
-        normalize="auto",
-        global_normalization=False,
-        global_time_normalization=True,
-        unknown_data_normalization=False,
-        trainer_config={},
+        growth: np_types.GrowthMode = "linear",
+        changepoints: Optional[list] = None,
+        n_changepoints: int = 10,
+        changepoints_range: float = 0.8,
+        trend_reg: float = 0,
+        trend_reg_threshold: Optional[Union[bool, float]] = False,
+        trend_global_local: str = "global",
+        yearly_seasonality: np_types.SeasonalityArgument = "auto",
+        weekly_seasonality: np_types.SeasonalityArgument = "auto",
+        daily_seasonality: np_types.SeasonalityArgument = "auto",
+        seasonality_mode: np_types.SeasonalityMode = "additive",
+        seasonality_reg: float = 0,
+        season_global_local: np_types.SeasonGlobalLocalMode = "global",
+        n_forecasts: int = 1,
+        n_lags: int = 0,
+        ar_layers: Optional[list] = [],
+        ar_reg: Optional[float] = None,
+        lagged_reg_layers: Optional[list] = [],
+        learning_rate: Optional[float] = None,
+        epochs: Optional[int] = None,
+        batch_size: Optional[int] = None,
+        loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "Huber",
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "AdamW",
+        newer_samples_weight: float = 2,
+        newer_samples_start: float = 0.0,
+        quantiles: List[float] = [],
+        impute_missing: bool = True,
+        impute_linear: int = 10,
+        impute_rolling: int = 10,
+        drop_missing: bool = False,
+        collect_metrics: np_types.CollectMetricsMode = True,
+        normalize: np_types.NormalizeMode = "auto",
+        global_normalization: bool = False,
+        global_time_normalization: bool = True,
+        unknown_data_normalization: bool = False,
+        accelerator: Optional[str] = None,
+        trainer_config: dict = {},
+        prediction_frequency: Optional[dict] = None,
     ):
-        kwargs = locals()
+        self.config = locals()
+        self.config.pop("self")
 
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
+        self.prediction_frequency = prediction_frequency
 
         # Data Normalization settings
         self.config_normalization = configure.Normalization(
@@ -354,34 +388,63 @@ class NeuralProphet:
         )
 
         # Missing Data Preprocessing
-        self.config_missing = configure.from_kwargs(configure.MissingDataHandling, kwargs)
+        self.config_missing = configure.MissingDataHandling(
+            impute_missing=impute_missing,
+            impute_linear=impute_linear,
+            impute_rolling=impute_rolling,
+            drop_missing=drop_missing,
+        )
 
         # Training
-        self.config_train = configure.from_kwargs(configure.Train, kwargs)
-        self.collect_metrics = collect_metrics
-        self.metrics = metrics.get_metrics(collect_metrics)
+        self.config_train = configure.Train(
+            quantiles=quantiles,
+            learning_rate=learning_rate,
+            epochs=epochs,
+            batch_size=batch_size,
+            loss_func=loss_func,
+            optimizer=optimizer,
+            newer_samples_weight=newer_samples_weight,
+            newer_samples_start=newer_samples_start,
+            trend_reg_threshold=trend_reg_threshold,
+        )
+
+        if isinstance(collect_metrics, list):
+            log.info(
+                DeprecationWarning(
+                    "Providing metrics to collect via `collect_metrics` in NeuralProphet is deprecated and will be removed in a future version. The metrics are now configure in the `fit()` method via `metrics`."
+                )
+            )
+        self.metrics = utils_metrics.get_metrics(collect_metrics)
 
         # AR
-        self.config_ar = configure.from_kwargs(configure.AR, kwargs)
+        self.config_ar = configure.AR(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
         self.n_lags = self.config_ar.n_lags
         self.max_lags = self.n_lags
 
         # Model
-        self.config_model = configure.from_kwargs(configure.Model, kwargs)
+        self.config_model = configure.Model(lagged_reg_layers=lagged_reg_layers)
 
         # Trend
-        self.config_trend = configure.from_kwargs(configure.Trend, kwargs)
+        self.config_trend = configure.Trend(
+            growth=growth,
+            changepoints=changepoints,
+            n_changepoints=n_changepoints,
+            changepoints_range=changepoints_range,
+            trend_reg=trend_reg,
+            trend_reg_threshold=trend_reg_threshold,
+            trend_global_local=trend_global_local,
+        )
 
         # Seasonality
-        self.config_season = configure.AllSeason(
+        self.config_seasonality = configure.ConfigSeasonality(
             mode=seasonality_mode,
             reg_lambda=seasonality_reg,
             yearly_arg=yearly_seasonality,
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
             global_local=season_global_local,
+            condition_name=None,
         )
-        self.config_train.reg_lambda_season = self.config_season.reg_lambda
 
         # Events
         self.config_events: Optional[configure.ConfigEvents] = None
@@ -395,14 +458,13 @@ class NeuralProphet:
         self.data_freq = None
 
         # Set during _train()
-        self.model = None
         self.fitted = False
         self.data_params = None
 
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
+        self.accelerator = accelerator
         self.trainer_config = trainer_config
-        self.trainer = None
 
         # set during prediction
         self.future_periods = None
@@ -413,10 +475,10 @@ class NeuralProphet:
 
     def add_lagged_regressor(
         self,
-        names,
-        n_lags: Union[int, Literal["auto", "scalar"]] = "auto",
+        names: Union[str, List[str]],
+        n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
         regularization: Optional[float] = None,
-        normalize="auto",
+        normalize: Union[bool, str] = "auto",
     ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
@@ -436,6 +498,8 @@ class NeuralProphet:
                 optional, specify whether this regressor will benormalized prior to fitting.
                 if ``auto``, binary regressors will not be normalized.
         """
+        lagged_reg_layers = self.config_model.lagged_reg_layers
+
         if n_lags == 0 or n_lags is None:
             n_lags = 0
             log.warning(
@@ -461,7 +525,14 @@ class NeuralProphet:
         if not isinstance(names, list):
             names = [names]
         for name in names:
-            self._validate_column_name(name)
+            _validate_column_name(
+                name=name,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_seasonality=self.config_seasonality,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+            )
             if self.config_lagged_regressors is None:
                 self.config_lagged_regressors = OrderedDict()
             self.config_lagged_regressors[name] = configure.LaggedRegressor(
@@ -469,10 +540,34 @@ class NeuralProphet:
                 normalize=normalize,
                 as_scalar=only_last_value,
                 n_lags=n_lags,
+                lagged_reg_layers=lagged_reg_layers,
             )
         return self
 
-    def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
+    def parameters(self):
+        return self.config
+
+    def state_dict(self):
+        return {
+            "data_freq": self.data_freq,
+            "fitted": self.fitted,
+            "data_params": self.data_params,
+            "optimizer": self.config_train.optimizer,
+            "scheduler": self.config_train.scheduler,
+            "model": self.model,
+            "future_periods": self.future_periods,
+            "predict_steps": self.predict_steps,
+            "highlight_forecast_step_n": self.highlight_forecast_step_n,
+            "true_ar_weights": self.true_ar_weights,
+        }
+
+    def add_future_regressor(
+        self,
+        name: str,
+        regularization: Optional[float] = None,
+        normalize: Union[str, bool] = "auto",
+        mode: str = "additive",
+    ):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
 
         The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used as
@@ -504,14 +599,28 @@ class NeuralProphet:
                 raise ValueError("regularization must be >= 0")
             if regularization == 0:
                 regularization = None
-        self._validate_column_name(name)
+        _validate_column_name(
+            name=name,
+            config_events=self.config_events,
+            config_country_holidays=self.config_country_holidays,
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_regressors=self.config_regressors,
+        )
 
         if self.config_regressors is None:
             self.config_regressors = OrderedDict()
         self.config_regressors[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
-    def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
+    def add_events(
+        self,
+        events: Union[str, List[str]],
+        lower_window: int = 0,
+        upper_window: int = 0,
+        regularization: Optional[float] = None,
+        mode: str = "additive",
+    ):
         """
         Add user specified events and their corresponding lower, upper windows and the
         regularization parameters into the NeuralProphet object
@@ -546,13 +655,27 @@ class NeuralProphet:
             events = [events]
 
         for event_name in events:
-            self._validate_column_name(event_name)
+            _validate_column_name(
+                name=event_name,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_seasonality=self.config_seasonality,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+            )
             self.config_events[event_name] = configure.Event(
                 lower_window=lower_window, upper_window=upper_window, reg_lambda=regularization, mode=mode
             )
         return self
 
-    def add_country_holidays(self, country_name, lower_window=0, upper_window=0, regularization=None, mode="additive"):
+    def add_country_holidays(
+        self,
+        country_name: Union[str, list],
+        lower_window: int = 0,
+        upper_window: int = 0,
+        regularization: Optional[float] = None,
+        mode: str = "additive",
+    ):
         """
         Add a country into the NeuralProphet object to include country specific holidays
         and create the corresponding configs such as lower, upper windows and the regularization
@@ -563,8 +686,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            country_name : string
-                name of the country
+            country_name : str, list
+                name or list of names of the country
             lower_window : int
                 the lower window for all the country holidays
             upper_window : int
@@ -596,12 +719,17 @@ class NeuralProphet:
         self.config_country_holidays.init_holidays()
         return self
 
-    def add_seasonality(self, name, period, fourier_order):
+    def add_seasonality(self, name: str, period: float, fourier_order: int, condition_name: Optional[str] = None):
         """Add a seasonal component with specified period, number of Fourier components, and regularization.
 
         Increasing the number of Fourier components allows the seasonality to change more quickly
         (at risk of overfitting).
         Note: regularization and mode (additive/multiplicative) are set in the main init.
+
+        If condition_name is provided, the dataframe passed to `fit` and
+        `predict` should have a column with the specified condition_name
+        containing only zeros and ones, deciding when to apply seasonality.
+        Floats between 0 and 1 can be used to apply seasonality partially.
 
         Parameters
         ----------
@@ -611,20 +739,77 @@ class NeuralProphet:
                 number of days in one period.
             fourier_order : int
                 number of Fourier components to use.
+            condition_name : string
+                string name of the seasonality condition.
 
+        Examples
+        --------
+        Adding a quarterly changing weekly seasonality to the model. First, add columns to df.
+        The columns should contain only zeros and ones (or floats), deciding when to apply seasonality.
+            >>> df["summer"] = df["ds"].apply(lambda x: x.month in [6, 7, 8])
+            >>> df["fall"] = df["ds"].apply(lambda x: x.month in [9, 10, 11])
+            >>> df["winter"] = df["ds"].apply(lambda x: x.month in [12, 1, 2])
+            >>> df["spring"] = df["ds"].apply(lambda x: x.month in [3, 4, 5])
+            >>> df.head()
+                ds	        y       summer_week     fall_week   winter_week   spring_week
+            0	2022-12-01  9.59    0               0            1            0
+            1	2022-12-02	8.52    0               0            1            0
+            2	2022-12-03	8.18    0               0            1            0
+            3	2022-12-04	8.07    0               0            1            0
+
+        As a next step, add the seasonality to the model. With period=7, we specify that the seasonality changes weekly.
+            >>> m = NeuralProphet(weekly_seasonality=False)
+            >>> m.add_seasonality(name="weekly_summer", period=7, fourier_order=4, condition_name="summer")
+            >>> m.add_seasonality(name="weekly_winter", period=7, fourier_order=4, condition_name="winter")
+            >>> m.add_seasonality(name="weekly_spring", period=7, fourier_order=4, condition_name="spring")
+            >>> m.add_seasonality(name="weekly_fall", period=7, fourier_order=4, condition_name="fall")
         """
         if self.fitted:
             raise Exception("Seasonality must be added prior to model fitting.")
         if name in ["daily", "weekly", "yearly"]:
             log.error("Please use inbuilt daily, weekly, or yearly seasonality or set another name.")
         # Do not Allow overwriting built-in seasonalities
-        self._validate_column_name(name, seasons=True)
+        _validate_column_name(
+            name=name,
+            config_events=self.config_events,
+            config_country_holidays=self.config_country_holidays,
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_regressors=self.config_regressors,
+            seasons=True,
+        )
+        if condition_name is not None:
+            _validate_column_name(
+                name=condition_name,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_seasonality=self.config_seasonality,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+            )
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
+        self.config_seasonality.append(
+            name=name, period=period, resolution=fourier_order, condition_name=condition_name, arg="custom"
+        )
         return self
 
-    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False):
+    def fit(
+        self,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        validation_df: Optional[pd.DataFrame] = None,
+        epochs: Optional[int] = None,
+        batch_size: Optional[int] = None,
+        learning_rate: Optional[float] = None,
+        early_stopping: bool = False,
+        minimal: bool = False,
+        metrics: Optional[np_types.CollectMetricsMode] = None,
+        progress: Optional[str] = "bar",
+        checkpointing: bool = False,
+        continue_training: bool = False,
+        num_workers: int = 0,
+    ):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
@@ -641,27 +826,68 @@ class NeuralProphet:
                 ----
                 Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
             validation_df : pd.DataFrame, dict
-                if provided, model with performance  will be evaluated after each training epoch over this data.
+                If provided, model with performance  will be evaluated after each training epoch over this data.
+            epochs : int
+                Number of epochs to train for. If None, uses the number of epochs specified in the model config.
+            batch_size : int
+                Batch size for training. If None, uses the batch size specified in the model config.
+            learning_rate : float
+                Learning rate for training. If None, uses the learning rate specified in the model config.
+            early_stopping : bool
+                Flag whether to use early stopping to stop training when training / validation loss is no longer improving.
             minimal : bool
-                whether to train without any printouts or metrics collection
+                Minimal mode deactivates metrics, the progress bar and checkpointing. Control more granular by using the `metrics`, `progress` and `checkpointing` parameters.
+            metrics : bool
+                Flag whether to collect metrics during training. If None, uses the metrics specified in the model config.
+            progress : str
+                Flag whether to show a progress bar during training. If None, uses the progress specified in the model config.
+
+                Options
+                * (default) ``bar``
+                * ``plot``
+                * `None`
+            checkpointing : bool
+                Flag whether to save checkpoints during training
             continue_training : bool
-                whether to continue training from the last checkpoint
+                Flag whether to continue training from the last checkpoint
+            num_workers : int
+                Number of workers for data loading. If 0, data will be loaded in the main process.
+                Note: using multiple workers and therefore distributed training might significantly increase
+                the training time since each batch needs to be copied to each worker for each epoch. Keeping
+                all data on the main process might be faster for most datasets.
 
         Returns
         -------
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
+        # Configuration
+        if epochs is not None:
+            self.config_train.epochs = epochs
+
+        if batch_size is not None:
+            self.config_train.batch_size = batch_size
+
+        if learning_rate is not None:
+            self.config_train.learning_rate = learning_rate
+
+        if early_stopping is not None:
+            self.early_stopping = early_stopping
+
+        if metrics is not None:
+            self.metrics = utils_metrics.get_metrics(metrics)
+
         # Warnings
-        if self.config_train.early_stopping:
+        if early_stopping:
             reg_enabled = utils.check_for_regularization(
                 [
-                    self.config_season,
+                    self.config_seasonality,
                     self.config_regressors,
                     self.config_ar,
                     self.config_events,
                     self.config_country_holidays,
                     self.config_trend,
+                    self.config_lagged_regressors,
                 ]
             )
             if reg_enabled:
@@ -670,13 +896,40 @@ class NeuralProphet:
                     If you see no impact of the regularization, turn off the early_stopping or reduce the number of epochs to train for."
                 )
 
-        # Setup
-        # List of different time series IDs, for global-local modelling (if enabled)
-        df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
+        if progress == "plot" and metrics is False:
+            log.warning("Progress plot requires metrics to be enabled. Enabling the default metrics.")
+            metrics = utils_metrics.get_metrics(True)
 
-        # When only one time series is input, self.id_list = ['__df__']
-        self.nb_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
-        self.nb_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
+        if not self.config_normalization.global_normalization:
+            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
+
+        if minimal:
+            checkpointing = False
+            self.metrics = False
+            progress = None
+
+        # Pre-processing
+        # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
+        df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
+        df = _check_dataframe(self, df, check_y=True, exogenous=True)
+        self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
+        df = _handle_missing_data(
+            df=df,
+            freq=self.data_freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
+
+        # Setup for global-local modelling: If there is only a single time series, then self.id_list = ['__df__']
+        self.num_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
+        self.num_seasonalities_modelled = len(self.id_list) if self.config_seasonality.global_local == "local" else 1
+        self.meta_used_in_model = self.num_trends_modelled != 1 or self.num_seasonalities_modelled != 1
 
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
@@ -689,39 +942,57 @@ class NeuralProphet:
                 "computed for any future time, independent of lagged values"
             )
 
-        # Pre-processing
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df = self._check_dataframe(df, check_y=True, exogenous=True)
-        self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = self._handle_missing_data(df, freq=self.data_freq)
-        if validation_df is not None and (self.metrics is None or minimal):
-            log.warning("Ignoring validation_df because no metrics set or minimal training set.")
-            validation_df = None
-
         # Training
         if validation_df is None:
-            metrics_df = self._train(df, minimal=minimal, continue_training=continue_training)
+            metrics_df = self._train(
+                df,
+                progress_bar_enabled=bool(progress),
+                metrics_enabled=bool(self.metrics),
+                checkpointing_enabled=checkpointing,
+                continue_training=continue_training,
+                num_workers=num_workers,
+            )
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
-            df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
-            df_val = self._handle_missing_data(df_val, freq=self.data_freq)
-            metrics_df = self._train(df, df_val=df_val, minimal=minimal, continue_training=continue_training)
+            df_val = _check_dataframe(self, df_val, check_y=False, exogenous=False)
+            df_val = _handle_missing_data(
+                df=df_val,
+                freq=self.data_freq,
+                n_lags=self.n_lags,
+                n_forecasts=self.n_forecasts,
+                config_missing=self.config_missing,
+                config_regressors=self.config_regressors,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_events=self.config_events,
+                config_seasonality=self.config_seasonality,
+                predicting=False,
+            )
+            metrics_df = self._train(
+                df,
+                df_val=df_val,
+                progress_bar_enabled=bool(progress),
+                metrics_enabled=bool(self.metrics),
+                checkpointing_enabled=checkpointing,
+                continue_training=continue_training,
+                num_workers=num_workers,
+            )
 
         # Show training plot
         if progress == "plot":
+            assert metrics_df is not None
             if validation_df is None:
-                fig = matplotlib.pyplot.plot(metrics_df[["Loss"]])
+                fig = pyplot.plot(metrics_df[["Loss"]])
             else:
-                fig = matplotlib.pyplot.plot(metrics_df[["Loss", "Loss_val"]])
+                fig = pyplot.plot(metrics_df[["Loss", "Loss_val"]])
             # Only display the plot if the session is interactive, eg. do not show in github actions since it
             # causes an error in the Windows and MacOS environment
             if matplotlib.is_interactive():
-                fig.show()
+                fig
 
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose=True, raw=False):
+    def predict(self, df: pd.DataFrame, decompose: bool = True, raw: bool = False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -763,22 +1034,48 @@ class NeuralProphet:
             raise ValueError("Model has not been fitted. Predictions will be random.")
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         # to get all forecasteable values with df given, maybe extend into future:
-        df, periods_added = self._maybe_extend_df(df)
-        df = self._prepare_dataframe_to_predict(df)
+        df, periods_added = _maybe_extend_df(
+            df=df,
+            n_forecasts=self.n_forecasts,
+            max_lags=self.max_lags,
+            freq=self.data_freq,
+            config_regressors=self.config_regressors,
+            config_events=self.config_events,
+        )
+        df = _prepare_dataframe_to_predict(model=self, df=df, max_lags=self.max_lags, freq=self.data_freq)
         # normalize
-        df = self._normalize(df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose)
+            dates, predicted, components = self._predict_raw(
+                df_i, df_name, include_components=decompose, prediction_frequency=self.prediction_frequency
+            )
             df_i = df_utils.drop_missing_from_df(
                 df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
             )
             if raw:
-                fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
+                fcst = _convert_raw_predictions_to_raw_df(
+                    dates=dates,
+                    predicted=predicted,
+                    n_forecasts=self.n_forecasts,
+                    quantiles=self.config_train.quantiles,
+                    components=components,
+                )
                 if periods_added[df_name] > 0:
                     fcst = fcst[:-1]
             else:
-                fcst = self._reshape_raw_predictions_to_forecst_df(df_i, predicted, components)
+                fcst = _reshape_raw_predictions_to_forecst_df(
+                    df=df_i,
+                    predicted=predicted,
+                    components=components,
+                    prediction_frequency=self.prediction_frequency,
+                    dates=dates,
+                    n_forecasts=self.n_forecasts,
+                    max_lags=self.max_lags,
+                    freq=self.data_freq,
+                    quantiles=self.config_train.quantiles,
+                    config_lagged_regressors=self.config_lagged_regressors,
+                )
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
@@ -786,7 +1083,7 @@ class NeuralProphet:
         self.predict_steps = self.n_forecasts
         return df
 
-    def test(self, df):
+    def test(self, df: pd.DataFrame):
         """Evaluate model on holdout data.
 
         Parameters
@@ -801,9 +1098,20 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
-        df = self._check_dataframe(df, check_y=True, exogenous=True)
-        _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
-        df = self._handle_missing_data(df, freq=self.data_freq)
+        df = _check_dataframe(self, df, check_y=True, exogenous=True)
+        freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
+        df = _handle_missing_data(
+            df=df,
+            freq=freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
         loader = self._init_val_loader(df)
         # Use Lightning to calculate metrics
         val_metrics = self.trainer.test(self.model, dataloaders=loader)
@@ -813,7 +1121,7 @@ class NeuralProphet:
             log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
         return val_metrics_df
 
-    def split_df(self, df, freq="auto", valid_p=0.2, local_split=False):
+    def split_df(self, df: pd.DataFrame, freq: str = "auto", valid_p: float = 0.2, local_split: bool = False):
         """Splits timeseries df into train and validation sets.
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
         Also performs basic data checks and fills in missing data, unless impute_missing is set to ``False``.
@@ -926,9 +1234,20 @@ class NeuralProphet:
             2	2022-12-13	8.30	data3
         """
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
-        df = self._check_dataframe(df, check_y=False, exogenous=False)
+        df = _check_dataframe(self, df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = _handle_missing_data(
+            df=df,
+            freq=freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.max_lags,
@@ -942,7 +1261,13 @@ class NeuralProphet:
         return df_train, df_val
 
     def crossvalidation_split_df(
-        self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="global-time"
+        self,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        k: int = 5,
+        fold_pct: float = 0.1,
+        fold_overlap_pct: float = 0.5,
+        global_model_cv_type: str = "global-time",
     ):
         """Splits timeseries data in k folds for crossvalidation.
 
@@ -1088,9 +1413,20 @@ class NeuralProphet:
             2	2022-12-10	7.55	data3
         """
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
-        df = self._check_dataframe(df, check_y=False, exogenous=False)
+        df = _check_dataframe(self, df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = _handle_missing_data(
+            df=df,
+            freq=freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
         folds = df_utils.crossvalidation_split_df(
             df,
             n_lags=self.max_lags,
@@ -1107,7 +1443,14 @@ class NeuralProphet:
                 del folds[i][1]["ID"]
         return folds
 
-    def double_crossvalidation_split_df(self, df, freq="auto", k=5, valid_pct=0.10, test_pct=0.10):
+    def double_crossvalidation_split_df(
+        self,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        k: int = 5,
+        valid_pct: float = 0.1,
+        test_pct: float = 0.1,
+    ):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
 
         Parameters
@@ -1133,9 +1476,20 @@ class NeuralProphet:
                 elements same as :meth:`crossvalidation_split_df` returns
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df = self._check_dataframe(df, check_y=False, exogenous=False)
+        df = _check_dataframe(self, df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = _handle_missing_data(
+            df=df,
+            freq=freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
             n_lags=self.max_lags,
@@ -1146,7 +1500,7 @@ class NeuralProphet:
         )
         return folds_val, folds_test
 
-    def create_df_with_events(self, df, events_df):
+    def create_df_with_events(self, df: pd.DataFrame, events_df: pd.DataFrame):
         """
         Create a concatenated dataframe with the time series data along with the events data expanded.
 
@@ -1168,7 +1522,7 @@ class NeuralProphet:
                 "before creating the data with events features"
             )
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
-        df = self._check_dataframe(df, check_y=True, exogenous=False)
+        df = _check_dataframe(self, df, check_y=True, exogenous=False)
         df_dict_events = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
         df_created = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
@@ -1184,7 +1538,14 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_created, received_ID_col, received_single_time_series)
         return df
 
-    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
+    def make_future_dataframe(
+        self,
+        df: pd.DataFrame,
+        events_df: Optional[pd.DataFrame] = None,
+        regressors_df: Optional[pd.DataFrame] = None,
+        periods: Optional[int] = None,
+        n_historic_predictions: Union[bool, int] = False,
+    ):
         """
         Extends dataframe a number of periods (time steps) into the future.
 
@@ -1241,12 +1602,16 @@ class NeuralProphet:
 
         df_future_dataframe = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            df_aux = self._make_future_dataframe(
+            df_aux = _make_future_dataframe(
+                model=self,
                 df=df_i,
                 events_df=events_dict[df_name],
                 regressors_df=regressors_dict[df_name],
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
+                n_forecasts=self.n_forecasts,
+                max_lags=self.max_lags,
+                freq=self.data_freq,
             )
             df_aux["ID"] = df_name
             df_future_dataframe = pd.concat((df_future_dataframe, df_aux), ignore_index=True)
@@ -1256,7 +1621,12 @@ class NeuralProphet:
         )
         return df_future
 
-    def handle_negative_values(self, df, handle="remove", columns=None):
+    def handle_negative_values(
+        self,
+        df: pd.DataFrame,
+        handle: Union[str, int, float, None] = "remove",
+        columns: Optional[List[str]] = None,
+    ):
         """
         Handle negative values in the given columns.
         If no column or handling are provided, negative values in all numeric columns are removed.
@@ -1285,14 +1655,13 @@ class NeuralProphet:
         if columns:
             cols = columns
         else:
-            cols = list(df.select_dtypes(include=np.number).columns)
+            cols = list(df.select_dtypes(include=np.number).columns)  # type: ignore
         # Handle the negative values
         for col in cols:
             df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
-
         return df
 
-    def predict_trend(self, df, quantile=0.5):
+    def predict_trend(self, df: pd.DataFrame, quantile: float = 0.5):
         """Predict only trend component of the model.
 
         Parameters
@@ -1311,18 +1680,18 @@ class NeuralProphet:
             raise ValueError("The quantile specified need to be a float in-between (0,1)")
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
-        df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = self._normalize(df)
+        df = _check_dataframe(self, df, check_y=False, exogenous=False)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         df_trend = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
+            t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))  # type: ignore
 
             # Creating and passing meta, in this case the meta['df_name'] is the ID of the dataframe
             # Note: meta is only used on the trend method if trend_global_local is not "global"
             meta = OrderedDict()
             meta["df_name"] = [df_name for _ in range(t.shape[0])]
-            if self.model.config_trend.trend_global_local == "local":
-                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+            if self.meta_used_in_model:
+                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
             else:
                 meta_name_tensor = None
 
@@ -1336,7 +1705,7 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_trend, received_ID_col, received_single_time_series)
         return df
 
-    def predict_seasonal_components(self, df, quantile=0.5):
+    def predict_seasonal_components(self, df: pd.DataFrame, quantile: float = 0.5):
         """Predict seasonality components
 
         Parameters
@@ -1355,56 +1724,58 @@ class NeuralProphet:
             raise ValueError("The quantile specified need to be a float in-between (0,1)")
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
-        df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = self._normalize(df)
+        df = _check_dataframe(self, df, check_y=False, exogenous=False)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         df_seasonal = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dataset = time_dataset.TimeDataset(
                 df_i,
                 name=df_name,
-                config_season=self.config_season,
+                config_seasonality=self.config_seasonality,
                 # n_lags=0,
                 # n_forecasts=1,
                 predict_steps=self.predict_steps,
                 predict_mode=True,
                 config_missing=self.config_missing,
+                prediction_frequency=self.prediction_frequency,
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
-            for name in self.config_season.periods:
+            for name in self.config_seasonality.periods:
                 predicted[name] = list()
             for inputs, _, meta in loader:
                 # Meta as a tensor for prediction
-                if self.model.config_season is None:
+                if self.model.config_seasonality is None:
                     meta_name_tensor = None
-                elif self.model.config_season.global_local == "local":
+                elif self.model.config_seasonality.global_local == "local":
                     meta = OrderedDict()
                     meta["df_name"] = [df_name for _ in range(inputs["time"].shape[0])]
-                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
                 else:
                     meta_name_tensor = None
 
-                for name in self.config_season.periods:
+                for name in self.config_seasonality.periods:
                     features = inputs["seasonalities"][name]
                     quantile_index = self.config_train.quantiles.index(quantile)
                     y_season = torch.squeeze(
-                        self.model.seasonality(features=features, name=name, meta=meta_name_tensor)[
+                        self.model.seasonality.compute_fourier(features=features, name=name, meta=meta_name_tensor)[
                             :, :, quantile_index
                         ]
                     )
                     predicted[name].append(y_season.data.numpy())
 
-            for name in self.config_season.periods:
+            for name in self.config_seasonality.periods:
                 predicted[name] = np.concatenate(predicted[name])
-                if self.config_season.mode == "additive":
+                if self.config_seasonality.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
+            df_i = df_i[:: self.prediction_frequency].reset_index(drop=True)
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
         return df
 
-    def set_true_ar_for_eval(self, true_ar_weights):
+    def set_true_ar_for_eval(self, true_ar_weights: np.ndarray):
         """Configures model to evaluate closeness of AR weights to true weights.
 
         Parameters
@@ -1414,7 +1785,7 @@ class NeuralProphet:
         """
         self.true_ar_weights = true_ar_weights
 
-    def set_plotting_backend(self, plotting_backend):
+    def set_plotting_backend(self, plotting_backend: str):
         """Set plotting backend.
 
         Parameters
@@ -1423,19 +1794,22 @@ class NeuralProphet:
             Specifies plotting backend to use for all plots. Can be configured individually for each plot.
 
             Options
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
+                    jupyterlab notebooks and vscode notebooks.
                 * ``plotly``: Use the plotly backend for plotting
-                * (default) ``matplotlib``: use matplotlib for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
+                * ``matplotlib``: use matplotlib for plotting
         """
-        if plotting_backend in ["plotly", "matplotlib"]:
+        if plotting_backend in ["plotly", "matplotlib", "plotly-resampler", "plotly-static"]:
             self.plotting_backend = plotting_backend
-            if self.plotting_backend == "matplotlib":
-                log.warning(
-                    "DeprecationWarning: matplotlib as plotting backend will be deprecated in a future version. Switch to plotly by calling `m.set_plotting_backend('plotly')`."
-                )
+            log_warning_deprecation_plotly(self.plotting_backend)
         else:
-            raise ValueError("The parameter `plotting_backend` must be either 'plotly' or 'matplotlib'.")
+            raise ValueError(
+                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler', 'plotly-resampler' or 'matplotlib'."
+            )
 
-    def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
+    def highlight_nth_step_ahead_of_each_forecast(self, step_number: Optional[int] = None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
 
         Parameters
@@ -1452,7 +1826,17 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def plot(self, fcst, df_name=None, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6), plotting_backend="default"):
+    def plot(
+        self,
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        forecast_in_focus: Optional[int] = None,
+        plotting_backend: Optional[str] = None,
+    ):
         """Plot the NeuralProphet forecast, including history.
 
         Parameters
@@ -1473,9 +1857,22 @@ class NeuralProphet:
                 optional, overwrites the default plotting backend.
 
                 Options
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
+            forecast_in_focus: int
+                optinal, i-th step ahead forecast to plot
+
+                Note
+                ----
+                None (default): plot self.highlight_forecast_step_n by default
         """
         fcst, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
@@ -1487,17 +1884,25 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
+        if forecast_in_focus is None:
+            forecast_in_focus = self.highlight_forecast_step_n
         if len(self.config_train.quantiles) > 1:
-            if self.highlight_forecast_step_n is None and (
-                self.n_forecasts > 1 or self.n_lags != 0
+            if (self.highlight_forecast_step_n) is None and (
+                self.n_forecasts > 1 or self.n_lags > 0
             ):  # rather query if n_forecasts >1 than n_lags>1
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
                     " for quantiles plotting when auto-regression enabled."
                 )
-            if self.highlight_forecast_step_n is not None and self.n_lags == 0:
+            if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.n_lags == 0:
                 log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
                 self.highlight_forecast_step_n = None
+        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+            raise ValueError(
+                "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
+                "prediction time step to forecast "
+            )
+
         if self.max_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
@@ -1515,20 +1920,19 @@ class NeuralProphet:
                     plot_history_data=True,
                 )
 
-        # Check whether the default plotting backend is overwritten
-        plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
-        )
-        if plotting_backend == "plotly":
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+
+        log_warning_deprecation_plotly(plotting_backend)
+        if plotting_backend.startswith("plotly"):
             return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
-                highlight_forecast=self.highlight_forecast_step_n,
+                highlight_forecast=forecast_in_focus,
+                resampler_active=plotting_backend == "plotly-resampler",
+                plotly_static=plotting_backend == "plotly-static",
             )
         else:
             return plot(
@@ -1538,15 +1942,15 @@ class NeuralProphet:
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=figsize,
-                highlight_forecast=self.highlight_forecast_step_n,
+                highlight_forecast=forecast_in_focus,
             )
 
     def get_latest_forecast(
         self,
-        fcst,
-        df_name=None,
-        include_history_data=False,
-        include_previous_forecasts=0,
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        include_history_data: bool = False,
+        include_previous_forecasts: int = 0,
     ):
         """Get the latest NeuralProphet forecast, optional including historical data.
 
@@ -1608,15 +2012,15 @@ class NeuralProphet:
 
     def plot_latest_forecast(
         self,
-        fcst,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        include_previous_forecasts=0,
-        plot_history_data=None,
-        plotting_backend="default",
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        include_previous_forecasts: int = 0,
+        plot_history_data: Optional[bool] = None,
+        plotting_backend: Optional[str] = None,
     ):
         """Plot the latest NeuralProphet forecast(s), including history.
 
@@ -1642,9 +2046,17 @@ class NeuralProphet:
                 optional, overwrites the default plotting backend.
 
                 Options
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
+                ** (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
+                * (default) None
         Returns
         -------
             matplotlib.axes.Axes
@@ -1677,29 +2089,29 @@ class NeuralProphet:
             fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
         )
 
-        # Check whether the default plotting backend is overwritten
-        plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
-        )
-        if plotting_backend == "plotly":
+        # Check whether a local or global plotting backend is set.
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+
+        log_warning_deprecation_plotly(plotting_backend)
+        if plotting_backend.startswith("plotly"):
             return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
-                xlabel=xlabel,
                 ylabel=ylabel,
+                xlabel=xlabel,
                 figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
+                resampler_active=plotting_backend == "plotly-resampler",
+                plotly_static=plotting_backend == "plotly-static",
             )
         else:
             return plot(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
                 ax=ax,
-                xlabel=xlabel,
                 ylabel=ylabel,
+                xlabel=xlabel,
                 figsize=figsize,
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
@@ -1707,24 +2119,34 @@ class NeuralProphet:
 
     def plot_last_forecast(
         self,
-        fcst,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        include_previous_forecasts=0,
-        plot_history_data=None,
-        plotting_backend="default",
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        include_previous_forecasts: int = 0,
+        plot_history_data: Optional[bool] = None,
+        plotting_backend: Optional[str] = None,
     ):
         args = locals()
         log.warning(
             "plot_last_forecast() has been renamed to plot_latest_forecast() and is therefore deprecated. "
             "Please use plot_latst_forecast() in the future"
         )
+
         return NeuralProphet.plot_latest_forecast(**args)
 
-    def plot_components(self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, plotting_backend="default"):
+    def plot_components(
+        self,
+        fcst: pd.DataFrame,
+        df_name: str = "__df__",
+        figsize: Optional[Tuple[int, int]] = None,
+        forecast_in_focus: Optional[int] = None,
+        plotting_backend: Optional[str] = None,
+        components: Union[None, str, List[str]] = None,
+        one_period_per_season: bool = False,
+    ):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1739,13 +2161,41 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            forecast_in_focus: int
+                optinal, i-th step ahead forecast to plot
+
+                Note
+                ----
+                None (default): plot self.highlight_forecast_step_n by default
             plotting_backend : str
                 optional, overwrites the default plotting backend.
 
                 Options
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
+            components: str or list, optional
+                name or list of names of components to plot
+
+                Options
+                ----
+                * (default)``None``:  All components the user set in the model configuration are plotted.
+                * ``trend``
+                * ``seasonality``: select all seasonalities
+                * ``autoregression``
+                * ``lagged_regressors``: select all lagged regressors
+                * ``future_regressors``: select all future regressors
+                * ``events``: select all events and country holidays
+                * ``uncertainty``
+            one_period_per_season : bool
+                Plot one period per season, instead of the true seasonal components of the forecast.
 
         Returns
         -------
@@ -1762,61 +2212,85 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
+        else:
+            if df_name is None:
+                df_name = "__df__"
 
-        # If multiple steps in the future are predicted, only plot quantiles if highlight_forecast_step_n is set
-        if len(self.config_train.quantiles) > 1:
-            if self.highlight_forecast_step_n is None and (
-                self.n_forecasts > 1 or self.n_lags != 0
-            ):  # rather query if n_forecasts >1 than n_lags>1
-                raise ValueError(
-                    "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
-                    " for quantiles plotting when auto-regression enabled."
-                )
-            if self.highlight_forecast_step_n is not None and self.n_lags == 0:
-                log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
-                self.highlight_forecast_step_n = None
+        # Check if highlighted forecast step is overwritten
+        if forecast_in_focus is None:
+            forecast_in_focus = self.highlight_forecast_step_n
+        if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.config_ar.n_lags == 0:
+            log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
+            # self.highlight_forecast_step_n = None
+            forecast_in_focus = None
+        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+            raise ValueError(
+                "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
+                "prediction time step to forecast "
+            )
 
         # Error if local modelling of season and df_name not provided
-        if self.model.config_season is not None:
-            if self.model.config_season.global_local == "local" and df_name is None:
+        if self.model.config_seasonality is not None:
+            if self.model.config_seasonality.global_local == "local" and df_name is None:
                 raise Exception(
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
 
-        # Check whether the default plotting backend is overwritten
-        plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+        # Validate components to be plotted
+        valid_components_set = [
+            "trend",
+            "seasonality",
+            "autoregression",
+            "lagged_regressors",
+            "events",
+            "future_regressors",
+            "uncertainty",
+        ]
+        valid_plot_configuration = get_valid_configuration(
+            m=self,
+            components=components,
+            df_name=df_name,
+            valid_set=valid_components_set,
+            validator="plot_components",
+            forecast_in_focus=forecast_in_focus,
         )
 
-        if plotting_backend == "plotly":
+        # Check whether a local or global plotting backend is set.
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+
+        log_warning_deprecation_plotly(plotting_backend)
+        if plotting_backend.startswith("plotly"):
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
+                plot_configuration=valid_plot_configuration,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 df_name=df_name,
+                one_period_per_season=one_period_per_season,
+                resampler_active=plotting_backend == "plotly-resampler",
+                plotly_static=plotting_backend == "plotly-static",
             )
         else:
             return plot_components(
                 m=self,
                 fcst=fcst,
+                plot_configuration=valid_plot_configuration,
                 quantile=self.config_train.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 df_name=df_name,
+                one_period_per_season=one_period_per_season,
             )
 
     def plot_parameters(
         self,
-        weekly_start=0,
-        yearly_start=0,
-        figsize=None,
-        forecast_in_focus=None,
-        df_name=None,
-        plotting_backend="default",
-        quantile=None,
+        weekly_start: int = 0,
+        yearly_start: int = 0,
+        figsize: Optional[Tuple[int, int]] = None,
+        forecast_in_focus: Optional[int] = None,
+        df_name: Optional[str] = None,
+        plotting_backend: Optional[str] = None,
+        quantile: Optional[float] = None,
+        components: Union[None, str, List[str]] = None,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1842,19 +2316,31 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            forecast_in_focus: int
+                optinal, i-th step ahead forecast to plot
+
+                Note
+                ----
+                None (default): plot self.highlight_forecast_step_n by default
+
             plotting_backend : str
                 optional, overwrites the default plotting backend.
 
                 Options
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
-
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
 
                 Note
                 ----
                 For multiple time series and local modeling of at least one component, the df_name parameter is required.
-
             quantile : float
                 The quantile for which the model parameters are to be plotted
 
@@ -1862,23 +2348,36 @@ class NeuralProphet:
                 ----
                 None (default):  Parameters will be plotted for the median quantile.
 
+            components: str or list, optional
+                name or list of names of parameters to plot
+
+               Options
+                ----
+                * (default) ``None``:  All parameter the user set in the model configuration are plotted.
+                * ``trend``
+                * ``trend_rate_change``
+                * ``seasonality``: : select all seasonalities
+                * ``autoregression``
+                * ``lagged_regressors``: select all lagged regressors
+                * ``events``: select all events and country holidays
+                * ``future_regressors``: select all future regressors
+
         Returns
         -------
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-
-        if self.model.config_trend.trend_global_local == "local" and df_name is None:
-            raise Exception(
-                "df_name parameter is required for multiple time series and local modeling of at least one component."
+        # Check if highlighted forecast step is overwritten
+        if forecast_in_focus is None:
+            forecast_in_focus = self.highlight_forecast_step_n
+        if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.config_ar.n_lags == 0:
+            log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
+            forecast_in_focus = None
+        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+            raise ValueError(
+                "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
+                "prediction time step to forecast "
             )
-
-        # Error if local modelling of season and df_name not provided
-        if self.model.config_season is not None:
-            if self.model.config_season.global_local == "local" and df_name is None:
-                raise Exception(
-                    "df_name parameter is required for multiple time series and local modeling of at least one component."
-                )
         if quantile is not None:
             # ValueError if model was not trained or predicted with selected quantile for plotting
             if not (0 < quantile < 1):
@@ -1886,36 +2385,72 @@ class NeuralProphet:
             # ValueError if selected quantile is out of range
             if quantile not in self.config_train.quantiles:
                 raise ValueError("Selected quantile is not specified in the model configuration.")
+        else:
+            # plot parameters for median quantile if not specified
+            quantile = self.config_train.quantiles[0]
 
-        # Check whether the default plotting backend is overwritten
-        plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+        # Validate components to be plotted
+        valid_parameters_set = [
+            "trend",
+            "trend_rate_change",
+            "seasonality",
+            "autoregression",
+            "lagged_regressors",
+            "events",
+            "future_regressors",
+        ]
+        valid_plot_configuration = get_valid_configuration(
+            m=self,
+            components=components,
+            df_name=df_name,
+            forecast_in_focus=forecast_in_focus,
+            valid_set=valid_parameters_set,
+            validator="plot_parameters",
+            quantile=quantile,
         )
-        if plotting_backend == "plotly":
-            return plot_parameters_plotly(
-                m=self,
-                quantile=quantile
-                if quantile
-                else self.config_train.quantiles[0],  # plot components for selected quantile
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
-                weekly_start=weekly_start,
-                yearly_start=yearly_start,
-                figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
-                df_name=df_name,
-            )
+
+        # Check whether a local or global plotting backend is set.
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+
+        log_warning_deprecation_plotly(plotting_backend)
+        if plotting_backend.startswith("plotly"):
+            if plotting_backend == "plotly-static":
+                fig = plot_parameters_plotly(
+                    m=self,
+                    quantile=quantile,
+                    weekly_start=weekly_start,
+                    yearly_start=yearly_start,
+                    figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
+                    df_name=valid_plot_configuration["df_name"],
+                    plot_configuration=valid_plot_configuration,
+                    forecast_in_focus=forecast_in_focus,
+                    resampler_active=plotting_backend == "plotly-resampler",
+                    plotly_static=plotting_backend == "plotly-static",
+                )
+                fig.show("svg")
+            else:
+                return plot_parameters_plotly(
+                    m=self,
+                    quantile=quantile,
+                    weekly_start=weekly_start,
+                    yearly_start=yearly_start,
+                    figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
+                    df_name=valid_plot_configuration["df_name"],
+                    plot_configuration=valid_plot_configuration,
+                    forecast_in_focus=forecast_in_focus,
+                    resampler_active=plotting_backend == "plotly-resampler",
+                    plotly_static=plotting_backend == "plotly-static",
+                )
         else:
             return plot_parameters(
                 m=self,
-                quantile=quantile
-                if quantile
-                else self.config_train.quantiles[0],  # plot components for selected quantile
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                quantile=quantile,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
                 figsize=figsize,
-                df_name=df_name,
+                df_name=valid_plot_configuration["df_name"],
+                plot_configuration=valid_plot_configuration,
+                forecast_in_focus=forecast_in_focus,
             )
 
     def _init_model(self):
@@ -1929,7 +2464,7 @@ class NeuralProphet:
             config_train=self.config_train,
             config_trend=self.config_trend,
             config_ar=self.config_ar,
-            config_season=self.config_season,
+            config_seasonality=self.config_seasonality,
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
@@ -1938,338 +2473,26 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             max_lags=self.max_lags,
-            num_hidden_layers=self.config_model.num_hidden_layers,
-            d_hidden=self.config_model.d_hidden,
+            ar_layers=self.config_ar.ar_layers,
+            lagged_reg_layers=self.config_model.lagged_reg_layers,
             metrics=self.metrics,
             id_list=self.id_list,
-            nb_trends_modelled=self.nb_trends_modelled,
-            nb_seasonalities_modelled=self.nb_seasonalities_modelled,
+            num_trends_modelled=self.num_trends_modelled,
+            num_seasonalities_modelled=self.num_seasonalities_modelled,
+            meta_used_in_model=self.meta_used_in_model,
         )
         log.debug(self.model)
         return self.model
 
-    def restore_from_checkpoint(self):
-        """
-        Load model from checkpoint.
-
-        Returns
-        -------
-            Trained TimeNet model
-        """
-        self.model = time_net.TimeNet.load_from_checkpoint(self.metrics_logger.checkpoint_path)
-
-    def _create_dataset(self, df, predict_mode):
-        """Construct dataset from dataframe.
-
-        (Configured Hyperparameters can be overridden by explicitly supplying them.
-        Useful to predict a single model component.)
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
-                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
-            predict_mode : bool
-                specifies predict mode
-
-                Options
-                    * ``False``: includes target values.
-                    * ``True``: does not include targets but includes entire dataset as input
-
-        Returns
-        -------
-            TimeDataset
-        """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        return time_dataset.GlobalTimeDataset(
-            df,
-            predict_mode=predict_mode,
-            n_lags=self.n_lags,
-            n_forecasts=self.n_forecasts,
-            predict_steps=self.predict_steps,
-            config_season=self.config_season,
-            config_events=self.config_events,
-            config_country_holidays=self.config_country_holidays,
-            config_lagged_regressors=self.config_lagged_regressors,
-            config_regressors=self.config_regressors,
-            config_missing=self.config_missing,
-        )
-
-    def __handle_missing_data(self, df, freq, predicting):
-        """Checks and normalizes new data
-
-        Data is also auto-imputed, unless impute_missing is set to ``False``.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y`` with all data
-            freq : str
-                data step sizes. Frequency of data recording,
-
-                Note
-                ----
-                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
-            predicting : bool
-                when no lags, allow NA values in ``y`` of forecast series or ``y`` to miss completely
-
-        Returns
-        -------
-            pd.DataFrame
-                preprocessed dataframe
-        """
-        # Receives df with single ID column
-        assert len(df["ID"].unique()) == 1
-        if self.n_lags == 0 and not predicting:
-            # we can drop rows with NA in y
-            sum_na = sum(df["y"].isna())
-            if sum_na > 0:
-                df = df[df["y"].notna()]
-                log.info(f"dropped {sum_na} NAN row in 'y'")
-
-        # add missing dates for autoregression modelling
-        if self.n_lags > 0:
-            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
-            if missing_dates > 0:
-                if self.config_missing.impute_missing:
-                    log.info(f"{missing_dates} missing dates added.")
-                # FIX Issue#52
-                # Comment error raising to allow missing data for autoregression flow.
-                # else:
-                #     raise ValueError(f"{missing_dates} missing dates found. Please preprocess data manually or set impute_missing to True.")
-                # END FIX
-
-        if self.config_regressors is not None:
-            # if future regressors, check that they are not nan at end, else drop
-            # we ignore missing events, as those will be filled in with zeros.
-            reg_nan_at_end = 0
-            for col, regressor in self.config_regressors.items():
-                # check for completeness of the regressor values
-                col_nan_at_end = 0
-                while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
-                    col_nan_at_end += 1
-                reg_nan_at_end = max(reg_nan_at_end, col_nan_at_end)
-            if reg_nan_at_end > 0:
-                # drop rows at end due to missing future regressors
-                df = df[:-reg_nan_at_end]
-                log.info("Dropped {reg_nan_at_end} rows at end due to missing future regressor values.")
-
-        df_end_to_append = None
-        nan_at_end = 0
-        while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
-            nan_at_end += 1
-        if nan_at_end > 0:
-            if predicting:
-                # allow nans at end - will re-add at end
-                if self.n_forecasts > 1 and self.n_forecasts < nan_at_end:
-                    # check that not more than n_forecasts nans, else drop surplus
-                    df = df[: -(nan_at_end - self.n_forecasts)]
-                    # correct new length:
-                    nan_at_end = self.n_forecasts
-                    log.info(
-                        "Detected y to have more NaN values than n_forecast can predict. "
-                        f"Dropped {nan_at_end - self.n_forecasts} rows at end."
-                    )
-                df_end_to_append = df[-nan_at_end:]
-                df = df[:-nan_at_end]
-            else:
-                # training - drop nans at end
-                df = df[:-nan_at_end]
-                log.info(
-                    f"Dropped {nan_at_end} consecutive nans at end. "
-                    "Training data can only be imputed up to last observation."
-                )
-
-        # impute missing values
-        data_columns = []
-        if self.n_lags > 0:
-            data_columns.append("y")
-        if self.config_lagged_regressors is not None:
-            data_columns.extend(self.config_lagged_regressors.keys())
-        if self.config_regressors is not None:
-            data_columns.extend(self.config_regressors.keys())
-        if self.config_events is not None:
-            data_columns.extend(self.config_events.keys())
-        for column in data_columns:
-            sum_na = sum(df[column].isnull())
-            if sum_na > 0:
-                log.warning(f"{sum_na} missing values in column {column} were detected in total. ")
-                if self.config_missing.impute_missing:
-                    # use 0 substitution for holidays and events missing values
-                    if self.config_events is not None and column in self.config_events.keys():
-                        df[column].fillna(0, inplace=True)
-                        remaining_na = 0
-                    else:
-                        df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
-                            df[column],
-                            limit_linear=self.config_missing.impute_linear,
-                            rolling=self.config_missing.impute_rolling,
-                        )
-                    log.info(f"{sum_na - remaining_na} NaN values in column {column} were auto-imputed.")
-                    if remaining_na > 0:
-                        log.warning(
-                            f"More than {2 * self.config_missing.impute_linear + self.config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
-                            f"{remaining_na} NA remain after auto-imputation. "
-                        )
-                # FIX Issue#52
-                # Comment error raising to allow missing data for autoregression flow.
-                # else:  # fail because set to not impute missing
-                #    raise ValueError(
-                #        "Missing values found. " "Please preprocess data manually or set impute_missing to True."
-                #    )
-                # END FIX
-        if df_end_to_append is not None:
-            df = pd.concat([df, df_end_to_append])
-        return df
-
-    def _handle_missing_data(self, df, freq, predicting=False):
-        """Checks and normalizes new data
-
-        Data is also auto-imputed, unless impute_missing is set to ``False``.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-            freq : str
-                data step sizes. Frequency of data recording,
-
-                Note
-                ----
-                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
-            predicting (bool): when no lags, allow NA values in ``y`` of forecast series or ``y`` to miss completely
-
-        Returns
-        -------
-            pre-processed df
-        """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df_handled_missing = pd.DataFrame()
-        for df_name, df_i in df.groupby("ID"):
-            df_handled_missing_aux = self.__handle_missing_data(df_i, freq, predicting).copy(deep=True)
-            df_handled_missing_aux["ID"] = df_name
-            df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
-        return df_handled_missing
-
-    def _check_dataframe(self, df, check_y=True, exogenous=True):
-        """Performs basic data sanity checks and ordering
-
-        Prepare dataframe for fitting or predicting.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-            check_y : bool
-                if df must have series values
-
-                Note
-                ----
-                set to True if training or predicting with autoregression
-            exogenous : bool
-                whether to check covariates, regressors and events column names
-
-        Returns
-        -------
-            pd.DataFrame
-                checked dataframe
-        """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df, regressors_to_remove = df_utils.check_dataframe(
-            df=df,
-            check_y=check_y,
-            covariates=self.config_lagged_regressors if exogenous else None,
-            regressors=self.config_regressors if exogenous else None,
-            events=self.config_events if exogenous else None,
-        )
-        for reg in regressors_to_remove:
-            log.warning(f"Removing regressor {reg} because it is not present in the data.")
-            self.config_regressors.pop(reg)
-        return df
-
-    def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
-        """Validates the name of a seasonality, event, or regressor.
-
-        Parameters
-        ----------
-            name : str
-                name of seasonality, event or regressor
-            events : bool
-                check if name already used for event
-            seasons : bool
-                check if name already used for seasonality
-            regressors : bool
-                check if name already used for regressor
-        """
-        reserved_names = [
-            "trend",
-            "additive_terms",
-            "daily",
-            "weekly",
-            "yearly",
-            "events",
-            "holidays",
-            "zeros",
-            "extra_regressors_additive",
-            "yhat",
-            "extra_regressors_multiplicative",
-            "multiplicative_terms",
-            "ID",
-        ]
-        rn_l = [n + "_lower" for n in reserved_names]
-        rn_u = [n + "_upper" for n in reserved_names]
-        reserved_names.extend(rn_l)
-        reserved_names.extend(rn_u)
-        reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
-        if name in reserved_names:
-            raise ValueError(f"Name {name!r} is reserved.")
-        if events and self.config_events is not None:
-            if name in self.config_events.keys():
-                raise ValueError(f"Name {name!r} already used for an event.")
-        if events and self.config_country_holidays is not None:
-            if name in self.config_country_holidays.holiday_names:
-                raise ValueError(f"Name {name!r} is a holiday name in {self.config_country_holidays.country}.")
-        if seasons and self.config_season is not None:
-            if name in self.config_season.periods:
-                raise ValueError(f"Name {name!r} already used for a seasonality.")
-        if covariates and self.config_lagged_regressors is not None:
-            if name in self.config_lagged_regressors:
-                raise ValueError(f"Name {name!r} already used for an added covariate.")
-        if regressors and self.config_regressors is not None:
-            if name in self.config_regressors.keys():
-                raise ValueError(f"Name {name!r} already used for an added regressor.")
-
-    def _normalize(self, df):
-        """Apply data scales.
-
-        Applies data scaling factors to df using data_params.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-
-        Returns
-        -------
-            df: pd.DataFrame, normalized
-        """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df_norm = pd.DataFrame()
-        for df_name, df_i in df.groupby("ID"):
-            data_params = self.config_normalization.get_data_params(df_name)
-            df_i.drop("ID", axis=1, inplace=True)
-            df_aux = df_utils.normalize(df_i, data_params).copy(deep=True)
-            df_aux["ID"] = df_name
-            df_norm = pd.concat((df_norm, df_aux), ignore_index=True)
-        return df_norm
-
-    def _init_train_loader(self, df):
+    def _init_train_loader(self, df, num_workers=0):
         """Executes data preparation steps and initiates training procedure.
 
         Parameters
         ----------
             df : pd.DataFrame
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
+            num_workers : int
+                number of workers for data loading
 
         Returns
         -------
@@ -2282,29 +2505,37 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
         )
 
-        df = self._normalize(df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         # if not self.fitted:
         if self.config_trend.changepoints is not None:
             # scale user-specified changepoint times
             df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
-            self.config_trend.changepoints = self._normalize(df_aux)["t"].values
+            self.config_trend.changepoints = _normalize(df=df_aux, config_normalization=self.config_normalization)["t"].values  # type: ignore # types are numpy.ArrayLike and list
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
         # df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
         df_merged = df_utils.merge_dataframes(df)
-        self.config_season = utils.set_auto_seasonalities(df_merged, config_season=self.config_season)
+        self.config_seasonality = utils.set_auto_seasonalities(df_merged, config_seasonality=self.config_seasonality)
         if self.config_country_holidays is not None:
             self.config_country_holidays.init_holidays(df_merged)
 
-        dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
+        dataset = _create_dataset(
+            self, df, predict_mode=False, prediction_frequency=self.prediction_frequency
+        )  # needs to be called after set_auto_seasonalities
 
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
-        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
+        loader = DataLoader(
+            dataset,
+            batch_size=self.config_train.batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+        )
 
         return loader
 
@@ -2321,12 +2552,21 @@ class NeuralProphet:
             torch DataLoader
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df = self._normalize(df)
-        dataset = self._create_dataset(df, predict_mode=False)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
+        dataset = _create_dataset(self, df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _train(self, df, df_val=None, minimal=False, continue_training=False):
+    def _train(
+        self,
+        df: pd.DataFrame,
+        df_val: Optional[pd.DataFrame] = None,
+        progress_bar_enabled: bool = True,
+        metrics_enabled: bool = False,
+        checkpointing_enabled: bool = False,
+        continue_training=False,
+        num_workers=0,
+    ):
         """
         Execute model training procedure for a configured number of epochs.
 
@@ -2336,10 +2576,16 @@ class NeuralProphet:
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             df_val : pd.DataFrame
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with validation data
-            minimal : bool
-                whether to train without any printouts or metrics collection
+            progress_bar_enabled : bool
+                whether to show a progress bar during training
+            metrics_enabled : bool
+                whether to collect metrics during training
+            checkpointing_enabled : bool
+                whether to save checkpoints during training
             continue_training : bool
                 whether to continue training from the last checkpoint
+            num_workers : int
+                number of workers for data loading
 
         Returns
         -------
@@ -2348,45 +2594,43 @@ class NeuralProphet:
         """
         # Set up data the training dataloader
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        train_loader = self._init_train_loader(df)
+        train_loader = self._init_train_loader(df, num_workers)
+        dataset_size = len(df)  # train_loader.dataset
 
-        # Set up data the validation dataloader
-        if df_val is not None:
-            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
-            val_loader = self._init_val_loader(df_val)
-
-        # TODO: check how to handle this with Lightning (the rest moved to utils.configure_denormalization)
-        # Set up Metrics
-        # if self.highlight_forecast_step_n is not None:
-        #     self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
+        # Internal flag to check if validation is enabled
+        validation_enabled = df_val is not None
 
         # Init the model, if not continue from checkpoint
         if continue_training:
-            # Increase the number of epochs if continue training
-            self.config_train.epochs += self.config_train.epochs
-        #     self.model = time_net.TimeNet.load_from_checkpoint(
-        #         self.metrics_logger.checkpoint_path, config_train=self.config_train
-        #     )
-        #     pass
+            raise NotImplementedError(
+                "Continuing training from checkpoint is not implemented yet. This feature is planned for one of the upcoming releases."
+            )
         else:
             self.model = self._init_model()
 
         # Init the Trainer
-        self.trainer = utils.configure_trainer(
+        self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
-            early_stopping_target="Loss_val" if df_val is not None else "Loss",
-            minimal=minimal,
+            early_stopping=self.early_stopping,
+            early_stopping_target="Loss_val" if validation_enabled else "Loss",
+            accelerator=self.accelerator,
+            progress_bar_enabled=progress_bar_enabled,
+            metrics_enabled=metrics_enabled,
+            checkpointing_enabled=checkpointing_enabled,
             num_batches_per_epoch=len(train_loader),
         )
 
-        # Set parameters for the learning rate finder
-        self.config_train.set_lr_finder_args(dataset_size=len(train_loader.dataset), num_batches=len(train_loader))
-
         # Tune hyperparams and train
-        if df_val is not None:
+        if validation_enabled:
+            # Set up data the validation dataloader
+            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+            val_loader = self._init_val_loader(df_val)
+
             if not continue_training and not self.config_train.learning_rate:
+                # Set parameters for the learning rate finder
+                self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
@@ -2395,6 +2639,7 @@ class NeuralProphet:
                     **self.config_train.lr_finder_args,
                 )
                 # Estimate the optimat learning rate from the loss curve
+                assert lr_finder is not None
                 _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
                 self.model.learning_rate = lr_suggestion
             start = time.time()
@@ -2406,12 +2651,15 @@ class NeuralProphet:
             )
         else:
             if not continue_training and not self.config_train.learning_rate:
+                # Set parameters for the learning rate finder
+                self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
                     train_dataloaders=train_loader,
                     **self.config_train.lr_finder_args,
                 )
+                assert lr_finder is not None
                 # Estimate the optimat learning rate from the loss curve
                 _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
                 self.model.learning_rate = lr_suggestion
@@ -2424,23 +2672,33 @@ class NeuralProphet:
 
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
 
-        if minimal:
+        # Load best model from training
+        if checkpoint_callback is not None:
+            if checkpoint_callback.best_model_score < checkpoint_callback.current_score:
+                log.info(
+                    f"Loading best model with score {checkpoint_callback.best_model_score} from checkpoint (latest score is {checkpoint_callback.current_score})"
+                )
+                self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_callback.best_model_path)
+
+        if not metrics_enabled:
             return None
-        else:
-            # Return metrics collected in logger as dataframe
-            metrics_df = pd.DataFrame(self.metrics_logger.history)
-            return metrics_df
+
+        # Return metrics collected in logger as dataframe
+        metrics_df = pd.DataFrame(self.metrics_logger.history)
+        return metrics_df
 
     def restore_trainer(self):
         """
         Restore the trainer based on the forecaster configuration.
         """
-        self.trainer = utils.configure_trainer(
+        self.trainer, _ = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
+            early_stopping=self.early_stopping,
+            accelerator=self.accelerator,
+            metrics_enabled=bool(self.metrics),
         )
-        self.metrics = metrics.get_metrics(self.collect_metrics)
 
     def _eval_true_ar(self):
         assert self.max_lags > 0
@@ -2450,189 +2708,13 @@ class NeuralProphet:
             forecast_pos = 1
         else:
             forecast_pos = self.highlight_forecast_step_n
-        weights = self.model.ar_weights.detach().numpy()
+        weights = self.model.ar_weights.detach().numpy()  # type: ignore
         weights = weights[forecast_pos - 1, :][::-1]
         sTPE = utils.symmetric_total_percentage_error(self.true_ar_weights, weights)
         log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
         return sTPE
 
-    def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
-        # Receives df with single ID column
-        assert len(df["ID"].unique()) == 1
-        if periods == 0 and n_historic_predictions is True:
-            log.warning(
-                "Not extending df into future as no periods specified." "You can call predict directly instead."
-            )
-        df = df.copy(deep=True)
-        _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
-        last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
-        if events_df is not None:
-            events_df = events_df.copy(deep=True).reset_index(drop=True)
-        if regressors_df is not None:
-            regressors_df = regressors_df.copy(deep=True).reset_index(drop=True)
-        if periods is None:
-            periods = 1 if self.max_lags == 0 else self.n_forecasts
-        else:
-            assert periods >= 0
-
-        if isinstance(n_historic_predictions, bool):
-            if n_historic_predictions:
-                n_historic_predictions = len(df) - self.max_lags
-            else:
-                n_historic_predictions = 0
-        elif not isinstance(n_historic_predictions, int):
-            log.error("non-integer value for n_historic_predictions set to zero.")
-            n_historic_predictions = 0
-
-        if periods == 0 and n_historic_predictions == 0:
-            raise ValueError("Set either history or future to contain more than zero values.")
-
-        # check for external regressors known in future
-        if self.config_regressors is not None and periods > 0:
-            if regressors_df is None:
-                raise ValueError("Future values of all user specified regressors not provided")
-            else:
-                for regressor in self.config_regressors.keys():
-                    if regressor not in regressors_df.columns:
-                        raise ValueError(f"Future values of user specified regressor {regressor} not provided")
-
-        if len(df) < self.max_lags:
-            raise ValueError(
-                "Insufficient input data for a prediction."
-                "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
-            )
-        elif len(df) < self.max_lags + n_historic_predictions:
-            log.warning(
-                f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
-            )
-            n_historic_predictions = len(df) - self.max_lags
-        if (n_historic_predictions + self.max_lags) == 0:
-            df = pd.DataFrame(columns=df.columns)
-        else:
-            df = df[-(self.max_lags + n_historic_predictions) :]
-            nan_at_end = 0
-            while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
-                nan_at_end += 1
-            if nan_at_end > 0:
-                if self.max_lags > 0 and (nan_at_end + 1) >= self.max_lags:
-                    raise ValueError(
-                        f"{nan_at_end + 1} missing values were detected at the end of df before df was extended into the future. "
-                        "Please make sure there are no NaN values at the end of df."
-                    )
-                df["y"].iloc[-(nan_at_end + 1) :].ffill(inplace=True)
-                log.warning(
-                    f"{nan_at_end + 1} missing values were forward-filled at the end of df before df was extended into the future. "
-                    "Please make sure there are no NaN values at the end of df."
-                )
-
-        if len(df) > 0:
-            if len(df.columns) == 1 and "ds" in df:
-                assert self.max_lags == 0
-                df = self._check_dataframe(df, check_y=False, exogenous=False)
-            else:
-                df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
-        # future data
-        # check for external events known in future
-        if self.config_events is not None and periods > 0 and events_df is None:
-            log.warning(
-                "Future values not supplied for user specified events. "
-                "All events being treated as not occurring in future"
-            )
-
-        if self.max_lags > 0:
-            if periods > 0 and periods != self.n_forecasts:
-                periods = self.n_forecasts
-                log.warning(f"Number of forecast steps is defined by n_forecasts. Adjusted to {self.n_forecasts}.")
-
-        if periods > 0:
-            future_df = df_utils.make_future_df(
-                df_columns=df.columns,
-                last_date=last_date,
-                periods=periods,
-                freq=self.data_freq,
-                config_events=self.config_events,
-                events_df=events_df,
-                config_regressors=self.config_regressors,
-                regressors_df=regressors_df,
-            )
-            if len(df) > 0:
-                df = pd.concat([df, future_df])
-            else:
-                df = future_df
-        df = df.reset_index(drop=True)
-        self.predict_steps = periods
-        return df
-
-    def _get_maybe_extend_periods(self, df):
-        # Receives df with single ID column
-        assert len(df["ID"].unique()) == 1
-        periods_add = 0
-        nan_at_end = 0
-        while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
-            nan_at_end += 1
-        if self.max_lags > 0:
-            if self.config_regressors is None:
-                # if dataframe has already been extended into future,
-                # don't extend beyond n_forecasts.
-                periods_add = max(0, self.n_forecasts - nan_at_end)
-            else:
-                # can not extend as we lack future regressor values.
-                periods_add = 0
-        return periods_add
-
-    def _maybe_extend_df(self, df):
-        # Receives df with ID column
-        periods_add = {}
-        extended_df = pd.DataFrame()
-        for df_name, df_i in df.groupby("ID"):
-            _ = df_utils.infer_frequency(df_i, n_lags=self.max_lags, freq=self.data_freq)
-            # to get all forecasteable values with df given, maybe extend into future:
-            periods_add[df_name] = self._get_maybe_extend_periods(df_i)
-            if periods_add[df_name] > 0:
-                # This does not include future regressors or events.
-                # periods should be 0 if those are configured.
-                last_date = pd.to_datetime(df_i["ds"].copy(deep=True)).sort_values().max()
-                future_df = df_utils.make_future_df(
-                    df_columns=df_i.columns,
-                    last_date=last_date,
-                    periods=periods_add[df_name],
-                    freq=self.data_freq,
-                )
-                future_df["ID"] = df_name
-                df_i = pd.concat([df_i, future_df])
-                df_i.reset_index(drop=True, inplace=True)
-            extended_df = pd.concat((extended_df, df_i.copy(deep=True)), ignore_index=True)
-        return extended_df, periods_add
-
-    def _prepare_dataframe_to_predict(self, df):
-        # Receives df with ID column
-        df_prepared = pd.DataFrame()
-        for df_name, df_i in df.groupby("ID"):
-            df_i = df_i.copy(deep=True)
-            _ = df_utils.infer_frequency(df_i, n_lags=self.max_lags, freq=self.data_freq)
-            # check if received pre-processed df
-            if "y_scaled" in df_i.columns or "t" in df_i.columns:
-                raise ValueError(
-                    "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
-                )
-            # Checks
-            if len(df_i) == 0 or len(df_i) < self.max_lags:
-                raise ValueError(
-                    "Insufficient input data for a prediction."
-                    "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
-                )
-            if len(df_i.columns) == 1 and "ds" in df_i:
-                if self.max_lags != 0:
-                    raise ValueError("only datestamps provided but y values needed for auto-regression.")
-                df_i = self._check_dataframe(df_i, check_y=False, exogenous=False)
-            else:
-                df_i = self._check_dataframe(df_i, check_y=self.max_lags > 0, exogenous=False)
-                # fill in missing nans except for nans at end
-                df_i = self._handle_missing_data(df_i, freq=self.data_freq, predicting=True)
-            df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
-        return df_prepared
-
-    def _predict_raw(self, df, df_name, include_components=False):
+    def _predict_raw(self, df, df_name, include_components=False, prediction_frequency=None):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -2646,6 +2728,20 @@ class NeuralProphet:
                 name of the data params from which the current dataframe refers to (only in case of local_normalization)
             include_components : bool
                 whether to return individual components of forecast
+        prediction_frequency: dict
+            periodic interval in which forecasts should be made.
+            Key: str
+                periodicity of the predictions to be made, e.g. 'daily-hour'.
+
+            Options
+                * ``'hourly-minute'``: forecast once per hour at a specified minute
+                * ``'daily-hour'``: forecast once per day at a specified hour
+                * ``'weekly-day'``: forecast once per week at a specified day
+                * ``'monthly-day'``: forecast once per month at a specified day
+                * ``'yearly-month'``: forecast once per year at a specified month
+
+            value: int
+                forecast origin of the predictions to be made, e.g. 7 for 7am in case of 'daily-hour'.
 
         Returns
         -------
@@ -2660,7 +2756,7 @@ class NeuralProphet:
         assert len(df["ID"].unique()) == 1
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
-        dataset = self._create_dataset(df, predict_mode=True)
+        dataset = _create_dataset(self, df, predict_mode=True, prediction_frequency=prediction_frequency)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
@@ -2668,7 +2764,9 @@ class NeuralProphet:
             dates = df["ds"].iloc[self.max_lags :]
 
         # Pass the include_components flag to the model
-        self.model.set_compute_components(include_components)
+        if include_components:
+            self.model.set_compute_components(include_components)
+            self.model.set_covar_weights(self.model.get_covar_weights())
         # Compute the predictions and components (if requested)
         result = self.trainer.predict(self.model, loader)
         # Extract the prediction and components
@@ -2687,7 +2785,7 @@ class NeuralProphet:
             for batch in component_vectors:
                 for key in component_keys:
                     components[key] = (
-                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]
+                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]  # type: ignore
                     )
             for name, value in components.items():
                 multiplicative = False  # Flag for multiplicative components
@@ -2706,7 +2804,7 @@ class NeuralProphet:
                             multiplicative = True
                     elif "multiplicative" in name:
                         multiplicative = True
-                elif "season" in name and self.config_season.mode == "multiplicative":
+                elif "season" in name and self.config_seasonality.mode == "multiplicative":
                     multiplicative = True
                 elif (
                     "future_regressor_" in name or "future_regressors_" in name
@@ -2725,132 +2823,123 @@ class NeuralProphet:
                         components[name] += shift_y
                 # scale multiplicative components
                 elif multiplicative:
-                    components[name] = value * trend * scale_y  # output absolute value of respective additive component
+                    components[name] = value * trend * scale_y  # type: ignore # output absolute value of respective additive component
 
         else:
             components = None
 
         return dates, predicted, components
 
-    def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
-        """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
-
-        Parameters
-        ----------
-            dates : pd.Series
-                timestamps referring to the start of the predictions.
-            predicted : np.array
-                Array containing the forecasts
-            components : dict[np.array]
-                Dictionary of components containing an array of each components' contribution to the forecast
-
-        Returns
-        -------
-            pd. DataFrame
-                columns ``ds``, ``y``, and [``step<i>``]
-
-                Note
-                ----
-                where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
-                e.g. the first forecast step0 is the prediction for this timestamp,
-                the step1 is for the timestamp after, ...
-                ... step3 is the prediction for 3 steps into the future,
-                predicted using information up to (excluding) this datetime.
-        """
-        all_data = predicted
-        df_raw = pd.DataFrame()
-        df_raw.insert(0, "ds", dates.values)
-        df_raw.insert(1, "ID", "__df__")
-        for forecast_lag in range(self.n_forecasts):
-            for quantile_idx in range(len(self.config_train.quantiles)):
-                # 0 is the median quantile index
-                if quantile_idx == 0:
-                    step_name = f"step{forecast_lag}"
-                else:
-                    step_name = f"step{forecast_lag} {self.config_train.quantiles[quantile_idx] * 100}%"
-                data = all_data[:, forecast_lag, quantile_idx]
-                ser = pd.Series(data=data, name=step_name)
-                df_raw = df_raw.merge(ser, left_index=True, right_index=True)
-            if components is not None:
-                for comp_name, comp_data in components.items():
-                    comp_name_ = f"{comp_name}{forecast_lag}"
-                    data = comp_data[:, forecast_lag, 0]  # for components the quantiles are ignored for now
-                    ser = pd.Series(data=data, name=comp_name_)
-                    df_raw = df_raw.merge(ser, left_index=True, right_index=True)
-        return df_raw
-
-    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
-        """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+    def conformal_predict(
+        self,
+        df: pd.DataFrame,
+        calibration_df: pd.DataFrame,
+        alpha: Union[float, Tuple[float, float]],
+        method: str = "naive",
+        plotting_backend: Optional[str] = None,
+        show_all_PI: bool = False,
+        **kwargs,
+    ) -> pd.DataFrame:
+        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
         ----------
             df : pd.DataFrame
-                input dataframe
-            predicted : np.array
-                Array containing the forecasts
-            components : dict[np.array]
-                Dictionary of components containing an array of each components' contribution to the forecast
+                test dataframe containing column ``ds``, ``y``, and optionally ``ID`` with data
+            calibration_df : pd.DataFrame
+                holdout calibration dataframe for split conformal prediction
+            alpha : float or tuple
+                user-specified significance level of the prediction interval, float if coverage error spread arbitrarily over
+                left and right tails, tuple of two floats for different coverage error over left and right tails respectively
+            method : str
+                name of conformal prediction technique used
+
+                Options
+                    * (default) ``naive``: Naive or Absolute Residual
+                    * ``cqr``: Conformalized Quantile Regression
+            plotting_backend : str
+                specifies the plotting backend for the nonconformity scores plot, if any
+
+                Options
+                    * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                    * ``plotly``: Use the plotly backend for plotting
+                    * ``matplotlib``: Use matplotlib backend for plotting
+                    * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
+            show_all_PI : bool
+                whether to return all prediction intervals (including quantile regression and conformal prediction)
+            kwargs : dict
+                additional predict parameters for test df
 
         Returns
         -------
-            pd.DataFrame
-                columns ``ds``, ``y``, ``trend`` and [``yhat<i>``]
-
-                Note
-                ----
-                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+            pd.DataFrame, Optional[pd.DataFrame]
+                test dataframe with the conformal prediction intervals and evaluation dataframe if evaluate set to True
         """
-        # Receives df with single ID column
-        assert len(df["ID"].unique()) == 1
-        cols = ["ds", "y", "ID"]  # cols to keep from df
-        df_forecast = pd.concat((df[cols],), axis=1)
-        # create a line for each forecast_lag
-        # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-        for j in range(len(self.config_train.quantiles)):
-            for forecast_lag in range(1, self.n_forecasts + 1):
-                forecast = predicted[:, forecast_lag - 1, j]
-                pad_before = self.max_lags + forecast_lag - 1
-                pad_after = self.n_forecasts - forecast_lag
-                yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
-                # 0 is the median quantile index
-                if j == 0:
-                    name = f"yhat{forecast_lag}"
-                else:
-                    name = f"yhat{forecast_lag} {round(self.config_train.quantiles[j] * 100, 1)}%"
-                df_forecast[name] = yhat
+        # get predictions for calibration dataframe
+        df_cal = self.predict(calibration_df)
+        # get predictions for test dataframe
+        df_test = self.predict(df, **kwargs)
 
-        if components is None:
-            return df_forecast
+        # initiate Conformal instance
+        c = Conformal(
+            alpha=alpha,
+            method=method,
+            n_forecasts=self.n_forecasts,
+            quantiles=self.config_train.quantiles,
+        )
 
-        # else add components
-        lagged_components = [
-            "ar",
-        ]
-        if self.config_lagged_regressors is not None:
-            for name in self.config_lagged_regressors.keys():
-                lagged_components.append(f"lagged_regressor_{name}")
-        for comp in lagged_components:
-            if comp in components:
-                for j in range(len(self.config_train.quantiles)):
-                    for forecast_lag in range(1, self.n_forecasts + 1):
-                        forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
-                        pad_before = self.max_lags + forecast_lag - 1
-                        pad_after = self.n_forecasts - forecast_lag
-                        yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
-                        if j == 0:  # temporary condition to add only the median component
-                            name = f"{comp}{forecast_lag}"
-                            df_forecast[name] = yhat
+        df_forecast = c.predict(df=df_test, df_cal=df_cal, show_all_PI=show_all_PI)
 
-        # only for non-lagged components
-        for comp in components:
-            if comp not in lagged_components:
-                for j in range(len(self.config_train.quantiles)):
-                    forecast_0 = components[comp][0, :, j]
-                    forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
-                    yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest))
-                    if j == 0:  # temporary condition to add only the median component
-                        # add yhat into dataframe, using df_forecast indexing
-                        yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
-                        df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
+        # plot one-sided prediction interval width with q
+        if plotting_backend:
+            c.plot(plotting_backend)
+
         return df_forecast
+
+    def conformal_plot(
+        self,
+        df: pd.DataFrame,
+        n_highlight: Optional[int] = 1,
+        plotting_backend: Optional[str] = None,
+    ):
+        """Plot conformal prediction intervals and quantile regression intervals.
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                conformal forecast dataframe when ``show_all_PI`` is set to True
+            n_highlight : Optional
+                i-th step ahead forecast to use for statistics and plotting.
+        """
+        if not any("+" in col for col in df.columns):
+            raise ValueError(
+                "Conformal prediction intervals not found. Please set `show_all_PI` to True when calling `conformal_predict`."
+            )
+
+        # quantile regression dataframe
+        cols = list(df.columns)
+        qr_cols = [col for col in df.columns if "%" in col and "qhat" not in col]
+        forecast_cols = cols[: self.n_forecasts + 2]
+        df_qr = df[forecast_cols + qr_cols]
+
+        fig = self.highlight_nth_step_ahead_of_each_forecast(n_highlight).plot(df_qr, plotting_backend="plotly")
+
+        # get conformal prediction intervals
+        cp_cols = [col for col in df.columns if f"qhat{n_highlight}" in col]
+
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+        if plotting_backend.startswith("plotly"):
+            return conformal_plot_plotly(
+                fig, df.loc[:, ["ds", cp_cols[0]]], df.loc[:, ["ds", cp_cols[1]]], plotting_backend
+            )
+        else:
+            log.warning(
+                DeprecationWarning(
+                    "Matplotlib plotting backend is deprecated and will be removed in a future release. Please use the plotly backend instead."
+                )
+            )

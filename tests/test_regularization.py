@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import logging
 import random
 
 import numpy as np
@@ -14,6 +15,10 @@ from tests.utils.dataset_generators import (
     generate_holiday_dataset,
     generate_lagged_regressor_dataset,
 )
+
+log = logging.getLogger("NP.test")
+log.setLevel("DEBUG")
+log.parent.setLevel("WARNING")
 
 # Fix random seeds
 torch.manual_seed(0)
@@ -36,6 +41,7 @@ Y_EVENTS_OVERRIDE = {
 
 
 def test_reg_func_abs():
+    log.info("testing: reg func abs")
     assert pytest.approx(1) == reg_func_abs(torch.Tensor([1]))
     assert pytest.approx(0) == reg_func_abs(torch.Tensor([0]))
     assert pytest.approx(1) == reg_func_abs(torch.Tensor([-1]))
@@ -49,8 +55,9 @@ def test_reg_func_abs():
 
 
 def test_regularization_holidays():
+    log.info("testing: regularization of holidays")
     df = generate_holiday_dataset(y_holidays_override=Y_HOLIDAYS_OVERRIDE)
-    df, _ = df_utils.check_dataframe(df, check_y=False)
+    df, _, _ = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
         epochs=20,
@@ -80,8 +87,9 @@ def test_regularization_holidays():
 
 
 def test_regularization_events():
+    log.info("testing: regularization of events")
     df, events = generate_event_dataset(y_events_override=Y_EVENTS_OVERRIDE)
-    df, _ = df_utils.check_dataframe(df, check_y=False)
+    df, _, _ = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
         epochs=50,
@@ -131,8 +139,9 @@ def test_regularization_lagged_regressor():
     have a weight close to 0, due to the regularization. All other model
     components are turned off to avoid side effects.
     """
+    log.info("testing: regularization lagged regressors")
     df, lagged_regressors = generate_lagged_regressor_dataset(periods=100)
-    df, _ = df_utils.check_dataframe(df, check_y=False)
+    df, _, _ = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
         epochs=30,
@@ -153,9 +162,9 @@ def test_regularization_lagged_regressor():
 
     lagged_regressors_config = dict(lagged_regressors)
 
+    weights = m.model.get_covar_weights()
     for name in m.config_lagged_regressors.keys():
-        weights = m.model.get_covar_weights(name).detach().numpy()
-        weight_average = np.average(weights)
+        weight_average = np.average(weights[name].detach().numpy())
 
         lagged_regressor_weight = lagged_regressors_config[name]
 
@@ -164,4 +173,9 @@ def test_regularization_lagged_regressor():
         else:
             assert weight_average < 0.35  # Note: this should be < 0.1, but due to fitting issues, relaxed temporarily.
 
-        print(name, weight_average, lagged_regressors_config[name])
+        log.info(
+            "Lagged regressor: %s, average weight: %f, expected weight: %f",
+            name,
+            weight_average,
+            lagged_regressors_config[name],
+        )

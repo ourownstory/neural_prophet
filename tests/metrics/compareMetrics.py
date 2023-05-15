@@ -27,11 +27,19 @@ for f in metrics_files:
 
     if main is not None:
         df = pd.merge(current, main, on=["Metric"], how="left")
+
+        # Adjust the runtime metrics
+        time = df.loc[df["Metric"] == "time"]
+        performance = df.loc[df["Metric"] == "system_performance"]
+        adjusted_performance = time["main"].values[0] / performance["main"].values[0] * performance["current"].values[0]
+        df.loc[df["Metric"] == "time", "main"] = adjusted_performance
+
         df["diff"] = ((df["main"] - df["current"]) / df["main"]) * 100 * -1
+
         df = df.round(5)
         df[" "] = np.select(
-            condlist=[(df["diff"] >= 3.0), (df["diff"] >= 7.0)],
-            choicelist=[":warning:", ":x:"],
+            condlist=[(df["diff"] >= 7.0), (df["diff"] >= 3.0), (df["diff"] <= -5.0)],
+            choicelist=[":x:", ":warning:", ":tada:"],
             default=":white_check_mark:",
         )
         df["diff"] = df["diff"].fillna(0)
@@ -44,6 +52,8 @@ for f in metrics_files:
         df[" "] = ""
         df = df.round(4)
 
+    # Remove unused metrics
+    df = df[~df["Metric"].isin(["epoch", "RegLoss", "RegLoss_val", "system_performance", "system_std"])]
     df["Benchmark"] = f.split(".")[0]
     df = df[["Benchmark", "Metric", "main", "current", "diff", " "]]
     all_metrics = pd.concat([all_metrics, df])

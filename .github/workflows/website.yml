@@ -30,13 +30,17 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v2
       - name: Setup Pandoc
-        uses: r-lib/actions/setup-pandoc@v1
+        uses: r-lib/actions/setup-pandoc@v2
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Setup Poetry
+        uses: snok/install-poetry@v1
       - name: Setup Requirements
-        run: |
-          pip install --upgrade -r requirements/base.txt # install all requirements, otherwise the code docs don't build
-          pip install --upgrade -r requirements/docs.txt
+        run: poetry install --with=docs
       - name: Build with Sphinx
-        run: sphinx-build docs/source _site
+        run: poetry run sphinx-build docs/source _site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
 

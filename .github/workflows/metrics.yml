@@ -10,6 +10,7 @@ on:
     branches:
       - main
       - develop
+  workflow_dispatch:
 jobs:
   metrics:
     runs-on: ubuntu-latest
@@ -44,6 +45,7 @@ jobs:
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          echo "<details>\n<summary>Model training plots</summary>\n" >> report.md
           echo "## Model Training" >> report.md
           echo "### PeytonManning" >> report.md
           cml asset publish tests/metrics/PeytonManning.svg --md >> report.md
@@ -51,6 +53,7 @@ jobs:
           cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
           echo "### AirPassengers" >> report.md
           cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
+          echo "\n</details>" >> report.md
           # Post reports as comments in GitHub PRs
           cml comment update --pr report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
