@@ -11,7 +11,7 @@ log = logging.getLogger("NP.plotly")
 try:
     import plotly.graph_objs as go
     from plotly.subplots import make_subplots
-    from plotly_resampler import register_plotly_resampler
+    from plotly_resampler import register_plotly_resampler, unregister_plotly_resampler
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
@@ -63,7 +63,6 @@ def get_dynamic_axis_range(df_range, type, pad=0.05, inverse=False):
         range_min = min(df_range) + (min(df_range) - delta)
         range_max = max(df_range) + (delta - min(df_range))
     elif type == "numeric":
-
         range_min = min(df_range) - delta
         range_max = max(df_range) + delta
     else:
@@ -107,10 +106,10 @@ def plot_trend_change(m, quantile, plot_name="Trend Change", df_name="__df__"):
     # Global/Local Mode
     if m.model.config_trend.trend_global_local == "local":
         quantile_index = m.model.quantiles.index(quantile)
-        weights = m.model.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
+        weights = m.model.trend.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
     else:
         quantile_index = m.model.quantiles.index(quantile)
-        weights = m.model.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
+        weights = m.model.trend.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
     # add end-point to force scale to match trend plot
     cp_t = np.append(cp_t, start + scale)
     weights = np.append(weights, [0.0])
@@ -173,14 +172,14 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
         quantile_index = m.model.quantiles.index(quantile)
 
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-        trend_0 = m.model.bias[quantile_index].detach().numpy().squeeze().reshape(1)
+        trend_0 = m.model.trend.bias[quantile_index].detach().numpy().squeeze().reshape(1)
         if m.config_trend.growth == "off":
             trend_1 = trend_0
         else:
             if m.model.config_trend.trend_global_local == "local":
-                trend_1 = trend_0 + m.model.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
+                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
             else:
-                trend_1 = trend_0 + m.model.trend_k0[quantile_index, 0].detach().numpy()
+                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, 0].detach().numpy()
 
         data_params = m.config_normalization.get_data_params(df_name)
         shift = data_params["y"].shift
@@ -817,6 +816,8 @@ def plot_parameters(
     figsize=(700, 210),
     df_name=None,
     forecast_in_focus=None,
+    resampler_active=False,
+    plotly_static=False,
 ):
     """Plot the parameters that the model is composed of, visually.
 
@@ -858,10 +859,18 @@ def plot_parameters(
             Note
             ----
             None (default): plot self.highlight_forecast_step_n by default
+        resampler_active : bool
+            Flag whether to activate the plotly-resampler
+        plotly_static: bool
+            Flag whether to generate a static svg image
 
     Returns:
         Plotly figure
     """
+    if resampler_active:
+        register_plotly_resampler(mode="auto")
+    else:
+        unregister_plotly_resampler()
     compnents_to_plot = plot_configuration["components_list"]
     additive_future_regressors = plot_configuration["additive_future_regressors"]
     additive_events = plot_configuration["additive_events"]
@@ -949,5 +958,5 @@ def plot_parameters(
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
             fig.add_trace(trace, row=i + 1, col=1)  # adapt var name to plotly-resampler
-
+        unregister_plotly_resampler()
     return fig

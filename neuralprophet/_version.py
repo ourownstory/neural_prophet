@@ -1,1 +1,3 @@
-__version__ = "0.5.1"
+from importlib import metadata
+
+__version__ = metadata.version("neuralprophet")

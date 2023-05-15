@@ -21,8 +21,7 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
-    num_hidden_layers: int
-    d_hidden: Optional[int]
+    lagged_reg_layers: Optional[List[int]]
 
 
 @dataclass
@@ -345,6 +344,7 @@ class ConfigSeasonality:
 class AR:
     n_lags: int
     ar_reg: Optional[float] = None
+    ar_layers: Optional[List[int]] = None
 
     def __post_init__(self):
         if self.ar_reg is not None and self.ar_reg > 0:
@@ -383,6 +383,7 @@ class LaggedRegressor:
     as_scalar: bool
     normalize: Union[bool, str]
     n_lags: int
+    lagged_reg_layers: Optional[List[int]]
 
     def __post_init__(self):
         if self.reg_lambda is not None:
@@ -396,7 +397,7 @@ ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
 @dataclass
 class Regressor:
     reg_lambda: Optional[float]
-    normalize: str
+    normalize: Union[str, bool]
     mode: str
 
 
@@ -416,7 +417,7 @@ ConfigEvents = OrderedDictType[str, Event]
 
 @dataclass
 class Holidays:
-    country: str
+    country: Union[str, List[str]]
     lower_window: int
     upper_window: int
     mode: str = "additive"

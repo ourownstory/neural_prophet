@@ -4,9 +4,30 @@ import logging
 import numpy as np
 import pytorch_lightning as pl
 import torch
+import torch.nn as nn
 from captum.attr import Saliency
 
 log = logging.getLogger("NP.utils_torch")
+
+
+def init_parameter(dims):
+    """
+    Create and initialize a new torch Parameter.
+
+    Parameters
+    ----------
+        dims : list or tuple
+            Desired dimensions of parameter
+
+    Returns
+    -------
+        nn.Parameter
+            initialized Parameter
+    """
+    if len(dims) > 1:
+        return nn.Parameter(nn.init.xavier_normal_(torch.randn(dims)), requires_grad=True)
+    else:
+        return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
 
 
 def penalize_nonzero(weights, eagerness=1.0, acceptance=1.0):
@@ -53,7 +74,7 @@ def create_optimizer_from_config(optimizer_name, optimizer_args):
     return optimizer, optimizer_args
 
 
-def interprete_model(target_model: pl.LightningModule, net: str, forward_func: str):
+def interprete_model(target_model: pl.LightningModule, net: str, forward_func: str, _input: torch.Tensor = None):
     """
     Returns model input attributions for a given network and forward function.
 
@@ -67,6 +88,9 @@ def interprete_model(target_model: pl.LightningModule, net: str, forward_func: s
 
         forward_func : str
             Name of the forward function for which input attributions are to be computed.
+
+        _input : torch.Tensor
+            Input for which the attributions are to be computed.
 
     Returns
     -------
@@ -86,7 +110,7 @@ def interprete_model(target_model: pl.LightningModule, net: str, forward_func: s
     num_out_features_without_quantiles = int(num_out_features / num_quantiles)
 
     # Create a tensor of ones as model input
-    model_input = torch.ones(1, num_in_features, requires_grad=True)
+    model_input = torch.ones(1, num_in_features, requires_grad=True) if _input is None else _input
 
     # Iterate through each output feature and compute the model attribution wrt. the input
     attributions = torch.empty((0, num_in_features))

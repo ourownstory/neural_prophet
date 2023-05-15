@@ -85,7 +85,7 @@ def plot_parameters(
     >>> metrics = m.fit(df, freq="D")
     >>> future = m.make_future_dataframe(df=df, periods=365)
     >>> forecast = m.predict(df=future)
-    >>> fig_param = m.plot_parameters()
+    >>> m.plot_parameters()
 
     """
     components_to_plot = plot_configuration["components_list"]
@@ -137,7 +137,7 @@ def plot_parameters(
                 multiplicative_axes.append(ax)
                 weights = multiplicative_events
             plot_scalar_weights(weights=weights, plot_name=comp["plot_name"], focus=forecast_in_focus, ax=ax)
-    fig.tight_layout()
+    fig = fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
@@ -196,10 +196,10 @@ def plot_trend_change(m, quantile, ax=None, plot_name="Trend Change", figsize=(1
     # Global/Local Mode
     if m.model.config_trend.trend_global_local == "local":
         quantile_index = m.model.quantiles.index(quantile)
-        weights = m.model.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
+        weights = m.model.trend.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
     else:
         quantile_index = m.model.quantiles.index(quantile)
-        weights = m.model.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
+        weights = m.model.trend.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
     # add end-point to force scale to match trend plot
     cp_t.append(start + scale)
     weights = np.append(weights, [0.0])
@@ -260,14 +260,14 @@ def plot_trend(m, quantile, ax=None, plot_name="Trend", figsize=(10, 6), df_name
         quantile_index = m.model.quantiles.index(quantile)
 
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-        trend_0 = m.model.bias[quantile_index].detach().numpy().squeeze()
+        trend_0 = m.model.trend.bias[quantile_index].detach().numpy().squeeze()
         if m.config_trend.growth == "off":
             trend_1 = trend_0
         else:
             if m.model.config_trend.trend_global_local == "local":
-                trend_1 = trend_0 + m.model.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
+                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
             else:
-                trend_1 = trend_0 + m.model.trend_k0[quantile_index, 0].detach().numpy()
+                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, 0].detach().numpy()
 
         data_params = m.config_normalization.get_data_params(df_name)
         shift = data_params["y"].shift

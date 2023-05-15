@@ -27,9 +27,10 @@ PLOT = False
 
 # plot tests cover both plotting backends
 decorator_input = ["plotting_backend", [("matplotlib"), ("plotly")]]
+decorator_input_extended = ["plotting_backend", [("matplotlib"), ("plotly"), ("plotly-static"), ("plotly-resampler")]]
 
 
-@pytest.mark.parametrize(*decorator_input)
+@pytest.mark.parametrize(*decorator_input_extended)
 def test_plot(plotting_backend):
     log.info(f"testing: Basic plotting with forecast in focus with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -39,6 +40,8 @@ def test_plot(plotting_backend):
         learning_rate=LR,
         n_forecasts=7,
         n_lags=14,
+        yearly_seasonality=True,
+        weekly_seasonality=True,
     )
     metrics_df = m.fit(df, freq="D")
 
@@ -606,6 +609,67 @@ def test_plot_conformal_prediction(plotting_backend):
             fig5.show()
 
 
+def test_advanced_conformal_prediction_plots():
+    log.info("testing: Plotting with quantile regression and conformal prediction intervals")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=7,
+        quantiles=[0.05, 0.95],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    train_df, test_df = m.split_df(df, freq="D", valid_p=0.2)
+    train_df, cal_df = m.split_df(train_df, freq="D", valid_p=0.15)
+    metrics_df = m.fit(train_df, freq="D")
+    alpha = 0.1
+    plotting_backend = "plotly"
+    for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
+        future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
+        forecast = m.conformal_predict(
+            future,
+            calibration_df=cal_df,
+            alpha=alpha,
+            method=method,
+            plotting_backend=plotting_backend,
+            show_all_PI=True,
+        )
+        fig0 = m.conformal_plot(forecast)
+        if PLOT:
+            fig0.show()
+
+
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_conformal_prediction_asymmetric(plotting_backend):
+    log.info(f"testing: Plotting with asymmetric conformal prediction with {plotting_backend}")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Without auto-regression enabled
+    m = NeuralProphet(
+        n_forecasts=7,
+        quantiles=[0.05, 0.95],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    train_df, test_df = m.split_df(df, freq="D", valid_p=0.2)
+    train_df, cal_df = m.split_df(train_df, freq="D", valid_p=0.15)
+    metrics_df = m.fit(train_df, freq="D")
+    alpha = (0.03, 0.07)
+    method = "cqr"
+    future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
+    forecast = m.conformal_predict(
+        future, calibration_df=cal_df, alpha=alpha, method=method, plotting_backend=plotting_backend
+    )
+    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+    fig0 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot_parameters(plotting_backend=plotting_backend)
+    if PLOT:
+        fig0.show()
+        fig1.show()
+        fig2.show()
+
+
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_latest_forecast(plotting_backend):
     log.info(f"testing: Plotting of latest forecast with {plotting_backend}")
@@ -632,3 +696,54 @@ def test_plot_latest_forecast(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+
+
+def test_plotting_backend_options():
+    log.info("testing: Plotting backend options")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=7,
+        n_lags=14,
+    )
+    m.fit(df, freq="D")
+
+    log.info("testing: Basic plotting without forecast in focus")
+    m.highlight_nth_step_ahead_of_each_forecast(None)
+    future = m.make_future_dataframe(df, n_historic_predictions=10)
+    forecast = m.predict(future)
+    fig1 = m.plot(forecast)
+    fig2 = m.plot_latest_forecast(forecast)
+    fig3 = m.plot_components(forecast)
+    fig4 = m.plot_parameters()
+
+    fig5 = m.plot(forecast, plotting_backend="plotly-resampler")
+    fig6 = m.plot_latest_forecast(forecast, plotting_backend="plotly-resampler")
+    fig7 = m.plot_components(forecast, plotting_backend="plotly-resampler")
+    fig8 = m.plot_parameters(plotting_backend="plotly-resampler")
+    log.info("testing: Basic plotting with forecast in focus with")
+    m.set_plotting_backend("plotly-resampler")
+    m.highlight_nth_step_ahead_of_each_forecast(7)
+    future = m.make_future_dataframe(df, n_historic_predictions=10)
+    forecast = m.predict(future)
+    fig9 = m.plot(forecast)
+    fig10 = m.plot_latest_forecast(forecast)
+    fig11 = m.plot_components(forecast)
+    fig12 = m.plot_parameters()
+
+    # only show plots in interactive mode. gh actions are non-interactive
+    if PLOT:
+        fig1.show()
+        fig2.show()
+        fig3.show()
+        fig4.show()
+        fig5.show()
+        fig6.show()
+        fig7.show()
+        fig8.show()
+        fig9.show()
+        fig10.show()
+        fig11.show()
+        fig12.show()
