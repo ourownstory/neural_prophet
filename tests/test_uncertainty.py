@@ -98,7 +98,7 @@ def test_uncertainty_estimation_peyton_manning():
         periods=periods,
         n_historic_predictions=360,
     )
-    forecast = m.predict(df=future_df)
+    m.predict(df=future_df)
 
 
 def test_uncertainty_estimation_yosemite_temps():
@@ -113,9 +113,9 @@ def test_uncertainty_estimation_yosemite_temps():
         learning_rate=LR,
     )
 
-    metrics_df = m.fit(df, freq="5min")
+    m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
-    forecast = m.predict(future)
+    m.predict(future)
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
 
 
@@ -130,9 +130,9 @@ def test_uncertainty_estimation_air_travel():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    metrics_df = m.fit(df, freq="MS")
+    m.fit(df, freq="MS")
     future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
-    forecast = m.predict(future)
+    m.predict(future)
 
 
 def test_uncertainty_estimation_multiple_quantiles():
@@ -153,9 +153,9 @@ def test_uncertainty_estimation_multiple_quantiles():
             batch_size=BATCH_SIZE,
             learning_rate=LR,
         )
-        metrics_df = m.fit(df, freq="MS")
+        m.fit(df, freq="MS")
         future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
-        forecast = m.predict(future)
+        m.predict(future)
 
 
 def test_split_conformal_prediction():
@@ -172,7 +172,7 @@ def test_split_conformal_prediction():
 
     train_df, test_df = m.split_df(df, freq="MS", valid_p=0.2)
     train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
-    metrics_df = m.fit(train_df, freq="MS")
+    m.fit(train_df, freq="MS")
 
     alpha = 0.1
     decompose = False
@@ -191,7 +191,7 @@ def test_split_conformal_prediction():
                 decompose=decompose,
                 show_all_PI=show_all_PI,
             )
-            eval_df = uncertainty_evaluate(forecast)
+            uncertainty_evaluate(forecast)
 
 
 def test_asymmetrical_quantiles():
@@ -210,7 +210,7 @@ def test_asymmetrical_quantiles():
 
     train_df, test_df = m.split_df(df, freq="MS", valid_p=0.2)
     train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
-    metrics_df = m.fit(train_df, freq="MS")
+    m.fit(train_df, freq="MS")
 
     alpha = (0.03, 0.07)
     decompose = False
@@ -240,4 +240,4 @@ def test_asymmetrical_quantiles():
         method=method,
         decompose=decompose,
     )
-    eval_df = uncertainty_evaluate(forecast)
+    uncertainty_evaluate(forecast)

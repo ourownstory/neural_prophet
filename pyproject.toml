@@ -113,3 +113,4 @@ include = [
 
 [tool.ruff]
 line-length = 120
+typing-modules = ["neuralprophet.np_types"]

@@ -43,7 +43,7 @@ def test_plot(plotting_backend):
         yearly_seasonality=True,
         weekly_seasonality=True,
     )
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
 
     m.highlight_nth_step_ahead_of_each_forecast(7)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
@@ -85,7 +85,7 @@ def test_plot_components(plotting_backend):
         n_forecasts=7,
         n_lags=14,
     )
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
 
     m.highlight_nth_step_ahead_of_each_forecast(7)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
@@ -127,18 +127,18 @@ def test_plot_parameters(plotting_backend):
         n_forecasts=7,
         n_lags=14,
     )
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
 
     m.highlight_nth_step_ahead_of_each_forecast(7)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
-    forecast = m.predict(future)
+    m.predict(future)
 
     fig1 = m.plot_parameters(plotting_backend=plotting_backend)
 
     log.info(f"testing: Plotting parameters without forecast in focus with {plotting_backend}")
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
-    forecast = m.predict(future)
+    m.predict(future)
     fig2 = m.plot_parameters(plotting_backend=plotting_backend)
 
     # select components manually
@@ -199,7 +199,7 @@ def test_plot_global_local_parameters(plotting_backend):
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    metrics_df = m.fit(df_global, freq="D")
+    m.fit(df_global, freq="D")
     future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
 
@@ -278,7 +278,7 @@ def test_plot_events(plotting_backend):
     m.add_country_holidays("Pakistan")
     m.add_country_holidays("Belarus")
     history_df = m.create_df_with_events(df, events_df)
-    metrics_df = m.fit(history_df, freq="D")
+    m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
     forecast = m.predict(df=future)
     log.debug(f"Event Parameters:: {m.model.event_params}")
@@ -305,7 +305,7 @@ def test_plot_trend(plotting_backend):
         yearly_seasonality=2,
         seasonality_mode="multiplicative",
     )
-    metrics = m.fit(df, freq="MS")
+    m.fit(df, freq="MS")
     future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
     forecast = m.predict(future)
     fig1 = m.plot(forecast, plotting_backend=plotting_backend)
@@ -332,7 +332,7 @@ def test_plot_seasonality(plotting_backend):
         seasonality_mode="additive",
         seasonality_reg=1,
     )
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
 
@@ -353,7 +353,7 @@ def test_plot_seasonality(plotting_backend):
         seasonality_reg=1,
     )
     m = m.add_seasonality(name="quarterly", period=90, fourier_order=5)
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
 
@@ -375,7 +375,7 @@ def test_plot_seasonality(plotting_backend):
     bdays = pd.bdate_range(start=df["ds"].min(), end=df["ds"].max())
     # Filter the series to just those days contained in the business day range.
     df = df[df["ds"].isin(bdays)]
-    metrics_df = m.fit(df, freq="B")
+    m.fit(df, freq="B")
     forecast = m.predict(df)
     fig5 = m.plot_components(forecast, plotting_backend=plotting_backend)
     fig6 = m.plot_parameters(plotting_backend=plotting_backend)
@@ -404,7 +404,7 @@ def test_plot_daily_seasonality(plotting_backend):
         daily_seasonality=10,
     )
 
-    metrics = m.fit(df, freq="5min")
+    m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=60 // 5 * 24 * 7, n_historic_predictions=True)
     forecast = m.predict(future)
 
@@ -435,7 +435,7 @@ def test_plot_lag_reg(plotting_backend):
     df["B"] = df["y"].rolling(30, min_periods=1).mean()
     m = m.add_lagged_regressor(names="A")
     m = m.add_lagged_regressor(names="B")
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
 
@@ -470,7 +470,7 @@ def test_plot_future_reg(plotting_backend):
     df = df[:-50]
     m = m.add_future_regressor(name="A")
     m = m.add_future_regressor(name="B", mode="multiplicative")
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
     future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
     forecast = m.predict(df=future)
 
@@ -490,7 +490,7 @@ def test_plot_uncertainty(plotting_backend):
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
 
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75])
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)
     fig1 = m.plot(forecast, plotting_backend=plotting_backend)
@@ -501,7 +501,7 @@ def test_plot_uncertainty(plotting_backend):
     m = NeuralProphet(
         epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75], n_forecasts=7, n_lags=14
     )
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
 
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
@@ -520,7 +520,7 @@ def test_plot_uncertainty(plotting_backend):
     m = NeuralProphet(
         epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75], n_forecasts=3, n_lags=0
     )
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
@@ -556,7 +556,7 @@ def test_plot_conformal_prediction(plotting_backend):
     )
     train_df, test_df = m.split_df(df, freq="D", valid_p=0.2)
     train_df, cal_df = m.split_df(train_df, freq="D", valid_p=0.15)
-    metrics_df = m.fit(train_df, freq="D")
+    m.fit(train_df, freq="D")
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
         future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
@@ -582,7 +582,7 @@ def test_plot_conformal_prediction(plotting_backend):
     )
     train_df, test_df = m.split_df(df, freq="D", valid_p=0.2)
     train_df, cal_df = m.split_df(train_df, freq="D", valid_p=0.15)
-    metrics_df = m.fit(train_df, freq="D")
+    m.fit(train_df, freq="D")
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
         future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
@@ -621,7 +621,7 @@ def test_advanced_conformal_prediction_plots():
     )
     train_df, test_df = m.split_df(df, freq="D", valid_p=0.2)
     train_df, cal_df = m.split_df(train_df, freq="D", valid_p=0.15)
-    metrics_df = m.fit(train_df, freq="D")
+    m.fit(train_df, freq="D")
     alpha = 0.1
     plotting_backend = "plotly"
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
@@ -653,7 +653,7 @@ def test_plot_conformal_prediction_asymmetric(plotting_backend):
     )
     train_df, test_df = m.split_df(df, freq="D", valid_p=0.2)
     train_df, cal_df = m.split_df(train_df, freq="D", valid_p=0.15)
-    metrics_df = m.fit(train_df, freq="D")
+    m.fit(train_df, freq="D")
     alpha = (0.03, 0.07)
     method = "cqr"
     future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
@@ -677,7 +677,7 @@ def test_plot_latest_forecast(plotting_backend):
     m = NeuralProphet(
         n_lags=12, n_forecasts=6, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.05, 0.95]
     )
-    metrics_df = m.fit(df, freq="D")
+    m.fit(df, freq="D")
 
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)

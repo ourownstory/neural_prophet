@@ -435,8 +435,9 @@ def plot_nonconformity_scores(scores, alpha, q, method):
         scores : dict
             nonconformity scores
         alpha : float or tuple
-                user-specified significance level of the prediction interval, float if coverage error spread arbitrarily over
-                left and right tails, tuple of two floats for different coverage error over left and right tails respectively
+                user-specified significance level of the prediction interval, float if coverage error spread arbitrarily
+                over left and right tails, tuple of two floats for different coverage error over left and right tails
+                respectively
         q : float or list
             prediction interval width (or q)
         method : str
@@ -449,7 +450,8 @@ def plot_nonconformity_scores(scores, alpha, q, method):
     Returns
     -------
         matplotlib.pyplot.figure
-            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
+            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or
+            alpha
     """
     if not isinstance(q, list):
         q_sym = q
