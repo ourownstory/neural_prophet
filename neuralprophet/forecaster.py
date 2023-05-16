@@ -2553,7 +2553,7 @@ class NeuralProphet:
             df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
 
             df_normalized = _normalize(df=df_aux, config_normalization=self.config_normalization)
-            self.config_trend.changepoints = df_normalized["t"].values
+            self.config_trend.changepoints = df_normalized["t"].values  # type: ignore
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
