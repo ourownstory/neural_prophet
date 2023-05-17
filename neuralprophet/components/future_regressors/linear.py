@@ -37,7 +37,8 @@ class LinearFutureRegressors(FutureRegressors):
         Parameters
         ----------
             features : torch.Tensor, float
-                Features (either additive or multiplicative) related to event component dims (batch, n_forecasts, n_features)
+                Features (either additive or multiplicative) related to event component dims (batch, n_forecasts,
+                n_features)
             params : nn.Parameter
                 Params (either additive or multiplicative) related to events
             indices : list of int

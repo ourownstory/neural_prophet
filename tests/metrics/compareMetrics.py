@@ -10,7 +10,7 @@ def read_json(path, metrics_path, branch):
         df = df.reset_index()
         df.rename(columns={0: branch, "index": "Metric"}, inplace=True)
         return df
-    except:
+    except:  # noqa: E722
         return None
 
 
