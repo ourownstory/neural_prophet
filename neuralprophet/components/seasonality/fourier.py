@@ -23,7 +23,8 @@ class FourierSeasonality(Seasonality):
             # Seasonality parameters for global or local modelling
             self.season_params = nn.ParameterDict(
                 {
-                    # dimensions - [no. of quantiles, num_seasonalities_modelled, no. of fourier terms for each seasonality]
+                    # dimensions -
+                    # [no. of quantiles, num_seasonalities_modelled, no. of fourier terms for each seasonality]
                     name: init_parameter(dims=[len(self.quantiles)] + [self.num_seasonalities_modelled] + [dim])
                     for name, dim in self.season_dims.items()
                 }

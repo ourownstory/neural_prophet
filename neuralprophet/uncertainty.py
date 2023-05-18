@@ -57,7 +57,8 @@ class Conformal:
         self.noncon_scores = dict()
 
     def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame, show_all_PI: bool = False) -> pd.DataFrame:
-        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test dataframe.
+        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test
+        dataframe.
 
         Parameters
         ----------
@@ -154,30 +155,33 @@ class Conformal:
             quantile_lo_col = f"{y_hat_col} {quantile_lo}%"
             quantile_hi_col = f"{y_hat_col} {quantile_hi}%"
             if self.symmetrical:
-                cqr_scoring_func = (
-                    lambda row: [None, None]
-                    if row[quantile_lo_col] is None or row[quantile_hi_col] is None
-                    else [
-                        max(
-                            row[quantile_lo_col] - row["y"],
-                            row["y"] - row[quantile_hi_col],
-                        ),
-                        0 if row[quantile_lo_col] - row["y"] > row["y"] - row[quantile_hi_col] else 1,
-                    ]
-                )
+
+                def cqr_scoring_func(row):
+                    return (
+                        [None, None]
+                        if row[quantile_lo_col] is None or row[quantile_hi_col] is None
+                        else [
+                            max(row[quantile_lo_col] - row["y"], row["y"] - row[quantile_hi_col]),
+                            0 if row[quantile_lo_col] - row["y"] > row["y"] - row[quantile_hi_col] else 1,
+                        ]
+                    )
+
                 scores_df = df_cal.apply(cqr_scoring_func, axis=1, result_type="expand")
                 scores_df.columns = ["scores", "arg"]
                 noncon_scores = scores_df["scores"].values
             else:  # asymmetrical intervals
-                cqr_scoring_func = (
-                    lambda row: [None, None]
-                    if row[quantile_lo_col] is None or row[quantile_hi_col] is None
-                    else [
-                        row[quantile_lo_col] - row["y"],
-                        row["y"] - row[quantile_hi_col],
-                        0 if row[quantile_lo_col] - row["y"] > row["y"] - row[quantile_hi_col] else 1,
-                    ]
-                )
+
+                def cqr_scoring_func(row):
+                    return (
+                        [None, None]
+                        if row[quantile_lo_col] is None or row[quantile_hi_col] is None
+                        else [
+                            row[quantile_lo_col] - row["y"],
+                            row["y"] - row[quantile_hi_col],
+                            0 if row[quantile_lo_col] - row["y"] > row["y"] - row[quantile_hi_col] else 1,
+                        ]
+                    )
+
                 scores_df = df_cal.apply(cqr_scoring_func, axis=1, result_type="expand")
                 scores_df.columns = ["scores_lo", "scores_hi", "arg"]
                 noncon_scores_lo = scores_df["scores_lo"].values

@@ -438,7 +438,8 @@ class TimeNet(pl.LightningModule):
         Parameters
         ----------
             features : torch.Tensor, float
-                Features (either additive or multiplicative) related to event component dims (batch, n_forecasts, n_features)
+                Features (either additive or multiplicative) related to event component dims (batch, n_forecasts,
+                n_features)
             params : nn.Parameter
                 Params (either additive or multiplicative) related to events
             indices : list of int
@@ -516,8 +517,10 @@ class TimeNet(pl.LightningModule):
                 Model Inputs
                     * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
                     * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
-                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features (values), dims of each dict value (batch, n_forecasts, n_features)
-                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features (values), dims of each dict value: (batch, n_lags)
+                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features
+                    (values), dims of each dict value (batch, n_forecasts, n_features)
+                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features
+                    (values), dims of each dict value: (batch, n_lags)
                     * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
                     * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
                     * ``predict_mode`` (bool), optional and only passed during prediction
@@ -535,7 +538,8 @@ class TimeNet(pl.LightningModule):
                 This was designed to avoid issues with the library `lr_finder` https://github.com/davidtvs/pytorch-lr-finder
                 while having  ``config_trend.trend_global_local="local"``.
                 The turnaround consists on passing the same meta (dummy ID) to all the samples of the batch.
-                Internally, this is equivalent to use ``config_trend.trend_global_local="global"`` to find the optimal learning rate.
+                Internally, this is equivalent to use ``config_trend.trend_global_local="global"`` to find the optimal
+                learning rate.
             compute_components_flag : bool, default=False
                 If True, components will be computed.
 
@@ -663,8 +667,10 @@ class TimeNet(pl.LightningModule):
                 Model Inputs
                     * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
                     * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
-                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features (values), dims of each dict value (batch, n_forecasts, n_features)
-                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features (values), dims of each dict value: (batch, n_lags)
+                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features
+                    (values), dims of each dict value (batch, n_forecasts, n_features)
+                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features
+                    (values), dims of each dict value: (batch, n_lags)
                     * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
                     * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
             components_raw : dict

@@ -65,12 +65,14 @@ class Normalization:
                 data_params = self.local_data_params[df_name]
             elif self.unknown_data_normalization:
                 log.debug(
-                    f"Dataset name {df_name!r} is not present in valid data_params but unknown_data_normalization is True. Using global_data_params"
+                    f"Dataset name {df_name!r} is not present in valid data_params but unknown_data_normalization is \
+                        True. Using global_data_params"
                 )
                 data_params = self.global_data_params
             else:
                 raise ValueError(
-                    f"Dataset name {df_name!r} missing from training data params. Set unknown_data_normalization to use global (average) normalization parameters."
+                    f"Dataset name {df_name!r} missing from training data params. Set unknown_data_normalization to \
+                        use global (average) normalization parameters."
                 )
         return data_params
 
@@ -178,8 +180,8 @@ class Train:
 
     def set_optimizer(self):
         """
-        Set the optimizer and optimizer args. If optimizer is a string, then it will be converted to the corresponding torch optimizer.
-        The optimizer is not initialized yet as this is done in configure_optimizers in TimeNet.
+        Set the optimizer and optimizer args. If optimizer is a string, then it will be converted to the corresponding
+        torch optimizer. The optimizer is not initialized yet as this is done in configure_optimizers in TimeNet.
         """
         self.optimizer, self.optimizer_args = utils_torch.create_optimizer_from_config(
             self.optimizer, self.optimizer_args
@@ -208,7 +210,8 @@ class Train:
         num_training = 150 + int(np.log10(100 + dataset_size) * 25)
         if num_batches < num_training:
             log.warning(
-                f"Learning rate finder: The number of batches ({num_batches}) is too small than the required number for the learning rate finder ({num_training}). The results might not be optimal."
+                f"Learning rate finder: The number of batches ({num_batches}) is too small than the required number \
+                    for the learning rate finder ({num_training}). The results might not be optimal."
             )
             # num_training = num_batches
         self.lr_finder_args.update(
