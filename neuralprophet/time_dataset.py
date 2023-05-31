@@ -175,7 +175,8 @@ class TimeDataset(Dataset):
                 periodic interval in which forecasts should be made.
             Note
             ----
-            E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
+            E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily
+            resolution).
         """
         if prediction_frequency is None or prediction_frequency == 1:
             return
@@ -313,20 +314,12 @@ def tabularize_univariate_datetime(
     inputs = OrderedDict({})
 
     def _stride_time_features_for_forecasts(x):
-        # only for case where n_lags > 0
-        if x.dtype != np.float64:
-            dtype = np.datetime64
-        else:
-            dtype = np.float64
-        return np.array([x[i + max_lags - n_lags : i + max_lags + n_forecasts] for i in range(n_samples)], dtype=dtype)
+        return np.array(
+            [x[i + max_lags - n_lags : i + max_lags + n_forecasts] for i in range(n_samples)], dtype=x.dtype
+        )
 
     def _stride_future_time_features_for_forecasts(x):
-        # only for case where n_lags > 0
-        if x.dtype != np.float64:
-            dtype = np.datetime64
-        else:
-            dtype = np.float64
-        return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=dtype)
+        return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
 
     def _stride_lagged_features(df_col_name, feature_dims):
         # only for case where max_lags > 0

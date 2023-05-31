@@ -60,11 +60,11 @@ def test_impute_missing():
         if not allow_missing_dates:
             df, _ = df_utils.add_missing_dates_nan(df, freq="D")
         df = df.loc[200:250]
-        fig1 = plt.plot(df["ds"], df[name], "b-")
-        fig1 = plt.plot(df["ds"], df[name], "b.")
+        plt.plot(df["ds"], df[name], "b-")
+        plt.plot(df["ds"], df[name], "b.")
         df_filled = df_filled.loc[200:250]
         # fig3 = plt.plot(df_filled['ds'], df_filled[name], 'kx')
-        fig4 = plt.plot(df_filled["ds"][to_fill], df_filled[name][to_fill], "kx")
+        plt.plot(df_filled["ds"][to_fill], df_filled[name][to_fill], "kx")
         plt.show()
 
 
@@ -109,14 +109,14 @@ def test_normalize():
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
     m.config_normalization.init_data_params(df, m.config_lagged_regressors, m.config_regressors, m.config_events)
-    df_norm = _normalize(df=df, config_normalization=m.config_normalization)
+    _normalize(df=df, config_normalization=m.config_normalization)
     m.config_normalization.unknown_data_normalization = True
-    df_norm = _normalize(df=df, config_normalization=m.config_normalization)
+    _normalize(df=df, config_normalization=m.config_normalization)
     m.config_normalization.unknown_data_normalization = False
     # using config for utils
     df = df.drop("ID", axis=1)
-    df_norm = df_utils.normalize(df, m.config_normalization.global_data_params)
-    df_norm = df_utils.normalize(df, m.config_normalization.local_data_params["__df__"])
+    df_utils.normalize(df, m.config_normalization.global_data_params)
+    df_utils.normalize(df, m.config_normalization.local_data_params["__df__"])
 
     # with utils
     local_data_params, global_data_params = df_utils.init_data_params(
@@ -128,8 +128,8 @@ def test_normalize():
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
     )
-    df_norm = df_utils.normalize(df, global_data_params)
-    df_norm = df_utils.normalize(df, local_data_params["__df__"])
+    df_utils.normalize(df, global_data_params)
+    df_utils.normalize(df, local_data_params["__df__"])
 
 
 def test_add_lagged_regressors():
@@ -163,26 +163,16 @@ def test_add_lagged_regressors():
             learning_rate=LR,
         )
         m = m.add_lagged_regressor(names=cols)
-        metrics_df = m.fit(df1, freq="D", validation_df=df1[-100:])
+        m.fit(df1, freq="D", validation_df=df1[-100:])
         future = m.make_future_dataframe(df1, n_historic_predictions=365)
-        ## Check if the future dataframe contains all the lagged regressors
+        # Check if the future dataframe contains all the lagged regressors
         check = any(item in future.columns for item in cols)
-        forecast = m.predict(future)
+        m.predict(future)
         log.debug(check)
 
 
 def test_auto_batch_epoch():
     # for epochs = int(2 ** (2.3 * np.log10(100 + n_data)) / (n_data / 1000.0))
-    check_medium = {
-        "1": (1, 1000),
-        "10": (10, 1000),
-        "100": (16, 391),
-        "1000": (32, 127),
-        "10000": (64, 59),
-        "100000": (128, 28),
-        "1000000": (256, 14),
-        "10000000": (512, 10),
-    }
     # for epochs = int(2 ** (2.5 * np.log10(100 + n_data)) / (n_data / 1000.0))
     check = {
         "1": (1, 1000),
@@ -381,7 +371,8 @@ def test_cv_for_global_model():
             fold_type[cv_type] = check_folds_dict(
                 df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
             )
-    # since the time range is the same in all cases all of the folds should be exactly the same no matter the global_model_cv_option
+    # since the time range is the same in all cases all of the folds should be exactly the same no matter the
+    # global_model_cv_option
     for x in global_model_cv_options:
         for y in global_model_cv_options:
             if x != y:
@@ -658,8 +649,8 @@ def test_globaltimedataset():
         )
         m.config_normalization = config_normalization
         df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
-        dataset = _create_dataset(m, df_global, predict_mode=False)
-        dataset = _create_dataset(m, df_global, predict_mode=True)
+        _create_dataset(m, df_global, predict_mode=False)
+        _create_dataset(m, df_global, predict_mode=True)
 
     # lagged_regressors, future_regressors
     df4 = df.copy()
@@ -681,8 +672,8 @@ def test_globaltimedataset():
         config_normalization.init_data_params(df4, m.config_lagged_regressors, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
         df4 = _normalize(df=df4, config_normalization=m.config_normalization)
-        dataset = _create_dataset(m, df4, predict_mode=False)
-        dataset = _create_dataset(m, df4, predict_mode=True)
+        _create_dataset(m, df4, predict_mode=False)
+        _create_dataset(m, df4, predict_mode=True)
 
 
 def test_dataloader():
@@ -741,7 +732,7 @@ def test_newer_sample_weight():
         yearly_seasonality=False,
     )
     m.add_future_regressor("a")
-    metrics_df = m.fit(df)
+    m.fit(df)
 
     # test that second half dominates
     # -> positive relationship of a and y
@@ -811,7 +802,7 @@ def test_make_future():
 
 
 def test_too_many_NaN():
-    n_lags, n_forecasts = 12, 1
+    # n_lags, n_forecasts = 12, 1
     config_missing = configure.MissingDataHandling(
         impute_missing=True, impute_linear=5, impute_rolling=5, drop_missing=False
     )
@@ -834,9 +825,7 @@ def test_too_many_NaN():
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
-        dataset = time_dataset.TimeDataset(
-            df, "name", config_missing=config_missing, predict_steps=1, prediction_frequency=None
-        )
+        time_dataset.TimeDataset(df, "name", config_missing=config_missing, predict_steps=1, prediction_frequency=None)
 
 
 def test_future_df_with_nan():
@@ -849,9 +838,9 @@ def test_future_df_with_nan():
     df = pd.DataFrame({"ds": days, "y": y})
     # introduce 15 NaN values at the end of df. Now #NaN at end > n_lags
     df.iloc[-15:, 1] = np.nan
-    metrics = m.fit(df, freq="D")
+    m.fit(df, freq="D")
     with pytest.raises(ValueError):
-        future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
+        m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
 
 
 def test_join_dfs_after_data_drop():
@@ -868,7 +857,7 @@ def test_join_dfs_after_data_drop():
     fcst, df = df_utils.join_dfs_after_data_drop(fcst, df)
 
     # merge into one df
-    fcst_merged = df_utils.join_dfs_after_data_drop(fcst, df, merge=True)
+    df_utils.join_dfs_after_data_drop(fcst, df, merge=True)
 
 
 def test_ffill_in_future_df():
@@ -887,8 +876,8 @@ def test_ffill_in_future_df():
     df = pd.DataFrame({"ds": days, "y": y})
     # introduce some NaN values at the end of df, before expanding it to the future
     df.iloc[-5:, 1] = np.nan
-    metrics = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
+    m.fit(df, freq="D")
+    m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
 
 
 def test_handle_negative_values_remove():
@@ -920,7 +909,7 @@ def test_handle_negative_values_error():
         drop_missing=False,
     )
     with pytest.raises(ValueError):
-        df_ = m.handle_negative_values(df, handle="error")
+        m.handle_negative_values(df, handle="error")
 
 
 def test_handle_negative_values_replace():
@@ -964,8 +953,8 @@ def test_multiple_countries():
         learning_rate=LR,
     )
     m.add_country_holidays(country_name=["US", "Germany"])
-    metrics = m.fit(df, freq="D")
-    forecast = m.predict(df)
+    m.fit(df, freq="D")
+    m.predict(df)
     # get the name of holidays and compare that no holiday is repeated
     holiday_names = m.model.config_holidays.holiday_names
     assert len(holiday_names) == 20

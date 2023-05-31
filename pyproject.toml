@@ -110,3 +110,7 @@ include = [
     "neuralprophet/df_utils.py",
     "neuralprophet/hdays_utils.py",
 ]
+
+[tool.ruff]
+line-length = 120
+typing-modules = ["neuralprophet.np_types"]

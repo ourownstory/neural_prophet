@@ -729,7 +729,8 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         )[1:]
     except ValueError:
         log.warning(
-            f"The number of loss values ({len(loss)}) is too small to apply smoothing with a the window size of {window}."
+            f"The number of loss values ({len(loss)}) is too small to apply smoothing with a the window size of "
+            f"{window}."
         )
     # Suggest the lr with steepest negative gradient
     try:
@@ -737,7 +738,8 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         suggestion = lr[np.argmin(np.gradient(loss))]
     except ValueError:
         log.error(
-            f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of samples or manually set the learning rate."
+            f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of "
+            "samples or manually set the learning rate."
         )
         raise
     return (loss, lr, suggestion)
@@ -783,7 +785,8 @@ def configure_trainer(
         progress_bar_enabled : bool
             If False, no progress bar is shown.
         metrics_enabled : bool
-            If False, no metrics are logged. Calculating metrics is computationally expensive and reduces the training speed.
+            If False, no metrics are logged. Calculating metrics is computationally expensive and reduces the training
+            speed.
         checkpointing_enabled : bool
             If False, no checkpointing is performed. Checkpointing reduces the training speed.
         num_batches_per_epoch : int
@@ -848,7 +851,8 @@ def configure_trainer(
     )
     if has_modelcheckpoint_callback and not checkpointing_enabled:
         raise ValueError(
-            "Checkpointing is disabled but a ModelCheckpoint callback is provided. Please enable checkpointing or remove the callback."
+            "Checkpointing is disabled but a ModelCheckpoint callback is provided. Please enable checkpointing or "
+            "remove the callback."
         )
     if checkpointing_enabled:
         if not has_modelcheckpoint_callback:
@@ -874,7 +878,8 @@ def configure_trainer(
     )
     if has_progressbar_callback and not progress_bar_enabled:
         raise ValueError(
-            "Progress bar is disabled but a ProgressBar callback is provided. Please enable the progress bar or remove the callback."
+            "Progress bar is disabled but a ProgressBar callback is provided. Please enable the progress bar or remove"
+            " the callback."
         )
     if progress_bar_enabled:
         if not has_progressbar_callback:
@@ -892,7 +897,8 @@ def configure_trainer(
     )
     if has_earlystopping_callback and not early_stopping:
         raise ValueError(
-            "Early stopping is disabled but an EarlyStopping callback is provided. Please enable early stopping or remove the callback."
+            "Early stopping is disabled but an EarlyStopping callback is provided. Please enable early stopping or "
+            "remove the callback."
         )
     if early_stopping:
         if not metrics_enabled:
