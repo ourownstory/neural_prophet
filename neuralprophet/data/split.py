@@ -238,13 +238,13 @@ def _make_future_dataframe(
         if nan_at_end > 0:
             if max_lags > 0 and (nan_at_end + 1) >= max_lags:
                 raise ValueError(
-                    f"{nan_at_end + 1} missing values were detected at the end of df before df was extended into the future. "
-                    "Please make sure there are no NaN values at the end of df."
+                    f"{nan_at_end + 1} missing values were detected at the end of df before df was extended into "
+                    "the future. Please make sure there are no NaN values at the end of df."
                 )
             df["y"].iloc[-(nan_at_end + 1) :].ffill(inplace=True)
             log.warning(
-                f"{nan_at_end + 1} missing values were forward-filled at the end of df before df was extended into the future. "
-                "Please make sure there are no NaN values at the end of df."
+                f"{nan_at_end + 1} missing values were forward-filled at the end of df before df was extended into the "
+                "future. Please make sure there are no NaN values at the end of df."
             )
 
     if len(df) > 0:

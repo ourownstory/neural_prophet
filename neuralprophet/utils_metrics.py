@@ -44,7 +44,8 @@ def get_metrics(metric_input):
             return metric_input
         else:
             raise ValueError(
-                "Received unsupported argument for collect_metrics. All metrics must be an instance of torchmetrics.Metric."
+                "Received unsupported argument for collect_metrics. All metrics must be an instance of "
+                "torchmetrics.Metric."
             )
     elif metric_input is not False:
         raise ValueError("Received unsupported argument for collect_metrics.")

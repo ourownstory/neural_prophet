@@ -3,10 +3,8 @@
 import logging
 import os
 import pathlib
-from calendar import EPOCH
 
 import pandas as pd
-import pytest
 
 from neuralprophet import TorchProphet as Prophet
 
@@ -33,7 +31,7 @@ def test_wrapper_base():
     m.fit(df)
 
     future = m.make_future_dataframe(periods=50)
-    forecast = m.predict(future)
+    m.predict(future)
 
 
 def test_wrapper_components():
@@ -54,14 +52,14 @@ def test_wrapper_components():
     m.fit(df)
 
     future = m.make_future_dataframe(periods=50, regressors_df=regressors_df_future)
-    forecast = m.predict(future)
+    m.predict(future)
 
 
 def test_wrapper_warnings():
     log.info("testing: Wrapper base")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    pd.read_csv(PEYTON_FILE, nrows=NROWS)
     # Args should be handled by raising warnings
-    m = Prophet(
+    Prophet(
         seasonality_prior_scale=0.0,
         mcmc_samples=0,
         stan_backend="CMDSTANPY",

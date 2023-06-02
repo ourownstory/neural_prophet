@@ -334,9 +334,8 @@ def init_data_params(
             # Overwrite local time normalization data_params with global values (pointer)
             local_data_params[df_name]["ds"] = global_data_params["ds"]
         if not global_normalization:
-            log.debug(
-                f"Local Normalization Data Parameters (shift, scale): {[(k, v) for k, v in local_data_params[df_name].items()]}"
-            )
+            params = [(k, v) for k, v in local_data_params[df_name].items()]
+            log.debug(f"Local Normalization Data Parameters (shift, scale): {params}")
     return local_data_params, global_data_params
 
 
@@ -395,7 +394,8 @@ def normalize(df, data_params):
         df : pd.DataFrame
             with columns ``ds``, ``y``, (and potentially more regressors)
         data_params : OrderedDict
-            scaling values, as returned by init_data_params with ShiftScale entries containing ``shift`` and ``scale`` parameters
+            scaling values, as returned by init_data_params with ShiftScale entries containing ``shift`` and ``scale``
+            parameters
 
     Returns
     -------
@@ -811,9 +811,12 @@ def crossvalidation_split_df(
 
                     ``global-time`` (default) crossvalidation is performed according to a time stamp threshold.
 
-                    ``local`` each episode will be crossvalidated locally (may cause time leakage among different episodes)
+                    ``local`` each episode will be crossvalidated locally (may cause time leakage among different
+                    episodes)
 
-                    ``intersect`` only the time intersection of all the episodes will be considered. A considerable amount of data may not be used. However, this approach guarantees an equal number of train/test samples for each episode.
+                    ``intersect`` only the time intersection of all the episodes will be considered. A considerable
+                    amount of data may not be used. However, this approach guarantees an equal number of train/test
+                    samples for each episode.
 
     Returns
     -------
@@ -830,7 +833,8 @@ def crossvalidation_split_df(
             folds = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
     else:
         if global_model_cv_type == "global-time" or global_model_cv_type is None:
-            # Use time threshold to perform crossvalidation (the distribution of data of different episodes may not be equivalent)
+            # Use time threshold to perform crossvalidation
+            # (the distribution of data of different episodes may not be equivalent)
             folds = _crossvalidation_with_time_threshold(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
         elif global_model_cv_type == "local":
             # Crossvalidate time series locally (time leakage may be a problem)
@@ -1067,7 +1071,8 @@ def split_df(
             df_train, df_val = split_considering_timestamp(
                 df, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp
             )
-    # df_train and df_val are returned as pd.DataFrames, if necessary those will be restored to dict in the forecaster split_df
+    # df_train and df_val are returned as pd.DataFrames, if necessary those will be restored to dict in the forecaster
+    # split_df
     return df_train, df_val
 
 
@@ -1371,12 +1376,14 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 3.1536e16
         inferred_freq = "YS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "Y"
-    # exception - quarterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter and 1st quarter in leap year)
+    # exception - quarterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter
+    # and 1st quarter in leap year)
     elif argmax_frequency == 7.9488e15 and frequencies[np.argsort(distribution, axis=0)[-2]] == 7.8624e15:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 7.9488e15
         inferred_freq = "QS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "Q"
-    # exception - Business day (most common == day delta and second most common == 3 days delta and second most common is at least 12% of the deltas)
+    # exception - Business day (most common == day delta and second most common == 3 days delta and second most common
+    # is at least 12% of the deltas)
     elif (
         argmax_frequency == 8.64e13
         and frequencies[np.argsort(distribution, axis=0)[-2]] == 2.592e14
@@ -1385,7 +1392,8 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 8.64e13
         inferred_freq = "B"
-    # exception - Business hour (most common == hour delta and second most common == 17 hours delta and second most common is at least 8% of the deltas)
+    # exception - Business hour (most common == hour delta and second most common == 17 hours delta and second most
+    # common is at least 8% of the deltas)
     elif (
         argmax_frequency == 3.6e12
         and frequencies[np.argsort(distribution, axis=0)[-2]] == 6.12e13
@@ -1429,13 +1437,17 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         # if ideal freq does not exist
         if freq == "auto" or freq is None:
             log.warning(
-                "The auto-frequency feature is not able to detect the following frequencies: SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS. If the frequency of the dataframe is any of the mentioned please define it manually."
+                "The auto-frequency feature is not able to detect the following frequencies: SM, BM, CBM, SMS, BMS, \
+                    CBMS, BQ, BQS, BA, or, BAS. If the frequency of the dataframe is any of the mentioned please \
+                        define it manually."
             )
             raise ValueError("Detected multiple frequencies in the timeseries please pre-process data.")
         else:
             freq_str = freq
             log.warning(
-                f"Dataframe has multiple frequencies. It will be resampled according to given freq {freq}. Ignore message if actual frequency is any of the following:  SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS."
+                f"Dataframe has multiple frequencies. It will be resampled according to given freq {freq}. Ignore \
+                    message if actual frequency is any of the following:  SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, \
+                        or, BAS."
             )
     return freq_str
 
@@ -1452,7 +1464,8 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 
             Note
             ----
-            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to
+            automatically set frequency.
         n_lags : int
             identical to NeuralProphet
         min_freq_percentage : float
@@ -1472,7 +1485,8 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
         freq_df.append(_infer_frequency(df_i, freq, min_freq_percentage))
     if len(set(freq_df)) != 1 and n_lags > 0:
         raise ValueError(
-            "One or more dataframes present different major frequencies, please make sure all dataframes present the same major frequency for auto-regression"
+            "One or more dataframes present different major frequencies, please make sure all dataframes present the \
+                same major frequency for auto-regression"
         )
     elif len(set(freq_df)) != 1 and n_lags == 0:
         # The most common freq is set as the main one (but it does not really matter for Prophet approach)
@@ -1568,7 +1582,8 @@ def handle_negative_values(df, col, handle_negatives):
             raise ValueError(f"The regressor {col} contains negative values. Please preprocess data manually.")
     elif handle_negatives == "remove":
         log.info(
-            f"Removing {df[col].count() - (df[col] >= 0).sum()} negative value(s) from regressor {col} due to handle_negatives='remove'"
+            f"Removing {df[col].count() - (df[col] >= 0).sum()} negative value(s) from regressor {col} due to \
+                handle_negatives='remove'"
         )
         df = df[df[col] >= 0]
     elif type(handle_negatives) in [int, float]:
@@ -1620,7 +1635,8 @@ def drop_missing_from_df(df, drop_missing, predict_steps, n_lags):
 
 
 def join_dfs_after_data_drop(predicted, df, merge=False):
-    """Creates the intersection between df and predicted, removing any dates that have been imputed and dropped in NeuralProphet.predict().
+    """Creates the intersection between df and predicted, removing any dates that have been imputed and dropped in
+    NeuralProphet.predict().
 
     Parameters
     ----------
