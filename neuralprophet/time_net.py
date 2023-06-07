@@ -12,6 +12,7 @@ import torchmetrics
 
 from neuralprophet import configure, np_types
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
+from neuralprophet.rev_normalization import ReversibleNormalization
 from neuralprophet.utils import (
     check_for_regularization,
     config_events_to_model_dims,
@@ -455,23 +456,32 @@ class TimeNet(pl.LightningModule):
 
         return torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
 
-    def auto_regression(self, lags: Union[torch.Tensor, float]) -> torch.Tensor:
+    def auto_regression(self, lags: Union[torch.Tensor, float], norm_mode: Optional[str] = None) -> torch.Tensor:
         """Computes auto-regessive model component AR-Net.
         Parameters
         ----------
             lags  : torch.Tensor, float
                 Previous times series values, dims: (batch, n_lags)
+            norm_type: str
+                Type of normalization to be applied: "batch", "instance" or None
+
         Returns
         -------
             torch.Tensor
                 Forecast component of dims: (batch, n_forecasts)
         """
-        x = lags
+        if norm_mode is not None:
+            revin_layer = ReversibleNormalization(lags.shape[1], mode=norm_mode)
+            x = revin_layer(lags, "norm")
+        else:
+            x = lags
         for i in range(len(self.ar_layers) + 1):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.ar_net[i](x)
 
+        if norm_mode is not None:
+            x = revin_layer(x, "denorm")
         # segment the last dimension to match the quantiles
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
@@ -614,7 +624,7 @@ class TimeNet(pl.LightningModule):
         # stationarized input
         if "lags" in inputs:
             stationarized_lags = inputs["lags"] - nonstationary_components
-            lags = self.auto_regression(lags=stationarized_lags)
+            lags = self.auto_regression(lags=stationarized_lags, norm_mode=self.config_train.norm_mode)
             additive_components = +lags
             components["lags"] = lags
 

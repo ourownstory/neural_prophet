@@ -374,6 +374,7 @@ class NeuralProphet:
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
         prediction_frequency: Optional[dict] = None,
+        norm_mode: Optional[str] = None,
     ):
         self.config = locals()
         self.config.pop("self")
@@ -410,6 +411,7 @@ class NeuralProphet:
             newer_samples_weight=newer_samples_weight,
             newer_samples_start=newer_samples_start,
             trend_reg_threshold=trend_reg_threshold,
+            norm_mode=norm_mode,
         )
 
         if isinstance(collect_metrics, list):
