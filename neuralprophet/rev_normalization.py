@@ -29,8 +29,8 @@ class ReversibleNormalization(nn.Module):
         return x
 
     def _init_params(self):
-        self.affine_weight = nn.Parameter(torch.ones(self.num_features))
-        self.affine_bias = nn.Parameter(torch.zeros(self.num_features))
+        self.affine_weight = nn.Parameter(torch.ones(1))
+        self.affine_bias = nn.Parameter(torch.zeros(1))
 
     def _get_statistics(self, x):
         if self.mode == "instance":
