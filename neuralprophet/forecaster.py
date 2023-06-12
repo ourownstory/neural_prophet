@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from typing import Callable, List, Optional, Tuple, Type, Union
 
 import matplotlib
@@ -378,6 +378,8 @@ class NeuralProphet:
         trainer_config: dict = {},
         prediction_frequency: Optional[dict] = None,
         norm_mode: Optional[str] = None,
+        norm_type: Optional[str] = None,
+        norm_affine: Optional[str] = None,
     ):
         self.config = locals()
         self.config.pop("self")
@@ -415,6 +417,8 @@ class NeuralProphet:
             newer_samples_start=newer_samples_start,
             trend_reg_threshold=trend_reg_threshold,
             norm_mode=norm_mode,
+            norm_type=norm_type,
+            norm_affine=norm_affine,
         )
 
         if isinstance(collect_metrics, list):

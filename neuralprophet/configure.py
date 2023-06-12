@@ -106,6 +106,8 @@ class Train:
     lr_finder_args: dict = field(default_factory=dict)
     ids_weights: dict = field(default_factory=dict)
     norm_mode: Optional[str] = None
+    norm_type: Optional[str] = None
+    norm_affine: bool = False
 
     def __post_init__(self):
         # assert the uncertainty estimation params and then finalize the quantiles

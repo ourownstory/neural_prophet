@@ -9,6 +9,7 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torchmetrics
+from torch.nn import BatchNorm1d
 
 from neuralprophet import configure, np_types
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
@@ -302,6 +303,18 @@ class TimeNet(pl.LightningModule):
         else:
             self.config_regressors = None
 
+        print(self.config_train.norm_mode, self.config_train.norm_type, self.config_train.norm_affine)
+        self.norm_mode = self.config_train.norm_mode
+
+        if self.config_train.norm_mode == "pytorch":
+            self.norm_layer = BatchNorm1d(self.n_lags, affine=self.config_train.norm_affine)
+        elif self.config_train.norm_mode == "revin":
+            self.norm_layer = ReversibleNormalization(
+                self.n_lags,
+                mode=self.config_train.norm_type,
+                affine=self.config_train.norm_affine,
+            )
+
     @property
     def ar_weights(self) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
@@ -457,23 +470,22 @@ class TimeNet(pl.LightningModule):
 
         return torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
 
-    def auto_regression(self, lags: Union[torch.Tensor, float], norm_mode: Optional[str] = None) -> torch.Tensor:
+    def auto_regression(self, lags: Union[torch.Tensor, float]) -> torch.Tensor:
         """Computes auto-regessive model component AR-Net.
         Parameters
         ----------
             lags  : torch.Tensor, float
                 Previous times series values, dims: (batch, n_lags)
-            norm_type: str
-                Type of normalization to be applied: "batch", "instance" or None
 
         Returns
         -------
             torch.Tensor
                 Forecast component of dims: (batch, n_forecasts)
         """
-        if norm_mode is not None:
-            revin_layer = ReversibleNormalization(lags.shape[1], mode=norm_mode)
-            x = revin_layer(lags, "norm")
+        if self.norm_mode == "revin":
+            x = self.norm_layer(lags, mode="norm")
+        elif self.norm_mode is not None:
+            x = self.norm_layer(lags)
         else:
             x = lags
         for i in range(len(self.ar_layers) + 1):
@@ -481,8 +493,9 @@ class TimeNet(pl.LightningModule):
                 x = nn.functional.relu(x)
             x = self.ar_net[i](x)
 
-        if norm_mode is not None:
-            x = revin_layer(x, "denorm")
+        if self.norm_mode == "revin":
+            x = self.norm_layer(x, mode="denorm")
+
         # segment the last dimension to match the quantiles
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
@@ -625,7 +638,7 @@ class TimeNet(pl.LightningModule):
         # stationarized input
         if "lags" in inputs:
             stationarized_lags = inputs["lags"] - nonstationary_components
-            lags = self.auto_regression(lags=stationarized_lags, norm_mode=self.config_train.norm_mode)
+            lags = self.auto_regression(lags=stationarized_lags)
             additive_components += lags
             components["lags"] = lags
 
