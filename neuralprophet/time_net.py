@@ -602,7 +602,7 @@ class TimeNet(pl.LightningModule):
         )  # dimensions - [batch, n_forecasts, no_quantiles]
         return out
 
-    def forward(self, inputs: Dict, meta: Dict = None) -> Dict:
+    def forward(self, inputs: Dict, meta: Dict = None, compute_components: bool = False) -> Dict:
         """
         Forward pass of the model to compute predictions based on the provided inputs and meta data.
         This method fits non-stationary components first, substracts them from the present "lags" and in a
@@ -617,11 +617,15 @@ class TimeNet(pl.LightningModule):
             "regressors", "regressors_lagged", and "predict_mode".
         meta : Dict, optional
             Dictionary containing additional meta data for the forward pass, by default None.
+        compute_components : bool, optional
+            If True, the method returns additional components, by default False.
 
         Returns
         -------
         Dict
             Dictionary containing the prediction results with quantiles.
+        dict
+            Containing forecast coomponents with elements of dims (batch, n_forecasts)
         """
         if "lags" in inputs:
             _inputs = inputs.copy()
@@ -648,7 +652,15 @@ class TimeNet(pl.LightningModule):
         else:
             predict_mode = False
         prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
-        return prediction_with_quantiles
+
+        # compute components
+        corrected_inputs = inputs if corrected_inputs is None else corrected_inputs
+
+        if compute_components:
+            components = self.compute_components(corrected_inputs, meta)
+            return prediction_with_quantiles, components
+        else:
+            return prediction_with_quantiles
 
     def compute_components(self, inputs: Dict, meta: Dict) -> Dict:
         """This method returns the values of each model component.
@@ -841,12 +853,7 @@ class TimeNet(pl.LightningModule):
         # Add predict_mode flag to dataset
         inputs["predict_mode"] = True
         # Run forward calculation
-        prediction = self.forward(inputs, meta_name_tensor)
-        # Calculate components (if requested)
-        if self.compute_components_flag:
-            components = self.compute_components(inputs, meta_name_tensor)
-        else:
-            components = None
+        prediction, components = self.forward(inputs, meta_name_tensor, compute_components=self.compute_components_flag)
         return prediction, components
 
     def configure_optimizers(self):
