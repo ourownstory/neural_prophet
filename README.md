@@ -39,7 +39,7 @@ We also have an active [Slack community](https://join.slack.com/t/neuralprophet/
 ## Tutorials
 [![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neural_prophet)
 
-There are several [example notebooks](tutorials/) to help you get started. 
+There are several [example notebooks](docs/source/tutorials) to help you get started. 
 
 You can find the datasets used in the tutorials, including data preprocessing examples, in our [neuralprophet-data repository](https://github.com/ourownstory/neuralprophet-data).
 
