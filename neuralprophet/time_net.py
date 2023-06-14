@@ -615,7 +615,7 @@ class TimeNet(pl.LightningModule):
         if "lags" in inputs:
             stationarized_lags = inputs["lags"] - nonstationary_components
             lags = self.auto_regression(lags=stationarized_lags)
-            additive_components = +lags
+            additive_components += lags
             components["lags"] = lags
 
         if "covariates" in inputs:
