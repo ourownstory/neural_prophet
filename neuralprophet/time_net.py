@@ -645,6 +645,7 @@ class TimeNet(pl.LightningModule):
             prediction = self._forward(corrected_inputs, meta, non_stationary_only=False)
         else:
             prediction = self._forward(inputs, meta)
+            corrected_inputs = inputs.copy()
 
         # check for crossing quantiles and correct them here
         if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
@@ -654,8 +655,6 @@ class TimeNet(pl.LightningModule):
         prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
 
         # compute components
-        corrected_inputs = inputs if corrected_inputs is None else corrected_inputs
-
         if compute_components:
             components = self.compute_components(corrected_inputs, meta)
             return prediction_with_quantiles, components
