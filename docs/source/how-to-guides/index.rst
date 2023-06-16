@@ -14,7 +14,7 @@ Feature guides
     Live Plotting during Training<feature-guides/Live_plot_during_training>
     Network Architecture Visualization<feature-guides/network_architecture_visualization>
     Prophet to TorchProphet<feature-guides/prophet_to_torch_prophet>
-    Plotly<feature-guides/plotly>
+    Plotting<feature-guides/plotly>
     Migration from Prophet<feature-guides/Migration_from_Prophet>
     Multiplicative Seasonality<feature-guides/season_multiplicative_air_travel>
     Sparse Autoregression<feature-guides/sparse_autoregression_yosemite_temps>
