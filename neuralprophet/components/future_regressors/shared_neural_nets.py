@@ -91,21 +91,6 @@ class SharedNeuralNetsFutureRegressors(FutureRegressors):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    # def all_regressors(self, regressor_inputs, mode):
-    #     """Compute all regressors components.
-    #     Parameters
-    #     ----------
-    #         regressor_inputs : torch.Tensor, float
-    #             regressor values at corresponding, dims: (batch, n_forecasts, num_regressors)
-    #     Returns
-    #     -------
-    #         torch.Tensor
-    #             Forecast component of dims (batch, n_forecasts, num_quantiles)
-    #     """
-    #     # Select only elements from OrderedDict that have the value mode == 'mode_of_interest'
-    #     x = self.regressor(regressor_inputs, mode)
-    #     return x
-
     def forward(self, inputs, mode, indeces=None):
         """Compute all seasonality components.
         Parameters

@@ -229,11 +229,11 @@ def reg_func_covariates(config_lagged_regressors: ConfigLaggedRegressors, model)
             Regularization loss
     """
     reg_covariate_loss = 0.0
+    weights = model.get_covar_weights()
     for covariate, configs in config_lagged_regressors.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
-            weights = model.get_covar_weights(covariate)
-            loss = torch.mean(utils_torch.penalize_nonzero(weights)).squeeze()
+            loss = torch.mean(utils_torch.penalize_nonzero(weights[covariate])).squeeze()
             reg_covariate_loss += reg_lambda * loss
 
     return reg_covariate_loss
@@ -507,14 +507,14 @@ def config_regressors_to_model_dims(config_regressors):
             This dictionaries' keys correspond to individual regressor and values in a dict containing the mode
             and the indices in the input dataframe corresponding to each regressor.
     """
-    if config_regressors is None:
+    if config_regressors is not None and config_regressors.regressors is None:
         return None
     else:
         additive_regressors = []
         multiplicative_regressors = []
 
-        if config_regressors is not None:
-            for regressor, configs in config_regressors.items():
+        if config_regressors is not None and config_regressors.regressors is not None:
+            for regressor, configs in config_regressors.regressors.items():
                 mode = configs.mode
                 if mode == "additive":
                     additive_regressors.append(regressor)
@@ -699,6 +699,10 @@ def set_random_seed(seed: int = 0):
     ----
     This needs to be set each time before fitting the model.
 
+    Example
+    -------
+    >>> from neuralprophet import set_random_seed
+    >>> set_random_seed(seed=42)
     """
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -732,6 +736,11 @@ def set_log_level(log_level: str = "INFO", include_handlers: bool = False):
             ``ERROR`` or ``CRITICAL``
         include_handlers : bool
             Include any specified file/stream handlers
+
+    Example
+    -------
+    >>> from neuralprophet import set_log_level
+    >>> set_log_level("ERROR")
     """
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
@@ -770,7 +779,8 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         )[1:]
     except ValueError:
         log.warning(
-            f"The number of loss values ({len(loss)}) is too small to apply smoothing with a the window size of {window}."
+            f"The number of loss values ({len(loss)}) is too small to apply smoothing with a the window size of "
+            f"{window}."
         )
     # Suggest the lr with steepest negative gradient
     try:
@@ -778,8 +788,10 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         suggestion = lr[np.argmin(np.gradient(loss))]
     except ValueError:
         log.error(
-            f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of samples or manually set the learning rate."
+            f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of "
+            "samples or manually set the learning rate."
         )
+        raise
     return (loss, lr, suggestion)
 
 
@@ -823,7 +835,8 @@ def configure_trainer(
         progress_bar_enabled : bool
             If False, no progress bar is shown.
         metrics_enabled : bool
-            If False, no metrics are logged. Calculating metrics is computationally expensive and reduces the training speed.
+            If False, no metrics are logged. Calculating metrics is computationally expensive and reduces the training
+            speed.
         checkpointing_enabled : bool
             If False, no checkpointing is performed. Checkpointing reduces the training speed.
         num_batches_per_epoch : int
@@ -888,7 +901,8 @@ def configure_trainer(
     )
     if has_modelcheckpoint_callback and not checkpointing_enabled:
         raise ValueError(
-            "Checkpointing is disabled but a ModelCheckpoint callback is provided. Please enable checkpointing or remove the callback."
+            "Checkpointing is disabled but a ModelCheckpoint callback is provided. Please enable checkpointing or "
+            "remove the callback."
         )
     if checkpointing_enabled:
         if not has_modelcheckpoint_callback:
@@ -909,12 +923,13 @@ def configure_trainer(
     has_progressbar_callback = (
         True
         if has_custom_callbacks
-        and any(isinstance(callback, pl.callbacks.ProgressBar) for callback in config["callbacks"])
+        and any(isinstance(callback, pl.callbacks.ProgressBarBase) for callback in config["callbacks"])
         else False
     )
     if has_progressbar_callback and not progress_bar_enabled:
         raise ValueError(
-            "Progress bar is disabled but a ProgressBar callback is provided. Please enable the progress bar or remove the callback."
+            "Progress bar is disabled but a ProgressBar callback is provided. Please enable the progress bar or remove"
+            " the callback."
         )
     if progress_bar_enabled:
         if not has_progressbar_callback:
@@ -932,7 +947,8 @@ def configure_trainer(
     )
     if has_earlystopping_callback and not early_stopping:
         raise ValueError(
-            "Early stopping is disabled but an EarlyStopping callback is provided. Please enable early stopping or remove the callback."
+            "Early stopping is disabled but an EarlyStopping callback is provided. Please enable early stopping or "
+            "remove the callback."
         )
     if early_stopping:
         if not metrics_enabled:

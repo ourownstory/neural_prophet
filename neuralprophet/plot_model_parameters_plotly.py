@@ -238,7 +238,8 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
             )
         )
         if mean_std:
-            # If more than on ID has been provided, and no df_name has been specified: plot mean and quants of the component
+            # If more than on ID has been provided, and no df_name has been specified: plot mean and quants of the
+            # component
             filling = "tonexty"
             traces.append(
                 go.Scatter(
@@ -817,6 +818,7 @@ def plot_parameters(
     df_name=None,
     forecast_in_focus=None,
     resampler_active=False,
+    plotly_static=False,
 ):
     """Plot the parameters that the model is composed of, visually.
 
@@ -860,6 +862,8 @@ def plot_parameters(
             None (default): plot self.highlight_forecast_step_n by default
         resampler_active : bool
             Flag whether to activate the plotly-resampler
+        plotly_static: bool
+            Flag whether to generate a static svg image
 
     Returns:
         Plotly figure
@@ -955,5 +959,5 @@ def plot_parameters(
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
             fig.add_trace(trace, row=i + 1, col=1)  # adapt var name to plotly-resampler
-
+        unregister_plotly_resampler()
     return fig

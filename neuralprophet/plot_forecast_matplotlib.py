@@ -27,10 +27,10 @@ def plot(
     line_per_origin=False,
     figsize=(10, 6),
 ):
-    """Plot the NeuralProphet forecast
+    """Plot the NeuralProphet forecast.
 
     Parameters
-    ---------
+    ----------
         fcst : pd.DataFrame
             Output of m.predict
         quantiles: list
@@ -53,26 +53,26 @@ def plot(
         matplotlib.pyplot.figure
             Figure showing the NeuralProphet forecast
 
-            Examples
-            --------
-            Base usage
+    Examples
+    --------
+        Base usage
 
-            >>> from neuralprophet import NeuralProphet
-            >>> m = NeuralProphet()
-            >>> metrics = m.fit(df, freq="D")
-            >>> future = m.make_future_dataframe(df=df, periods=365)
-            >>> forecast = m.predict(df=future)
-            >>> fig_forecast = m.plot(forecast)
+        >>> from neuralprophet import NeuralProphet
+        >>> m = NeuralProphet()
+        >>> metrics = m.fit(df, freq="D")
+        >>> future = m.make_future_dataframe(df=df, periods=365)
+        >>> forecast = m.predict(df=future)
+        >>> fig_forecast = m.plot(forecast)
 
-            Additional plot specifications
+        Additional plot specifications
 
-            >>> fig_forecast = m.plot(forecast,
-            >>>                       xlabel="ds",
-            >>>                       ylabel="y",
-            >>>                       highlight_forecast=None,
-            >>>                       line_per_origin=False,
-            >>>                       figsize=(10, 6)
-            >>>                       )
+        >>> m.plot(forecast,
+        >>>    xlabel="ds",
+        >>>    ylabel="y",
+        >>>    highlight_forecast=None,
+        >>>    line_per_origin=False,
+        >>>    figsize=(10, 6)
+        >>>    )
 
     """
     fcst = fcst.fillna(value=np.nan)
@@ -88,15 +88,11 @@ def plot(
     if line_per_origin:
         colname = "origin-"
         step = 0
-    # all yhat column names, including quantiles
-    yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
-    # without quants
-    yhat_col_names_no_qts = [
-        col_name for col_name in yhat_col_names if f"{colname}" in col_name and "%" not in col_name
-    ]
+    # all yhat column names without quantiles
+    yhat_col_names = [col_name for col_name in fcst.columns if col_name.startswith(colname) and "%" not in col_name]
 
     if highlight_forecast is None or line_per_origin:
-        for i, name in enumerate(yhat_col_names_no_qts):
+        for i, name in enumerate(yhat_col_names):
             ax.plot(
                 ds,
                 fcst[f"{colname}{i if line_per_origin else i + 1}"],
@@ -106,21 +102,21 @@ def plot(
                 label=name,
             )
 
-    if len(quantiles) > 1:
-        for i in range(1, len(quantiles)):
-            ax.fill_between(
-                ds,
-                fcst[f"{colname}{step}"],
-                fcst[f"{colname}{step} {round(quantiles[i] * 100, 1)}%"],
-                color="#0072B2",
-                alpha=0.2,
-            )
+        if len(quantiles) > 1:
+            for i in range(1, len(quantiles)):
+                ax.fill_between(
+                    ds,
+                    fcst[f"{colname}{step}"],
+                    fcst[f"{colname}{step} {round(quantiles[i] * 100, 1)}%"],
+                    color="#0072B2",
+                    alpha=0.2,
+                )
 
     if highlight_forecast is not None:
         if line_per_origin:
             num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            for i in range(len(yhat_col_names_no_qts)):
+            for i in range(len(yhat_col_names)):
                 x = ds[-(1 + i + steps_from_last)]
                 y = fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
@@ -138,17 +134,6 @@ def plot(
                         alpha=0.2,
                     )
 
-    # Plot any conformal prediction intervals
-    if any("+ qhat" in col for col in yhat_col_names) and any("- qhat" in col for col in yhat_col_names):
-        quantile_hi = str(max(quantiles) * 100)
-        quantile_lo = str(min(quantiles) * 100)
-        if f"yhat1 {quantile_hi}% + qhat1" in fcst.columns and f"yhat1 {quantile_hi}% - qhat1" in fcst.columns:
-            ax.plot(ds, fcst[f"yhat1 {quantile_hi}% + qhat1"], c="r", label=f"yhat1 {quantile_hi}% + qhat1")
-            ax.plot(ds, fcst[f"yhat1 {quantile_lo}% - qhat1"], c="r", label=f"yhat1 {quantile_lo}% - qhat1")
-        else:
-            ax.plot(ds, fcst["yhat1 + qhat1"], c="r", label="yhat1 + qhat1")
-            ax.plot(ds, fcst["yhat1 - qhat1"], c="r", label="yhat1 - qhat1")
-
     ax.plot(ds, fcst["y"], "k.", label="actual y")
 
     # Specify formatting to workaround matplotlib issue #12925
@@ -165,7 +150,7 @@ def plot(
         log.warning("Legend is available only for the ten first handles")
     else:
         ax.legend(handles, labels)
-    fig.tight_layout()
+    fig = fig.tight_layout()
     return fig
 
 
@@ -254,7 +239,7 @@ def plot_components(
         elif "auto-regression" in name or "lagged regressor" in name:
             plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
 
-    fig.tight_layout()
+    fig = fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
@@ -447,11 +432,13 @@ def plot_nonconformity_scores(scores, alpha, q, method):
 
     Parameters
     ----------
-        scores : list
+        scores : dict
             nonconformity scores
-        alpha : float
-            user-specified significance level of the prediction interval
-        q : float
+        alpha : float or tuple
+                user-specified significance level of the prediction interval, float if coverage error spread arbitrarily
+                over left and right tails, tuple of two floats for different coverage error over left and right tails
+                respectively
+        q : float or list
             prediction interval width (or q)
         method : str
             name of conformal prediction technique used
@@ -463,13 +450,42 @@ def plot_nonconformity_scores(scores, alpha, q, method):
     Returns
     -------
         matplotlib.pyplot.figure
-            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
+            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or
+            alpha
     """
-    confidence_levels = np.arange(len(scores)) / len(scores)
-    fig, ax = plt.subplots()
-    ax.plot(confidence_levels, scores, label="score")
-    ax.axvline(x=1 - alpha, color="g", linestyle="-", label=f"(1-alpha) = {1-alpha}", linewidth=1)
-    ax.axhline(y=q, color="r", linestyle="-", label=f"q1 = {round(q, 2)}", linewidth=1)
+    if not isinstance(q, list):
+        q_sym = q
+        scores = scores["noncon_scores"]
+        confidence_levels = np.arange(len(scores)) / len(scores)
+        fig, ax = plt.subplots()
+        ax.plot(confidence_levels, scores, label="score")
+        ax.axvline(x=1 - alpha, color="g", linestyle="-", label=f"(1-alpha) = {1 - alpha}", linewidth=1)
+        ax.axhline(y=q, color="r", linestyle="-", label=f"q1 = {round(q_sym, 2)}", linewidth=1)
+    else:
+        q_lo, q_hi = q
+        scores_lo = scores["noncon_scores_lo"]
+        scores_hi = scores["noncon_scores_hi"]
+        alpha_lo, alpha_hi = alpha
+        confidence_levels = np.arange(len(scores_lo)) / len(scores_lo)
+        fig, ax = plt.subplots()
+        ax.plot(confidence_levels, scores_lo, label="lower score")
+        ax.plot(confidence_levels, scores_hi, label="upper score")
+        ax.axvline(
+            x=1 - alpha_lo,
+            color="darkgreen",
+            linestyle="-",
+            label=f"(1-alpha_lo) = {round(1.0-alpha_lo, 10)}",
+            linewidth=1,
+        )
+        ax.axvline(
+            x=1 - alpha_hi,
+            color="lightgreen",
+            linestyle="-",
+            label=f"(1-alpha_hi) = {round(1.0-alpha_hi, 10)}",
+            linewidth=1,
+        )
+        ax.axhline(y=q_lo, color="darkred", linestyle="-", label=f"q1 = {round(q_lo, 2)}", linewidth=1)
+        ax.axhline(y=q_hi, color="red", linestyle="-", label=f"q2 = {round(q_hi, 2)}", linewidth=1)
     ax.set_title(f"{method} One-Sided Interval Width with q")
     ax.set_xlabel("Confidence Level")
     ax.set_ylabel("One-Sided Interval Width")
@@ -482,8 +498,9 @@ def plot_interval_width_per_timestep(q_hats, method):
 
     Parameters
     ----------
-        q_hats : list
-            prediction interval widths (or q) for each timestep
+        q_hats : dataframe
+            prediction interval widths (or q) for each timestep, contains column ``q_hat_sym`` for symmetric q or
+            ``q_hat_lo`` and ``q_hat_hi`` for asymmetric q
         method : str
             name of conformal prediction technique used
 
@@ -497,7 +514,15 @@ def plot_interval_width_per_timestep(q_hats, method):
             Figure showing the q-values for each timestep
     """
     fig, ax = plt.subplots()
-    ax.plot(range(1, len(q_hats) + 1), q_hats)
+    # check if q_hats contains q_hat_sym
+    if "q_hat_sym" in q_hats.columns:
+        q_hats_sym = q_hats["q_hat_sym"]
+        ax.plot(range(1, len(q_hats_sym) + 1), q_hats_sym)
+    else:
+        q_hats_lo = q_hats["q_hat_lo"]
+        q_hats_hi = q_hats["q_hat_hi"]
+        ax.plot(range(1, len(q_hats_lo) + 1), q_hats_lo, label="lower q")
+        ax.plot(range(1, len(q_hats_hi) + 1), q_hats_hi, label="upper q")
     ax.set_title(f"{method} One-Sided Interval Width with q per Timestep")
     ax.set_xlabel("Timestep Number")
     ax.set_ylabel("One-Sided Interval Width")

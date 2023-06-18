@@ -1,6 +1,7 @@
 import sys
 from typing import Dict, List, Union
 
+import torch
 import torchmetrics
 
 # Ensure compatibility with python 3.7
@@ -23,3 +24,5 @@ CollectMetricsMode = Union[List[str], bool, Dict[str, torchmetrics.Metric]]
 SeasonGlobalLocalMode = Literal["global", "local", "glocal"]
 
 FutureRegressorsModel = Literal["linear", "neural_nets", "shared_neural_nets"]
+
+Components = Dict[str, torch.Tensor]

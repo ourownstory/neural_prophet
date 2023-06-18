@@ -11,7 +11,7 @@ class FutureRegressors(BaseComponent):
         super().__init__(n_forecasts=n_forecasts, quantiles=quantiles, id_list=id_list, device=device)
 
         self.config_regressors = config  # config_regressors
-        self.regressors_dims = utils.config_regressors_to_model_dims(config.regressors)  # config_regressors
+        self.regressors_dims = utils.config_regressors_to_model_dims(config)  # config_regressors
         if self.regressors_dims is not None:
             self.n_additive_regressor_params = 0
             self.n_multiplicative_regressor_params = 0

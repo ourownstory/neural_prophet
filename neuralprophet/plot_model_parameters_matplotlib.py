@@ -85,7 +85,7 @@ def plot_parameters(
     >>> metrics = m.fit(df, freq="D")
     >>> future = m.make_future_dataframe(df=df, periods=365)
     >>> forecast = m.predict(df=future)
-    >>> fig_param = m.plot_parameters()
+    >>> m.plot_parameters()
 
     """
     components_to_plot = plot_configuration["components_list"]
@@ -137,7 +137,7 @@ def plot_parameters(
                 multiplicative_axes.append(ax)
                 weights = multiplicative_events
             plot_scalar_weights(weights=weights, plot_name=comp["plot_name"], focus=forecast_in_focus, ax=ax)
-    fig.tight_layout()
+    fig = fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)

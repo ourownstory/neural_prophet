@@ -95,8 +95,10 @@ def interprete_model(
             Name of the network for which input attributions are to be computed.
         forward_func : str
             Name of the forward function for which input attributions are to be computed.
+
         _input : torch.Tensor
             Input for which the attributions are to be computed.
+
     Returns
     -------
         torch.Tensor
@@ -117,7 +119,7 @@ def interprete_model(
     num_out_features_without_quantiles = int(num_out_features / num_quantiles)
 
     # Create a tensor of ones as model input
-    model_input = torch.zeros(1, num_in_features, requires_grad=True) if _input is None else _input
+    model_input = torch.ones(1, num_in_features, requires_grad=True) if _input is None else _input
 
     # Iterate through each output feature and compute the model attribution wrt. the input
     attributions = torch.empty((0, num_in_features))
@@ -132,6 +134,8 @@ def interprete_model(
             attributions = torch.cat((attributions, target_attribution), 0)
 
     # Average the attributions over the input features
-    # Idea: Average attribution of each lag on all forecasts (eg. the n'th lag has an attribution of xyz on the forecast)
-    # TODO: support the visualization of 2d tensors in plot_parameters (aka the attribution of the n'th lag on the m'th forecast)
+    # Idea: Average attribution of each lag on all forecasts (eg the n'th lag has an attribution of xyz on the forecast)
+    # TODO: support the visualization of 2d tensors in plot_parameters
+    # (aka the attribution of the n'th lag on the m'th forecast)
+
     return attributions

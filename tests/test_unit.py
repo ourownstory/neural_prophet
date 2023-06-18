@@ -11,6 +11,8 @@ import pytest
 from torch.utils.data import DataLoader
 
 from neuralprophet import NeuralProphet, configure, df_utils, time_dataset
+from neuralprophet.data.process import _create_dataset, _handle_missing_data
+from neuralprophet.data.transform import _normalize
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -58,11 +60,11 @@ def test_impute_missing():
         if not allow_missing_dates:
             df, _ = df_utils.add_missing_dates_nan(df, freq="D")
         df = df.loc[200:250]
-        fig1 = plt.plot(df["ds"], df[name], "b-")
-        fig1 = plt.plot(df["ds"], df[name], "b.")
+        plt.plot(df["ds"], df[name], "b-")
+        plt.plot(df["ds"], df[name], "b.")
         df_filled = df_filled.loc[200:250]
         # fig3 = plt.plot(df_filled['ds'], df_filled[name], 'kx')
-        fig4 = plt.plot(df_filled["ds"][to_fill], df_filled[name][to_fill], "kx")
+        plt.plot(df_filled["ds"][to_fill], df_filled[name][to_fill], "kx")
         plt.show()
 
 
@@ -76,7 +78,7 @@ def test_time_dataset():
     config_missing = configure.MissingDataHandling()
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
     # create a tabularized dataset from time series
-    df, _ = df_utils.check_dataframe(df_train)
+    df, _, _ = df_utils.check_dataframe(df_train)
     local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
     df = df.drop("ID", axis=1)
     df = df_utils.normalize(df, global_data_params)
@@ -106,30 +108,30 @@ def test_normalize():
     )
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
-    m.config_normalization.init_data_params(
-        df, m.config_lagged_regressors, m.config_regressors.regressors, m.config_events
-    )
-    df_norm = m._normalize(df)
+
+    m.config_normalization.init_data_params(df, m.config_lagged_regressors, m.config_regressors, m.config_events)
+    _normalize(df=df, config_normalization=m.config_normalization)
+
     m.config_normalization.unknown_data_normalization = True
-    df_norm = m._normalize(df)
+    _normalize(df=df, config_normalization=m.config_normalization)
     m.config_normalization.unknown_data_normalization = False
     # using config for utils
     df = df.drop("ID", axis=1)
-    df_norm = df_utils.normalize(df, m.config_normalization.global_data_params)
-    df_norm = df_utils.normalize(df, m.config_normalization.local_data_params["__df__"])
+    df_utils.normalize(df, m.config_normalization.global_data_params)
+    df_utils.normalize(df, m.config_normalization.local_data_params["__df__"])
 
     # with utils
     local_data_params, global_data_params = df_utils.init_data_params(
         df=df,
         normalize=m.config_normalization.normalize,
         config_lagged_regressors=m.config_lagged_regressors,
-        config_regressors=m.config_regressors.regressors,
+        config_regressors=m.config_regressors,
         config_events=m.config_events,
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
     )
-    df_norm = df_utils.normalize(df, global_data_params)
-    df_norm = df_utils.normalize(df, local_data_params["__df__"])
+    df_utils.normalize(df, global_data_params)
+    df_utils.normalize(df, local_data_params["__df__"])
 
 
 def test_add_lagged_regressors():
@@ -163,26 +165,16 @@ def test_add_lagged_regressors():
             learning_rate=LR,
         )
         m = m.add_lagged_regressor(names=cols)
-        metrics_df = m.fit(df1, freq="D", validation_df=df1[-100:])
+        m.fit(df1, freq="D", validation_df=df1[-100:])
         future = m.make_future_dataframe(df1, n_historic_predictions=365)
-        ## Check if the future dataframe contains all the lagged regressors
+        # Check if the future dataframe contains all the lagged regressors
         check = any(item in future.columns for item in cols)
-        forecast = m.predict(future)
+        m.predict(future)
         log.debug(check)
 
 
 def test_auto_batch_epoch():
     # for epochs = int(2 ** (2.3 * np.log10(100 + n_data)) / (n_data / 1000.0))
-    check_medium = {
-        "1": (1, 1000),
-        "10": (10, 1000),
-        "100": (16, 391),
-        "1000": (32, 127),
-        "10000": (64, 59),
-        "100000": (128, 28),
-        "1000000": (256, 14),
-        "10000000": (512, 10),
-    }
     # for epochs = int(2 ** (2.5 * np.log10(100 + n_data)) / (n_data / 1000.0))
     check = {
         "1": (1, 1000),
@@ -195,7 +187,6 @@ def test_auto_batch_epoch():
         "10000000": (512, 18),
     }
 
-    observe = {}
     for n_data, (batch_size, epochs) in check.items():
         n_data = int(n_data)
         c = configure.Train(
@@ -206,14 +197,8 @@ def test_auto_batch_epoch():
             optimizer="SGD",
         )
         c.set_auto_batch_epoch(n_data=n_data)
-        observe[f"{n_data}"] = (c.batch_size, c.epochs)
-        log.debug(f"[config] n_data: {n_data}, batch: {c.batch_size}, epoch: {c.epochs}")
-        log.debug(f"[should] n_data: {n_data}, batch: {batch_size}, epoch: {epochs}")
         assert c.batch_size == batch_size
         assert c.epochs == epochs
-    # print("\n")
-    # print(check)
-    # print(observe)
 
 
 def test_split_impute():
@@ -225,8 +210,19 @@ def test_split_impute():
             n_lags=n_lags,
             n_forecasts=n_forecasts,
         )
-        df_in, _ = df_utils.check_dataframe(df_in, check_y=False)
-        df_in = m._handle_missing_data(df_in, freq=freq, predicting=False)
+        df_in, _, _ = df_utils.check_dataframe(df_in, check_y=False)
+        df_in = _handle_missing_data(
+            df=df_in,
+            freq=freq,
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            config_missing=m.config_missing,
+            config_regressors=m.config_regressors,
+            config_lagged_regressors=m.config_lagged_regressors,
+            config_events=m.config_events,
+            config_seasonality=m.config_seasonality,
+            predicting=False,
+        )
         assert df_len_expected == len(df_in)
         total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2
         df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1)
@@ -280,14 +276,6 @@ def test_cv():
             for i in range(valid_fold_num)
         ]
         assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
-        log.debug(f"total_samples: {total_samples}")
-        log.debug(f"val_fold_each: {val_fold_each}")
-        log.debug(f"overlap_each: {overlap_each}")
-        log.debug(f"val_folds_len: {val_folds_len}")
-        log.debug(f"val_folds_samples: {val_folds_samples}")
-        log.debug(f"train_folds_len: {train_folds_len}")
-        log.debug(f"train_folds_samples: {train_folds_samples}")
-        log.debug(f"train_folds_should: {train_folds_should}")
 
     len_df = 100
     check_folds(
@@ -348,16 +336,6 @@ def test_cv_for_global_model():
                 for i in range(valid_fold_num)
             ]
             assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
-            log.debug(f"global_model_cv_type: {global_model_cv_type}")
-            log.debug(f"df_name: {df_name}")
-            log.debug(f"total_samples: {total_samples}")
-            log.debug(f"val_fold_each: {val_fold_each}")
-            log.debug(f"overlap_each: {overlap_each}")
-            log.debug(f"val_folds_len: {val_folds_len}")
-            log.debug(f"val_folds_samples: {val_folds_samples}")
-            log.debug(f"train_folds_len: {train_folds_len}")
-            log.debug(f"train_folds_samples: {train_folds_samples}")
-            log.debug(f"train_folds_should: {train_folds_should}")
         return folds
 
     # Test cv for dict with time series with similar time range
@@ -395,7 +373,8 @@ def test_cv_for_global_model():
             fold_type[cv_type] = check_folds_dict(
                 df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
             )
-    # since the time range is the same in all cases all of the folds should be exactly the same no matter the global_model_cv_option
+    # since the time range is the same in all cases all of the folds should be exactly the same no matter the
+    # global_model_cv_option
     for x in global_model_cv_options:
         for y in global_model_cv_options:
             if x != y:
@@ -476,7 +455,6 @@ def test_reg_delay():
         (1, 8, 0),
     ]:
         weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
-        log.debug(f"e {e}, i {i}, expected w {w}, got w {weight}")
         assert weight == w
 
 
@@ -504,11 +482,7 @@ def test_double_crossvalidation():
     assert train_folds_len2[0] == 85
     assert val_folds_len1[0] == 10
     assert val_folds_len2[0] == 5
-    log.debug(f"train_folds_len1: {train_folds_len1}")
-    log.debug(f"val_folds_len1: {val_folds_len1}")
-    log.debug(f"train_folds_len2: {train_folds_len2}")
-    log.debug(f"val_folds_len2: {val_folds_len2} ")
-    log.info(f"Test m.double_crossvalidation_split_df")
+
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -535,11 +509,8 @@ def test_double_crossvalidation():
     assert train_folds_len2[0] == 88
     assert val_folds_len1[0] == 12
     assert val_folds_len2[0] == 6
-    log.debug(f"train_folds_len1: {train_folds_len1}")
-    log.debug(f"val_folds_len1: {val_folds_len1}")
-    log.debug(f"train_folds_len2: {train_folds_len2}")
-    log.debug(f"val_folds_len2: {val_folds_len2}")
-    log.info("Raise not implemented error as double_crossvalidation is not compatible with many time series")
+
+    # Raise not implemented error as double_crossvalidation is not compatible with many time series
     with pytest.raises(NotImplementedError):
         df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
         df1 = df.copy(deep=True)
@@ -676,12 +647,12 @@ def test_globaltimedataset():
         df_global = pd.concat((df1, df2))
         df_global["ds"] = pd.to_datetime(df_global.loc[:, "ds"])
         config_normalization.init_data_params(
-            df_global, m.config_lagged_regressors, m.config_regressors.regressors, m.config_events
+            df_global, m.config_lagged_regressors, m.config_regressors, m.config_events
         )
         m.config_normalization = config_normalization
-        df_global = m._normalize(df_global)
-        dataset = m._create_dataset(df_global, predict_mode=False)
-        dataset = m._create_dataset(df_global, predict_mode=True)
+        df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
+        _create_dataset(m, df_global, predict_mode=False)
+        _create_dataset(m, df_global, predict_mode=True)
 
     # lagged_regressors, future_regressors
     df4 = df.copy()
@@ -700,13 +671,11 @@ def test_globaltimedataset():
     config_normalization = configure.Normalization("auto", False, True, False)
     for m in [m4]:
         df4
-        config_normalization.init_data_params(
-            df4, m.config_lagged_regressors, m.config_regressors.regressors, m.config_events
-        )
+        config_normalization.init_data_params(df4, m.config_lagged_regressors, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
-        df4 = m._normalize(df4)
-        dataset = m._create_dataset(df4, predict_mode=False)
-        dataset = m._create_dataset(df4, predict_mode=True)
+        df4 = _normalize(df=df4, config_normalization=m.config_normalization)
+        _create_dataset(m, df4, predict_mode=False)
+        _create_dataset(m, df4, predict_mode=True)
 
 
 def test_dataloader():
@@ -732,12 +701,10 @@ def test_dataloader():
     config_normalization = configure.Normalization("auto", False, True, False)
     df_global = pd.concat((df1, df2))
     df_global["ds"] = pd.to_datetime(df_global.loc[:, "ds"])
-    config_normalization.init_data_params(
-        df_global, m.config_lagged_regressors, m.config_regressors.regressors, m.config_events
-    )
+    config_normalization.init_data_params(df_global, m.config_lagged_regressors, m.config_regressors, m.config_events)
     m.config_normalization = config_normalization
-    df_global = m._normalize(df_global)
-    dataset = m._create_dataset(df_global, predict_mode=False)
+    df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
+    dataset = _create_dataset(m, df_global, predict_mode=False)
     loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
     for inputs, targets, meta in loader:
         assert set(meta["df_name"]) == set(df_global["ID"].unique())
@@ -768,7 +735,7 @@ def test_newer_sample_weight():
         yearly_seasonality=False,
     )
     m.add_future_regressor("a")
-    metrics_df = m.fit(df)
+    m.fit(df)
 
     # test that second half dominates
     # -> positive relationship of a and y
@@ -838,7 +805,7 @@ def test_make_future():
 
 
 def test_too_many_NaN():
-    n_lags, n_forecasts = 12, 1
+    # n_lags, n_forecasts = 12, 1
     config_missing = configure.MissingDataHandling(
         impute_missing=True, impute_linear=5, impute_rolling=5, drop_missing=False
     )
@@ -854,16 +821,14 @@ def test_too_many_NaN():
         limit_linear=config_missing.impute_linear,
         rolling=config_missing.impute_rolling,
     )
-    df, _ = df_utils.check_dataframe(df)
+    df, _, _ = df_utils.check_dataframe(df)
     local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
     df = df.drop("ID", axis=1)
     df = df_utils.normalize(df, global_data_params)
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
-        dataset = time_dataset.TimeDataset(
-            df, "name", config_missing=config_missing, predict_steps=1, prediction_frequency=None
-        )
+        time_dataset.TimeDataset(df, "name", config_missing=config_missing, predict_steps=1, prediction_frequency=None)
 
 
 def test_future_df_with_nan():
@@ -876,9 +841,9 @@ def test_future_df_with_nan():
     df = pd.DataFrame({"ds": days, "y": y})
     # introduce 15 NaN values at the end of df. Now #NaN at end > n_lags
     df.iloc[-15:, 1] = np.nan
-    metrics = m.fit(df, freq="D")
+    m.fit(df, freq="D")
     with pytest.raises(ValueError):
-        future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
+        m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
 
 
 def test_join_dfs_after_data_drop():
@@ -895,7 +860,7 @@ def test_join_dfs_after_data_drop():
     fcst, df = df_utils.join_dfs_after_data_drop(fcst, df)
 
     # merge into one df
-    fcst_merged = df_utils.join_dfs_after_data_drop(fcst, df, merge=True)
+    df_utils.join_dfs_after_data_drop(fcst, df, merge=True)
 
 
 def test_ffill_in_future_df():
@@ -914,8 +879,8 @@ def test_ffill_in_future_df():
     df = pd.DataFrame({"ds": days, "y": y})
     # introduce some NaN values at the end of df, before expanding it to the future
     df.iloc[-5:, 1] = np.nan
-    metrics = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
+    m.fit(df, freq="D")
+    m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
 
 
 def test_handle_negative_values_remove():
@@ -947,7 +912,7 @@ def test_handle_negative_values_error():
         drop_missing=False,
     )
     with pytest.raises(ValueError):
-        df_ = m.handle_negative_values(df, handle="error")
+        m.handle_negative_values(df, handle="error")
 
 
 def test_handle_negative_values_replace():
@@ -964,27 +929,6 @@ def test_handle_negative_values_replace():
     )
     df_ = m.handle_negative_values(df, handle=0.0)
     assert df_.loc[0, "y"] == 0.0
-
-
-def test_version():
-    from neuralprophet import __version__ as init_version
-    from neuralprophet._version import __version__ as file_version
-
-    try:
-        from importlib import metadata
-    except ImportError:
-        # Python < 3.8
-        import subprocess
-        import sys
-
-        def install(package):
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
-        install("importlib_metadata")
-        import importlib_metadata as metadata
-    metadata_version_ = metadata.version("neuralprophet")
-    assert metadata_version_ == init_version  # if this fails, run 'pip install --upgrade -e ".[dev]"'
-    assert metadata_version_ == file_version  # if this fails, run 'pip install --upgrade -e ".[dev]"'
 
 
 def test_add_country_holiday_multiple_calls_warning(caplog):
@@ -1012,8 +956,8 @@ def test_multiple_countries():
         learning_rate=LR,
     )
     m.add_country_holidays(country_name=["US", "Germany"])
-    metrics = m.fit(df, freq="D")
-    forecast = m.predict(df)
+    m.fit(df, freq="D")
+    m.predict(df)
     # get the name of holidays and compare that no holiday is repeated
     holiday_names = m.model.config_holidays.holiday_names
     assert len(holiday_names) == 20

@@ -299,12 +299,14 @@ def get_valid_configuration(  # move to utils
                     ):
                         df_name = m.id_list
                         log.warning(
-                            "Glocal model set with > 1 time series in the pd.DataFrame. Plotting components of mean time series and quants. "
+                            "Glocal model set with > 1 time series in the pd.DataFrame. Plotting components of mean \
+                                time series and quants. "
                         )
                     else:
                         df_name = m.id_list[0]
                         log.warning(
-                            "Local model set with > 1 time series in the pd.DataFrame. Plotting components of first time series. "
+                            "Local model set with > 1 time series in the pd.DataFrame. Plotting components of first \
+                                time series. "
                         )
                 else:
                     log.warning("Local normalization set, but df_name is None. Using global data params instead.")
@@ -404,13 +406,13 @@ def get_valid_configuration(  # move to utils
         elif validator == "plot_parameters":
             for name in m.config_lagged_regressors.keys():
                 if m.config_lagged_regressors[name].as_scalar:
-                    lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
+                    lagged_scalar_regressors.append((name, m.model.get_covar_weights()[name].detach().numpy()))
                 else:
                     plot_components.append(
                         {
                             "plot_name": "lagged weights",
                             "comp_name": f'Lagged Regressor "{name}"',
-                            "weights": m.model.get_covar_weights(name).detach().numpy(),
+                            "weights": m.model.get_covar_weights()[name].detach().numpy(),
                             "focus": forecast_in_focus,
                         }
                     )
@@ -562,7 +564,8 @@ def get_valid_configuration(  # move to utils
 
 def validate_current_env_for_resampler(auto: bool = False) -> Optional[bool]:
     """
-    Validate the current environment to check if it is a valid environment for plotly-resampler and if invalid trigger warning message.
+    Validate the current environment to check if it is a valid environment for plotly-resampler and if invalid trigger
+    warning message.
 
     Parameters
     ----------

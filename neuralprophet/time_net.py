@@ -1,6 +1,7 @@
 import logging
 import math
 from collections import OrderedDict
+from functools import reduce
 from typing import Dict, List, Optional, Union
 
 import numpy as np
@@ -9,16 +10,25 @@ import torch
 import torch.nn as nn
 import torchmetrics
 
-from neuralprophet import configure, np_types, utils
+from neuralprophet import configure, np_types
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
-from neuralprophet.utils_torch import init_parameter
+from neuralprophet.utils import (
+    check_for_regularization,
+    config_events_to_model_dims,
+    reg_func_events,
+    reg_func_regressors,
+    reg_func_season,
+    reg_func_seasonality_glocal,
+    reg_func_trend,
+    reg_func_trend_glocal,
+)
+from neuralprophet.utils_torch import init_parameter, interprete_model
 
 log = logging.getLogger("NP.time_net")
 
 
 class TimeNet(pl.LightningModule):
     """Linear time regression fun and some not so linear fun.
-
     A modular model that models classic time-series components
         * trend
         * seasonality
@@ -44,8 +54,8 @@ class TimeNet(pl.LightningModule):
         n_forecasts: int = 1,
         n_lags: int = 0,
         max_lags: int = 0,
-        num_hidden_layers: int = 0,
-        d_hidden: Optional[int] = None,
+        ar_layers: Optional[List[int]] = [],
+        lagged_reg_layers: Optional[List[int]] = [],
         compute_components_flag: bool = False,
         metrics: Optional[np_types.CollectMetricsMode] = {},
         id_list: List[str] = ["__df__"],
@@ -59,102 +69,75 @@ class TimeNet(pl.LightningModule):
         ----------
             quantiles : list
                 the set of quantiles estimated
-
             config_train : configure.Train
-
             config_trend : configure.Trend
-
             config_seasonality : configure.ConfigSeasonality
-
             config_ar : configure.AR
-
             config_lagged_regressors : configure.ConfigLaggedRegressors
                 Configurations for lagged regressors
             config_regressors : configure.ConfigFutureRegressors
                 Configs of regressors with mode and index.
             config_events : configure.ConfigEvents
-
             config_holidays : OrderedDict
-
             config_normalization: OrderedDict
-
             n_forecasts : int
                 number of steps to forecast. Aka number of model outputs
             n_lags : int
                 number of previous steps of time series used as input (aka AR-order)
-
                 Note
                 ----
                 The default value is ``0``, which initializes no auto-regression.
-            num_hidden_layers : int
-                Number of hidden layers (for AR-Net)
-
-                Note
-                ----
-                The default value is ``0``, which initializes no hidden layers (classic Auto-Regression).
 
             max_lags : int
                 Number of max. previous steps of time series used as input (aka AR-order).
 
-            num_hidden_layers : int
-                Number of hidden layers (for AR-Net).
-
-            d_hidden : int
-                Dimensionality of hidden layers  (for AR-Net).
+            ar_layers : list
+                List of hidden layers (for AR-Net).
 
                 Note
                 ----
-                This parameter is ignored if no hidden layers are specified.
+                The default value is ``[]``, which initializes no hidden layers.
+
+            lagged_reg_layers : list
+                List of hidden layers (for covariate-Net).
 
                 Note
                 ----
-                The default value is set to ``None``, which sets to ``n_lags + n_forecasts``.
+                The default value is ``[]``, which initializes no hidden layers.
+
 
             compute_components_flag : bool
                 Flag whether to compute the components of the model or not.
-
             metrics : dict
                 Dictionary of torchmetrics to be used during training and for evaluation.
-
             id_list : list
                 List of different time series IDs, used for global-local modelling (if enabled)
-
                 Note
                 ----
                 This parameter is set to  ``['__df__']`` if only one time series is input.
-
             num_trends_modelled : int
                 Number of different trends modelled.
-
                 Note
                 ----
                 If only 1 time series is modelled, it will be always 1.
-
                 Note
                 ----
                 For multiple time series. If trend is modelled globally the value is set
                 to 1, otherwise it is set to the number of time series modelled.
-
             num_seasonalities_modelled : int
                 Number of different seasonalities modelled.
-
                 Note
                 ----
                 If only 1 time series is modelled, it will be always 1.
-
                 Note
                 ----
                 For multiple time series. If seasonality is modelled globally the value is set
                 to 1, otherwise it is set to the number of time series modelled.
-
             meta_used_in_model : boolean
                 Whether we need to know the time series ID when we interact with the Model.
-
                 Note
                 ----
                 Will be set to ``True`` if more than one component is modelled locally.
-
-
         """
         super().__init__()
 
@@ -203,7 +186,7 @@ class TimeNet(pl.LightningModule):
         self.meta_used_in_model = meta_used_in_model
 
         # Regularization
-        self.reg_enabled = utils.check_for_regularization(
+        self.reg_enabled = check_for_regularization(
             [
                 config_seasonality,
                 config_regressors,
@@ -251,7 +234,7 @@ class TimeNet(pl.LightningModule):
         # Events
         self.config_events = config_events
         self.config_holidays = config_holidays
-        self.events_dims = utils.config_events_to_model_dims(self.config_events, self.config_holidays)
+        self.events_dims = config_events_to_model_dims(self.config_events, self.config_holidays)
         if self.events_dims is not None:
             n_additive_event_params = 0
             n_multiplicative_event_params = 0
@@ -281,48 +264,31 @@ class TimeNet(pl.LightningModule):
         # Autoregression
         self.config_ar = config_ar
         self.n_lags = n_lags
+        self.ar_layers = ar_layers
         self.max_lags = max_lags
-        self.num_hidden_layers = num_hidden_layers
-        self.d_hidden = (
-            max(4, round((n_lags + n_forecasts) / (2.0 * (num_hidden_layers + 1)))) if d_hidden is None else d_hidden
-        )
         if self.n_lags > 0:
             self.ar_net = nn.ModuleList()
             d_inputs = self.n_lags
-            for i in range(self.num_hidden_layers):
-                self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
-                d_inputs = self.d_hidden
+            for d_hidden_i in self.ar_layers:
+                self.ar_net.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+                d_inputs = d_hidden_i
             # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
             self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
         # Lagged regressors
+        self.lagged_reg_layers = lagged_reg_layers
         self.config_lagged_regressors = config_lagged_regressors
         if self.config_lagged_regressors is not None:
-            self.covar_nets = nn.ModuleDict({})
-            for covar in self.config_lagged_regressors.keys():
-                covar_net = nn.ModuleList()
-                d_inputs = self.config_lagged_regressors[covar].n_lags
-                for i in range(self.config_lagged_regressors[covar].num_hidden_layers):
-                    d_hidden = (
-                        max(
-                            4,
-                            round(
-                                (self.config_lagged_regressors[covar].n_lags + n_forecasts)
-                                / (2.0 * (self.config_lagged_regressors[covar].num_hidden_layers + 1))
-                            ),
-                        )
-                        if self.config_lagged_regressors[covar].d_hidden is None
-                        else self.config_lagged_regressors[covar].d_hidden
-                    )
-                    covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
-                    d_inputs = d_hidden
-                # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
-                covar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
-                for lay in covar_net:
-                    nn.init.kaiming_normal_(lay.weight, mode="fan_in")
-                self.covar_nets[covar] = covar_net
+            self.covar_net = nn.ModuleList()
+            d_inputs = sum([covar.n_lags for _, covar in self.config_lagged_regressors.items()])
+            for d_hidden_i in self.lagged_reg_layers:
+                self.covar_net.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+                d_inputs = d_hidden_i
+            self.covar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+            for lay in self.covar_net:
+                nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
         # Regressors
         self.config_regressors = config_regressors
@@ -342,21 +308,56 @@ class TimeNet(pl.LightningModule):
     @property
     def ar_weights(self) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
+        # TODO: this is wrong for deep networks, use utils_torch.interprete_model
         return self.ar_net[0].weight
 
-    def get_covar_weights(self, name: str) -> torch.Tensor:
-        """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
-        return self.covar_nets[name][0].weight
+    def get_covar_weights(self, covar_input=None) -> torch.Tensor:
+        """
+        Get attributions of covariates network w.r.t. the model input.
+        """
+        if self.config_lagged_regressors is not None:
+            # Accumulate the lags of the covariates
+            covar_splits = np.add.accumulate(
+                [covar.n_lags for _, covar in self.config_lagged_regressors.items()][:-1]
+            ).tolist()
+            # If actual covariates are provided, use them to compute the attributions
+            if covar_input is not None:
+                covar_input = torch.cat([covar for _, covar in covar_input.items()], axis=1)
+            # Calculate the attributions w.r.t. the inputs
+            if self.lagged_reg_layers == []:
+                attributions = self.covar_net[0].weight
+            else:
+                attributions = interprete_model(self, "covar_net", "forward_covar_net", covar_input)
+            # Split the attributions into the different covariates
+            attributions_split = torch.tensor_split(
+                attributions,
+                covar_splits,
+                axis=1,
+            )
+            # Combine attributions and covariate name
+            covar_attributions = dict(zip(self.config_lagged_regressors.keys(), attributions_split))
+        else:
+            covar_attributions = None
+        return covar_attributions
+
+    def set_covar_weights(self, covar_weights: torch.Tensor):
+        """
+        Function to set the covariate weights for later interpretation in compute_components.
+        This function is needed since the gradient information is not available during the predict_step
+        method and attributions cannot be calculated in compute_components.
+
+        :param covar_weights: _description_
+        :type covar_weights: torch.Tensor
+        """
+        self.covar_weights = covar_weights
 
     def get_event_weights(self, name: str) -> Dict[str, torch.Tensor]:
         """
         Retrieve the weights of event features given the name
-
         Parameters
         ----------
             name : str
                 Event name
-
         Returns
         -------
             OrderedDict
@@ -380,7 +381,6 @@ class TimeNet(pl.LightningModule):
     def _compute_quantile_forecasts_from_diffs(self, diffs: torch.Tensor, predict_mode: bool = False) -> torch.Tensor:
         """
         Computes the actual quantile forecasts from quantile differences estimated from the model
-
         Args:
             diffs : torch.Tensor
                 tensor of dims (batch, n_forecasts, no_quantiles) which
@@ -388,7 +388,6 @@ class TimeNet(pl.LightningModule):
                 from the median quantile
             predict_mode : bool
                 boolean variable indicating whether the model is in prediction mode
-
         Returns:
             dim (batch, n_forecasts, no_quantiles)
                 final forecasts
@@ -441,11 +440,11 @@ class TimeNet(pl.LightningModule):
     def scalar_features_effects(self, features: torch.Tensor, params: nn.Parameter, indices=None) -> torch.Tensor:
         """
         Computes events component of the model
-
         Parameters
         ----------
             features : torch.Tensor, float
-                Features (either additive or multiplicative) related to event component dims (batch, n_forecasts, n_features)
+                Features (either additive or multiplicative) related to event component dims (batch, n_forecasts,
+                n_features)
             params : nn.Parameter
                 Params (either additive or multiplicative) related to events
             indices : list of int
@@ -463,19 +462,17 @@ class TimeNet(pl.LightningModule):
 
     def auto_regression(self, lags: Union[torch.Tensor, float]) -> torch.Tensor:
         """Computes auto-regessive model component AR-Net.
-
         Parameters
         ----------
             lags  : torch.Tensor, float
                 Previous times series values, dims: (batch, n_lags)
-
         Returns
         -------
             torch.Tensor
                 Forecast component of dims: (batch, n_forecasts)
         """
         x = lags
-        for i in range(self.num_hidden_layers + 1):
+        for i in range(len(self.ar_layers) + 1):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.ar_net[i](x)
@@ -484,98 +481,72 @@ class TimeNet(pl.LightningModule):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def covariate(self, lags: Union[torch.Tensor, float], name: str) -> torch.Tensor:
-        """Compute single covariate component.
-
-        Parameters
-        ----------
-            lags : torch.Tensor, float
-                Lagged values of covariate, dims: (batch, n_lags)
-            nam : str
-                Mame of covariate, for attribution to corresponding model weights
-
-        Returns
-        -------
-            torch.Tensor
-                Forecast component of dims (batch, n_forecasts)
-        """
-        x = lags
-        for i in range(self.config_lagged_regressors[name].num_hidden_layers + 1):
-            if i > 0:
-                x = nn.functional.relu(x)
-            x = self.covar_nets[name][i](x)
-
-        # segment the last dimension to match the quantiles
-        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
-        return x
-
-    def all_covariates(self, covariates: Dict[str, Union[torch.Tensor, float]]) -> torch.Tensor:
+    def forward_covar_net(self, covariates):
         """Compute all covariate components.
-
         Parameters
         ----------
             covariates : dict(torch.Tensor, float)
                 dict of named covariates (keys) with their features (values)
                 dims of each dict value: (batch, n_lags)
-
         Returns
         -------
             torch.Tensor
-                Forecast component of dims (batch, n_forecasts)
+                Forecast component of dims (batch, n_forecasts, quantiles)
         """
-        for i, name in enumerate(covariates.keys()):
-            if i == 0:
-                x = self.covariate(lags=covariates[name], name=name)
+        # Concat covariates into one tensor)
+        if isinstance(covariates, dict):
+            x = torch.cat([covar for _, covar in covariates.items()], axis=1)
+        else:
+            x = covariates
+        for i in range(len(self.lagged_reg_layers) + 1):
             if i > 0:
-                x = x + self.covariate(lags=covariates[name], name=name)
+                x = nn.functional.relu(x)
+            x = self.covar_net[i](x)
+
+        # segment the last dimension to match the quantiles
+        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def forward(self, inputs: Dict, meta: Dict = None) -> torch.Tensor:
+    def forward(self, inputs: Dict, meta: Dict = None, compute_components_flag: bool = False) -> torch.Tensor:
         """This method defines the model forward pass.
-
         Note
         ----
-
         Time input is required. Minimum model setup is a linear trend.
-
         Parameters
         ----------
             inputs : dict
                 Model inputs, each of len(df) but with varying dimensions
-
                 Note
                 ----
-
                 Contains the following data:
-
                 Model Inputs
                     * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
                     * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
-                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features (values), dims of each dict value (batch, n_forecasts, n_features)
-                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features (values), dims of each dict value: (batch, n_lags)
+                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features
+                    (values), dims of each dict value (batch, n_forecasts, n_features)
+                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features
+                    (values), dims of each dict value: (batch, n_lags)
                     * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
                     * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
                     * ``predict_mode`` (bool), optional and only passed during prediction
-
             meta : dict, default=None
                 Metadata about the all the samples of the model input batch.
-
                 Contains the following:
-
                 Model Meta:
                     * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
-
                 Note
                 ----
                 The meta is sorted in the same way the inputs are sorted.
-
                 Note
                 ----
                 The default None value allows the forward method to be used without providing the meta argument.
                 This was designed to avoid issues with the library `lr_finder` https://github.com/davidtvs/pytorch-lr-finder
                 while having  ``config_trend.trend_global_local="local"``.
                 The turnaround consists on passing the same meta (dummy ID) to all the samples of the batch.
-                Internally, this is equivalent to use ``config_trend.trend_global_local="global"`` to find the optimal learning rate.
+                Internally, this is equivalent to use ``config_trend.trend_global_local="global"`` to find the optimal
+                learning rate.
+            compute_components_flag : bool, default=False
+                If True, components will be computed.
 
         Returns
         -------
@@ -589,8 +560,15 @@ class TimeNet(pl.LightningModule):
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
 
+        additive_components_nonstationary = torch.zeros(
+            size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
+        )
+        multiplicative_components_nonstationary = torch.zeros(
+            size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
+        )
         additive_components = torch.zeros(
-            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
+            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)),
+            device=self.device,
         )
         multiplicative_components = torch.zeros(
             size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
@@ -600,38 +578,72 @@ class TimeNet(pl.LightningModule):
             additive_components += self.auto_regression(lags=inputs["lags"])
         # else: assert self.n_lags == 0
 
-        if "covariates" in inputs:
-            additive_components += self.all_covariates(covariates=inputs["covariates"])
+        components = {}
+        # non-stationary components
+        trend = self.trend(t=inputs["time"], meta=meta)
+        components["trend"] = trend
+
         if "seasonalities" in inputs:
             s = self.seasonality(s=inputs["seasonalities"], meta=meta)
             if self.config_seasonality.mode == "additive":
-                additive_components += s
+                additive_components_nonstationary += s
             elif self.config_seasonality.mode == "multiplicative":
-                multiplicative_components += s
+                multiplicative_components_nonstationary += s
+            components["seasonalities"] = s
 
         if "events" in inputs:
             if "additive" in inputs["events"].keys():
-                additive_components += self.scalar_features_effects(
+                additive_events = self.scalar_features_effects(
                     inputs["events"]["additive"], self.event_params["additive"]
                 )
+                additive_components_nonstationary += additive_events
+                components["additive_events"] = additive_events
             if "multiplicative" in inputs["events"].keys():
-                multiplicative_components += self.scalar_features_effects(
+                multiplicative_events = self.scalar_features_effects(
                     inputs["events"]["multiplicative"], self.event_params["multiplicative"]
                 )
+                multiplicative_components_nonstationary += multiplicative_events
+                components["multiplicative_events"] = multiplicative_events
 
         if "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
-                additive_components += self.future_regressors(inputs["regressors"]["additive"], "additive")
+                additive_regressors = self.future_regressors(inputs["regressors"]["additive"], "additive")
+                additive_components_nonstationary += additive_regressors
+                components["additive_regressors"] = additive_regressors
             if "multiplicative" in inputs["regressors"].keys():
-                multiplicative_components += self.future_regressors(
+                multiplicative_regressors = self.future_regressors(
                     inputs["regressors"]["multiplicative"], "multiplicative"
                 )
+                multiplicative_components_nonstationary += multiplicative_regressors
+                components["multiplicative_regressors"] = multiplicative_regressors
 
-        trend = self.trend(t=inputs["time"], meta=meta)
-        out = (
-            trend
+        nonstationary_components = (  # dimensions - [batch, n_lags, median quantile]
+            trend[:, : self.n_lags, 0]
+            + additive_components_nonstationary[:, : self.n_lags, 0]
+            + trend[:, : self.n_lags, 0].detach() * multiplicative_components_nonstationary[:, : self.n_lags, 0]
+        )
+
+        # stationarized input
+        if "lags" in inputs:
+            stationarized_lags = inputs["lags"] - nonstationary_components
+            lags = self.auto_regression(lags=stationarized_lags)
+            additive_components += lags
+            components["lags"] = lags
+
+        if "covariates" in inputs:
+            covariates = self.forward_covar_net(covariates=inputs["covariates"])
+            additive_components += covariates
+            components["covariates"] = covariates
+
+        predictions_nonstationary = (
+            trend[:, self.n_lags : inputs["time"].shape[1], :]
+            + additive_components_nonstationary[:, self.n_lags : inputs["time"].shape[1], :]
+            + trend[:, self.n_lags : inputs["time"].shape[1], :].detach()
+            * multiplicative_components_nonstationary[:, self.n_lags : inputs["time"].shape[1], :]
+        )
+        prediction = (
+            predictions_nonstationary
             + additive_components
-            + trend.detach() * multiplicative_components
             # 0 is the median quantile index
             # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
             # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
@@ -642,86 +654,114 @@ class TimeNet(pl.LightningModule):
             predict_mode = True
         else:
             predict_mode = False
-        out = self._compute_quantile_forecasts_from_diffs(out, predict_mode)
-        return out
+        prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
 
-    def compute_components(self, inputs: Dict, meta: Dict) -> Dict:
+        # component calculation
+        if compute_components_flag:
+            components = self.compute_components(inputs, components, meta)
+        else:
+            components = None
+
+        return prediction_with_quantiles, components
+
+    def compute_components(self, inputs: Dict, components_raw: Dict, meta: Dict) -> Dict:
         """This method returns the values of each model component.
-
         Note
         ----
-
         Time input is required. Minimum model setup is a linear trend.
-
         Parameters
         ----------
             inputs : dict
                 Model inputs, each of len(df) but with varying dimensions
-
                 Note
                 ----
-
                 Contains the following data:
-
                 Model Inputs
                     * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
                     * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
-                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features (values), dims of each dict value (batch, n_forecasts, n_features)
-                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features (values), dims of each dict value: (batch, n_lags)
+                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features
+                    (values), dims of each dict value (batch, n_forecasts, n_features)
+                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features
+                    (values), dims of each dict value: (batch, n_lags)
                     * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
                     * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
-
-        Returns
+            components_raw : dict
+                components to be computed
         -------
             dict
                 Containing forecast coomponents with elements of dims (batch, n_forecasts)
         """
         components = {}
-        components["trend"] = self.trend(t=inputs["time"], meta=meta)
+
+        components["trend"] = components_raw["trend"][:, self.n_lags : inputs["time"].shape[1], :]
         if self.config_trend is not None and "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
-                components[f"season_{name}"] = self.seasonality.compute_fourier(features=features, name=name, meta=meta)
+                components[f"season_{name}"] = self.seasonality.compute_fourier(
+                    features=features[:, self.n_lags : inputs["time"].shape[1], :], name=name, meta=meta
+                )
         if self.n_lags > 0 and "lags" in inputs:
-            components["ar"] = self.auto_regression(lags=inputs["lags"])
+            components["ar"] = components_raw["lags"]
         if self.config_lagged_regressors is not None and "covariates" in inputs:
-            for name, lags in inputs["covariates"].items():
-                components[f"lagged_regressor_{name}"] = self.covariate(lags=lags, name=name)
+            # Combined forward pass
+            all_covariates = components_raw["covariates"]
+            # Calculate the contribution of each covariate on each forecast
+            covar_attributions = self.covar_weights
+            # Sum the contributions of all covariates
+            covar_attribution_sum_per_forecast = reduce(
+                torch.add, [torch.sum(covar, axis=1) for _, covar in covar_attributions.items()]
+            ).to(all_covariates.device)
+            for name in inputs["covariates"].keys():
+                # Distribute the contribution of the current covariate to the combined forward pass
+                # 1. Calculate the relative share of each covariate on the total attributions
+                # 2. Multiply the relative share with the combined forward pass
+                components[f"lagged_regressor_{name}"] = torch.multiply(
+                    all_covariates,
+                    torch.divide(
+                        torch.sum(covar_attributions[name], axis=1).to(all_covariates.device),
+                        covar_attribution_sum_per_forecast,
+                    ).reshape(self.n_forecasts, len(self.quantiles)),
+                )
         if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
             if "additive" in inputs["events"].keys():
-                components["events_additive"] = self.scalar_features_effects(
-                    features=inputs["events"]["additive"], params=self.event_params["additive"]
-                )
+                components["events_additive"] = components_raw["additive_events"][
+                    :, self.n_lags : inputs["time"].shape[1], :
+                ]
             if "multiplicative" in inputs["events"].keys():
-                components["events_multiplicative"] = self.scalar_features_effects(
-                    features=inputs["events"]["multiplicative"], params=self.event_params["multiplicative"]
-                )
+                components["events_multiplicative"] = components_raw["multiplicative_events"][
+                    :, self.n_lags : inputs["time"].shape[1], :
+                ]
             for event, configs in self.events_dims.items():
                 mode = configs["mode"]
                 indices = configs["event_indices"]
                 if mode == "additive":
-                    features = inputs["events"]["additive"]
+                    features = inputs["events"]["additive"][:, self.n_lags : inputs["time"].shape[1], :]
                     params = self.event_params["additive"]
                 else:
-                    features = inputs["events"]["multiplicative"]
+                    features = inputs["events"]["multiplicative"][:, self.n_lags : inputs["time"].shape[1], :]
                     params = self.event_params["multiplicative"]
                 components[f"event_{event}"] = self.scalar_features_effects(
                     features=features, params=params, indices=indices
                 )
         if self.config_regressors.regressors is not None and "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
-                components["future_regressors_additive"] = self.future_regressors(
-                    inputs["regressors"]["additive"], "additive"
-                )
+                components["future_regressors_additive"] = components_raw["additive_regressors"][
+                    :, self.n_lags : inputs["time"].shape[1], :
+                ]
+
             if "multiplicative" in inputs["regressors"].keys():
-                components["future_regressors_multiplicative"] = self.future_regressors(
-                    inputs["regressors"]["multiplicative"], "multiplicative"
-                )
+                components["future_regressors_multiplicative"] = components_raw["multiplicative_regressors"][
+                    :, self.n_lags : inputs["time"].shape[1], :
+                ]
+
             for regressor, configs in self.future_regressors.regressors_dims.items():
                 mode = configs["mode"]
                 index = []
                 index.append(configs["regressor_index"])
                 features = inputs["regressors"][mode]
-                components[f"future_regressor_{regressor}"] = self.future_regressors(features, mode, indeces=index)
+                components[f"future_regressor_{regressor}"] = self.future_regressors(
+                    features[:, self.n_lags : inputs["time"].shape[1], :], mode, indeces=index
+                )
+
         return components
 
     def set_compute_components(self, compute_components_flag):
@@ -732,7 +772,7 @@ class TimeNet(pl.LightningModule):
         # Compute loss. no reduction.
         loss = self.config_train.loss_func(predicted, targets)
         # Weigh newer samples more.
-        loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
+        loss = loss * self._get_time_based_sample_weight(t=inputs["time"][:, self.n_lags :])
         loss = loss.sum(dim=2).mean()
         # Regularize.
         if self.reg_enabled:
@@ -751,7 +791,7 @@ class TimeNet(pl.LightningModule):
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted = self.forward(inputs, meta_name_tensor)
+        predicted, _ = self.forward(inputs, meta_name_tensor)
         # Store predictions in self for later network visualization
         self.train_epoch_prediction = predicted
         # Calculate loss
@@ -786,7 +826,7 @@ class TimeNet(pl.LightningModule):
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted = self.forward(inputs, meta_name_tensor)
+        predicted, _ = self.forward(inputs, meta_name_tensor)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
@@ -805,11 +845,14 @@ class TimeNet(pl.LightningModule):
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted = self.forward(inputs, meta_name_tensor)
+        predicted, _ = self.forward(inputs, meta_name_tensor)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
         if self.metrics_enabled:
+            predicted_denorm = self.denormalize(predicted[:, :, 0])
+            target_denorm = self.denormalize(targets.squeeze(dim=2))
+            self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss_test", loss, **self.log_args)
             self.log("RegLoss_test", reg_loss, **self.log_args)
 
@@ -823,12 +866,7 @@ class TimeNet(pl.LightningModule):
         # Add predict_mode flag to dataset
         inputs["predict_mode"] = True
         # Run forward calculation
-        prediction = self.forward(inputs, meta_name_tensor)
-        # Calculate components (if requested)
-        if self.compute_components_flag:
-            components = self.compute_components(inputs, meta_name_tensor)
-        else:
-            components = None
+        prediction, components = self.forward(inputs, meta_name_tensor, self.compute_components_flag)
         return prediction, components
 
     def configure_optimizers(self):
@@ -862,7 +900,6 @@ class TimeNet(pl.LightningModule):
 
     def _add_batch_regularizations(self, loss, epoch, progress):
         """Add regularization terms to loss, if applicable
-
         Parameters
         ----------
             loss : torch.Tensor, scalar
@@ -871,7 +908,6 @@ class TimeNet(pl.LightningModule):
                 current epoch number
             progress : float
                 progress within the epoch, between 0 and 1
-
         Returns
         -------
             loss, reg_loss
@@ -889,7 +925,7 @@ class TimeNet(pl.LightningModule):
             # Regularize trend to be smoother/sparse
             l_trend = self.config_trend.trend_reg
             if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
-                reg_trend = utils.reg_func_trend(
+                reg_trend = reg_func_trend(
                     weights=self.trend.get_trend_deltas,
                     threshold=self.config_train.trend_reg_threshold,
                 )
@@ -900,24 +936,24 @@ class TimeNet(pl.LightningModule):
                 l_season = self.config_seasonality.reg_lambda
                 if self.seasonality.season_dims is not None and l_season is not None and l_season > 0:
                     for name in self.seasonality.season_params.keys():
-                        reg_season = utils.reg_func_season(self.seasonality.season_params[name])
+                        reg_season = reg_func_season(self.seasonality.season_params[name])
                         reg_loss += l_season * reg_season
 
             # Regularize events: sparsify events features coefficients
             if self.config_events is not None or self.config_holidays is not None:
-                reg_events_loss = utils.reg_func_events(self.config_events, self.config_holidays, self)
+                reg_events_loss = reg_func_events(self.config_events, self.config_holidays, self)
                 reg_loss += reg_events_loss
 
             # Regularize regressors: sparsify regressor features coefficients
             if self.config_regressors.regressors is not None:
-                reg_regressor_loss = utils.reg_func_regressors(self.config_regressors.regressors, self)
+                reg_regressor_loss = reg_func_regressors(self.config_regressors.regressors, self)
                 reg_loss += reg_regressor_loss
 
         trend_glocal_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
         # Glocal Trend
         if self.config_trend is not None:
             if self.config_trend.trend_global_local == "local" and self.config_trend.glocal_trend_reg != False:
-                trend_glocal_loss = utils.reg_func_trend_glocal(
+                trend_glocal_loss = reg_func_trend_glocal(
                     self.trend.trend_k0, self.trend.trend_deltas, self.config_trend.glocal_trend_reg
                 )
                 reg_loss += trend_glocal_loss
@@ -927,7 +963,7 @@ class TimeNet(pl.LightningModule):
                 self.config_seasonality.global_local in ["local", "glocal"]
                 and self.config_seasonality.glocal_seasonality_reg != False
             ):
-                seasonality_glocal_loss = utils.reg_func_seasonality_glocal(
+                seasonality_glocal_loss = reg_func_seasonality_glocal(
                     self.seasonality.season_params, self.config_seasonality.glocal_seasonality_reg
                 )
                 reg_loss += seasonality_glocal_loss
@@ -937,12 +973,10 @@ class TimeNet(pl.LightningModule):
     def denormalize(self, ts):
         """
         Denormalize timeseries
-
         Parameters
         ----------
             target : torch.Tensor
                 ts tensor
-
         Returns
         -------
             denormalized timeseries
@@ -988,13 +1022,13 @@ class DeepNet(nn.Module):
     A simple, general purpose, fully connected network
     """
 
-    def __init__(self, d_inputs, d_outputs, d_hidden=32, num_hidden_layers=0):
+    def __init__(self, d_inputs, d_outputs, lagged_reg_layers=[]):
         # Perform initialization of the pytorch superclass
         super(DeepNet, self).__init__()
         self.layers = nn.ModuleList()
-        for i in range(num_hidden_layers):
-            self.layers.append(nn.Linear(d_inputs, d_hidden, bias=True))
-            d_inputs = d_hidden
+        for d_hidden_i in lagged_reg_layers:
+            self.layers.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+            d_inputs = d_hidden_i
         self.layers.append(nn.Linear(d_inputs, d_outputs, bias=True))
         for lay in self.layers:
             nn.init.kaiming_normal_(lay.weight, mode="fan_in")

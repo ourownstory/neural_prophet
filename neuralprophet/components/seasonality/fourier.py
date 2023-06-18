@@ -33,7 +33,8 @@ class FourierSeasonality(Seasonality):
             # Seasonality parameters for global or local modelling
             self.season_params = nn.ParameterDict(
                 {
-                    # dimensions - [no. of quantiles, num_seasonalities_modelled, no. of fourier terms for each seasonality]
+                    # dimensions -
+                    # [no. of quantiles, num_seasonalities_modelled, no. of fourier terms for each seasonality]
                     name: init_parameter(
                         dims=[len(self.quantiles)] + [self.num_seasonalities_modelled_dict[name]] + [dim]
                     )
@@ -81,7 +82,7 @@ class FourierSeasonality(Seasonality):
         """
         device = s[list(s.keys())[0]].device
         x = torch.zeros(
-            size=(s[list(s.keys())[0]].shape[0], self.n_forecasts, len(self.quantiles)),
+            size=(s[list(s.keys())[0]].shape[0], s[list(s.keys())[0]].shape[1], len(self.quantiles)),
             device=device,
         )
         for name, features in s.items():

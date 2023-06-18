@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from neuralprophet import utils
 from neuralprophet.components.future_regressors import FutureRegressors
 from neuralprophet.utils_torch import init_parameter
 
@@ -17,6 +18,7 @@ class LinearFutureRegressors(FutureRegressors):
             device=device,
             config_trend_none_bool=config_trend_none_bool,
         )
+
         if self.regressors_dims is not None:
             # Regresors params
             self.regressor_params = nn.ParameterDict(
@@ -37,7 +39,8 @@ class LinearFutureRegressors(FutureRegressors):
         Parameters
         ----------
             features : torch.Tensor, float
-                Features (either additive or multiplicative) related to event component dims (batch, n_forecasts, n_features)
+                Features (either additive or multiplicative) related to event component dims (batch, n_forecasts,
+                n_features)
             params : nn.Parameter
                 Params (either additive or multiplicative) related to events
             indices : list of int
