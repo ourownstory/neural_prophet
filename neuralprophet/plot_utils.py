@@ -466,7 +466,6 @@ def get_valid_configuration(  # move to utils
             )
 
     # Add Regressors
-    m.local_vis_3 = locals()
     additive_future_regressors = []
     multiplicative_future_regressors = []
     if "future_regressors" in components:

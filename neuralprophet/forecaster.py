@@ -2515,7 +2515,6 @@ class NeuralProphet:
             "events",
             "future_regressors",
         ]
-        self.local_vis_2 = locals()
 
         valid_plot_configuration = get_valid_configuration(
             m=self,
