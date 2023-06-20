@@ -1126,7 +1126,7 @@ def convert_events_to_features(df, config_events: ConfigEvents, events_df):
 
 
 def add_missing_dates_nan(df, freq):
-    """Fills missing datetimes in ``ds``, with NaN for all other columns
+    """Fills missing datetimes in ``ds``, with NaN for all other columns except ``ID``.
 
     Parameters
     ----------
@@ -1141,15 +1141,15 @@ def add_missing_dates_nan(df, freq):
         pd.DataFrame
             dataframe without date-gaps but nan-values
     """
-    if df["ds"].dtype == np.int64:
-        df["ds"] = df.loc[:, "ds"].astype(str)
-    df["ds"] = pd.to_datetime(df.loc[:, "ds"])
+    df["ds"] = pd.to_datetime(df["ds"])
+    df = df.set_index("ds")
+    df_resampled = df.resample(freq).asfreq()
+    if "ID" in df.columns:
+        df_resampled["ID"].fillna(df["ID"].iloc[0], inplace=True)
+    df_resampled.reset_index(inplace=True)
 
-    data_len = len(df)
-    r = pd.date_range(start=df["ds"].min(), end=df["ds"].max(), freq=freq)
-    df_all = df.set_index("ds").reindex(r).rename_axis("ds").reset_index()
-    num_added = len(df_all) - data_len
-    return df_all, num_added
+    num_added = len(df_resampled) - len(df)
+    return df_resampled, num_added
 
 
 def fill_linear_then_rolling_avg(series, limit_linear, rolling):

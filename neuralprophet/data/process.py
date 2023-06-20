@@ -493,7 +493,6 @@ def _handle_missing_data(
             config_seasonality=config_seasonality,
             predicting=predicting,
         ).copy(deep=True)
-        df_handled_missing_aux["ID"] = df_name
         df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
     return df_handled_missing
 
