@@ -1,6 +1,8 @@
 import logging
+import multiprocessing as mp
 from typing import List, Optional
 
+import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 
@@ -479,9 +481,11 @@ def _handle_missing_data(
 
     """
     df, _, _, _ = df_utils.prep_or_copy_df(df)
-    df_handled_missing = pd.DataFrame()
-    for df_name, df_i in df.groupby("ID"):
-        df_handled_missing_aux = _handle_missing_data_single_id(
+
+    ddf = dd.from_pandas(df, npartitions=mp.cpu_count())
+    ddf_grouped = ddf.groupby("ID")
+    ddf_handled_missing = ddf_grouped.apply(
+        lambda df_i: _handle_missing_data_single_id(
             df=df_i,
             freq=freq,
             n_lags=n_lags,
@@ -492,8 +496,10 @@ def _handle_missing_data(
             config_events=config_events,
             config_seasonality=config_seasonality,
             predicting=predicting,
-        ).copy(deep=True)
-        df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
+        ),
+        meta=ddf,
+    )
+    df_handled_missing = ddf_handled_missing.compute().sort_index()
     return df_handled_missing
 
 
