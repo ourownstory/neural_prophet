@@ -453,13 +453,6 @@ def check_dataframe(
             checked dataframe
     """
     df, _, _, _ = prep_or_copy_df(df)
-    # checked_df = pd.DataFrame()
-    # for df_name, df_i in df.groupby("ID"):
-    #    df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events, seasonalities)
-    #    df_aux = df_aux.copy(deep=True)
-    #    df_aux["ID"] = df_name
-    #    checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
-
     if df.groupby("ID").size().min() < 1:
         raise ValueError("Dataframe has no rows.")
     if "ds" not in df:
@@ -468,7 +461,7 @@ def check_dataframe(
         raise ValueError("Found NaN in column ds.")
     if df["ds"].dtype == np.int64:
         df["ds"] = df.loc[:, "ds"].astype(str)
-    if not np.issubdtype(df["ds"].dtype, np.datetime64):
+    if not np.issubdtype(df["ds"].to_numpy().dtype, np.datetime64):
         df["ds"] = pd.to_datetime(df.loc[:, "ds"], utc=True).dt.tz_convert(None)
     if df.groupby("ID").apply(lambda x: x.duplicated("ds").any()).any():
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
