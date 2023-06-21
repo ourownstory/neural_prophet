@@ -11,7 +11,12 @@ Please come join us on our [Slack](https://join.slack.com/t/neuralprophet/shared
 
 ## Process
 If this is your first time contributing to NeuralProphet, please read our [wiki summary](https://github.com/ourownstory/neural_prophet/wiki#contributing-process) of the steps involved.
-## Dev Install
+
+## Dev Install using Poetry
+First, install poetry. https://python-poetry.org/docs/#installing-with-the-official-installer
+[Work in Progress]
+
+## Dev Install (old)
 Before starting it's a good idea to first create and activate a new virtual environment:
 ```
 python3 -m venv <path-to-new-env>
