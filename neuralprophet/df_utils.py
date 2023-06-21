@@ -513,7 +513,7 @@ def check_dataframe(
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
             raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
         if not np.issubdtype(df[name].dtype, np.number):
-            df.loc[:, name] = pd.to_numeric(df.loc[:, name])
+            df[name] = pd.to_numeric(df[name])
         if np.isinf(df.loc[:, name].values).any():
             df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
