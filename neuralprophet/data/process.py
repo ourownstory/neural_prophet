@@ -1,8 +1,6 @@
 import logging
-import multiprocessing as mp
 from typing import List, Optional
 
-import dask.dataframe as dd
 import numpy as np
 import pandas as pd
 
@@ -482,130 +480,43 @@ def _handle_missing_data(
     """
     df, _, _, _ = df_utils.prep_or_copy_df(df)
 
-    ddf = dd.from_pandas(df, npartitions=mp.cpu_count())
-    ddf_grouped = ddf.groupby("ID")
-    ddf_handled_missing = ddf_grouped.apply(
-        lambda df_i: _handle_missing_data_single_id(
-            df=df_i,
-            freq=freq,
-            n_lags=n_lags,
-            n_forecasts=n_forecasts,
-            config_missing=config_missing,
-            config_regressors=config_regressors,
-            config_lagged_regressors=config_lagged_regressors,
-            config_events=config_events,
-            config_seasonality=config_seasonality,
-            predicting=predicting,
-        ),
-        meta=ddf,
-    )
-    df_handled_missing = ddf_handled_missing.compute().sort_index()
-    return df_handled_missing
-
-
-def _handle_missing_data_single_id(
-    df: pd.DataFrame,
-    freq: Optional[str],
-    n_lags: int,
-    n_forecasts: int,
-    config_missing,
-    config_regressors: Optional[ConfigFutureRegressors],
-    config_lagged_regressors: Optional[ConfigLaggedRegressors],
-    config_events: Optional[ConfigEvents],
-    config_seasonality: Optional[ConfigSeasonality],
-    predicting: bool = False,
-) -> pd.DataFrame:
-    """
-    Checks and normalizes new data
-
-    Data is also auto-imputed, unless impute_missing is set to ``False``.
-
-        Parameters
-    ----------
-    df : pd.DataFrame
-        Dataframe containing columns 'ds', 'y', and optionally 'ID' of a single ID.
-    freq : str
-            data step sizes. Frequency of data recording,
-
-            Note
-            ----
-            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to
-            automatically set frequency.
-    n_lags : int
-        Previous time series steps to include in auto-regression. Aka AR-order
-    n_forecasts : int
-        Number of steps ahead of prediction time step to forecast.
-    config_missing :
-        Configuration options for handling missing data.
-    config_regressors : Optional[ConfigFutureRegressors]
-        Configuration options for adding future regressors to the model.
-    config_lagged_regressors : Optional[ConfigLaggedRegressors]
-        Configuration options for adding lagged external regressors to the model.
-    config_events : Optional[ConfigEvents]
-        Configuration options for adding events to the model.
-    config_seasonality : Optional[ConfigSeasonality]
-        Configuration options for adding seasonal components to the model.
-    predicting : bool, default False
-        If True, allows missing values in the 'y' column for the forecast period, or missing completely.
-
-    Returns
-    -------
-    pd.DataFrame
-        The pre-processed DataFrame, including imputed missing data, if applicable.
-    """
-    # Receives df with single ID column
-    assert len(df["ID"].unique()) == 1
     if n_lags == 0 and not predicting:
-        # we can drop rows with NA in y
-        df_na_dropped = df[df["y"].notna()]
-        sum_na = len(df) - len(df_na_dropped)
-        if sum_na > 0:
+        # drop rows with NaNs in y and count them
+        df_na_dropped = df.dropna(subset=["y"])
+        n_dropped = len(df) - len(df_na_dropped)
+        if n_dropped > 0:
             df = df_na_dropped
-            log.info(f"dropped {sum_na} NAN row in 'y'")
+            log.info(f"Dropped {n_dropped} rows with NaNs in 'y' column.")
 
     if n_lags > 0:
-        df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
-        if missing_dates > 0:
-            if config_missing.impute_missing:
-                log.info(f"{missing_dates} missing dates added.")
+        # add missig dates to df
+        df_grouped = df.groupby("ID").apply(lambda x: x.set_index("ds").resample(freq).asfreq()).drop(columns=["ID"])
+        n_missing_dates = len(df_grouped) - len(df)
+        if n_missing_dates > 0:
+            df = df_grouped.reset_index()
+            log.info(f"Added {n_missing_dates} missing dates.")
 
     if config_regressors is not None:
-        # if future regressors, check that they are not nan at end, else drop complete row
-        # we ignore missing events, as those will be filled in with zeros.
-        na_mask = df[config_regressors.keys()].isna()
-        if na_mask.any().any():
-            # drop all rows where last future regressor is nan
-            last_not_na_row = na_mask.any(axis=1)[::-1].idxmin()
-            n_to_drop = len(df) - last_not_na_row - 1
-            if n_to_drop > 0:
-                df = df[:-n_to_drop]
-                log.info(f"Dropped {n_to_drop} rows at end due to missing future regressor values.")
+        # drop complete row for future regressors that are NaN at the end
+        last_valid_index = df.groupby("ID")[list(config_regressors.keys())].apply(lambda x: x.last_valid_index())
+        df_dropped = df.groupby("ID", group_keys=False).apply(lambda x: x.loc[: last_valid_index[x.name]])
+        n_dropped = len(df) - len(df_dropped)
+        if n_dropped > 0:
+            df = df_dropped
+            log.info(f"Dropped {n_dropped} rows at the end with NaNs in future regressors.")
 
-    df_end_to_append = None
-    if df["y"].isnull().any():
-        last_not_na = df["y"].notna()[::-1].idxmax()
-        nan_at_end = len(df) - last_not_na - 1
-        if nan_at_end > 0:
-            if predicting:
-                # allow nans at end - will re-add at end
-                if n_forecasts > 1 and n_forecasts < nan_at_end:
-                    # check that not more than n_forecasts nans, else drop surplus
-                    df = df[: -(nan_at_end - n_forecasts)]
-                    # correct new length:
-                    nan_at_end = n_forecasts
-                    log.info(
-                        "Detected y to have more NaN values than n_forecast can predict. "
-                        f"Dropped {nan_at_end - n_forecasts} rows at end."
-                    )
-                df_end_to_append = df[-nan_at_end:]
-                df = df[:-nan_at_end]
-            else:
-                # training - drop nans at end
-                df = df[:-nan_at_end]
-                log.info(
-                    f"Dropped {nan_at_end} consecutive nans at end. "
-                    "Training data can only be imputed up to last observation."
-                )
+    dropped_trailing_y = False
+    if df["y"].isna().any():
+        # drop complete row if y of ID ends with nan
+        last_valid_index = df.groupby("ID")["y"].apply(lambda x: x.last_valid_index())
+        df_dropped = df.groupby("ID", group_keys=False).apply(lambda x: x.loc[: last_valid_index[x.name]])
+        n_dropped = len(df) - len(df_dropped)
+        if n_dropped > 0:
+            dropped_trailing_y = True
+            # save dropped rows for later
+            df_to_add = df.groupby("ID", group_keys=False).apply(lambda x: x.loc[last_valid_index[x.name] + 1 :])
+            df = df_dropped
+            log.info(f"Dropped {n_dropped} rows at the end with NaNs in 'y' column.")
 
     if config_missing.impute_missing:
         # impute missing values
@@ -651,8 +562,9 @@ def _handle_missing_data_single_id(
                             missing values encountered in column {column}. "
                         f"{remaining_na} NA remain after auto-imputation. "
                     )
-    if df_end_to_append is not None:
-        df = pd.concat([df, df_end_to_append])
+    if dropped_trailing_y and predicting:
+        # add trailing y values again if in predict mode
+        df = pd.concat([df, df_to_add])
         if config_seasonality is not None and len(conditional_cols) > 0:
             df[conditional_cols] = df[conditional_cols].ffill()  # type: ignore
     return df
