@@ -963,22 +963,31 @@ def split_df(
     df_train = pd.DataFrame()
     df_val = pd.DataFrame()
     if local_split:
-        for df_name, df_i in df.groupby("ID"):
-            df_t, df_v = _split_df(df_i, n_lags, n_forecasts, valid_p, inputs_overbleed)
-            df_train = pd.concat((df_train, df_t.copy(deep=True)), ignore_index=True)
-            df_val = pd.concat((df_val, df_v.copy(deep=True)), ignore_index=True)
-    else:
-        if len(df["ID"].unique()) == 1:
-            for df_name, df_i in df.groupby("ID"):
-                df_train, df_val = _split_df(df_i, n_lags, n_forecasts, valid_p, inputs_overbleed)
+        n_samples = df.groupby("ID").size()
+        n_samples = n_samples - n_lags + 2 - (2 * n_forecasts)
+        n_samples = n_samples if inputs_overbleed else n_samples - n_lags
+
+        if 0.0 < valid_p < 1.0:
+            n_valid = n_samples.apply(lambda x: max(1, int(x * valid_p)))
         else:
-            # Split data according to time threshold defined by the valid_p
-            threshold_time_stamp = find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
-            df_train, df_val = split_considering_timestamp(
-                df, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp
-            )
-    # df_train and df_val are returned as pd.DataFrames, if necessary those will be restored to dict in the forecaster
-    # split_df
+            assert valid_p >= 1
+            assert type(valid_p) == int
+            n_valid = valid_p
+        n_train = n_samples - n_valid
+
+        log.debug(f"{n_train} n_train, {n_samples - n_train} n_eval")
+
+    else:
+        # Split data according to time threshold defined by the valid_p
+        threshold_time_stamp = find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
+        n_train = df["ds"].groupby(df["ID"]).apply(lambda x: x[x < threshold_time_stamp].count())
+
+    assert n_train.min() > 1
+    split_idx_train = n_train + n_lags + n_forecasts - 1
+    split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
+    df_train = df.groupby("ID", group_keys=False).apply(lambda x: x.iloc[: split_idx_train[x.name]])
+    df_val = df.groupby("ID", group_keys=False).apply(lambda x: x.iloc[split_idx_val[x.name] :])
+
     return df_train, df_val
 
 
