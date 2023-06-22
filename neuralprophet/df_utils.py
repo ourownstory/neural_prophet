@@ -803,52 +803,6 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
     return folds_val, folds_test
 
 
-def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
-    """Splits timeseries df into train and validation sets.
-    Additionally, prevents overbleed of targets. Overbleed of inputs can be configured.
-    In case of global modeling the split could be either local or global.
-
-    Parameters
-    ----------
-        df : pd.DataFrame
-            data to be splitted
-        n_lags : int
-            identical to NeuralProphet
-        n_forecasts : int
-            identical to NeuralProphet
-        valid_p : float, int
-            fraction (0,1) of data to use for holdout validation set, or number of validation samples >1
-        inputs_overbleed : bool
-            Whether to allow last training targets to be first validation inputs (never targets)
-
-    Returns
-    -------
-        pd.DataFrame
-            training data
-        pd.DataFrame
-            validation data
-    """
-    # Receives df with single ID column
-    assert len(df["ID"].unique()) == 1
-    n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
-    n_samples = n_samples if inputs_overbleed else n_samples - n_lags
-    if 0.0 < valid_p < 1.0:
-        n_valid = max(1, int(n_samples * valid_p))
-    else:
-        assert valid_p >= 1
-        assert type(valid_p) == int
-        n_valid = valid_p
-    n_train = n_samples - n_valid
-    assert n_train >= 1
-
-    split_idx_train = n_train + n_lags + n_forecasts - 1
-    split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
-    df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
-    df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
-    log.debug(f"{n_train} n_train, {n_samples - n_train} n_eval")
-    return df_train, df_val
-
-
 def find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     """Find time threshold for dividing timeseries into train and validation sets.
     Prevents overbleed of targets. Overbleed of inputs can be configured.
