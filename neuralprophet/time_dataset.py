@@ -78,23 +78,27 @@ class TimeDataset(Dataset):
                 number of steps to predict
         """
         nan_idx = []
-        for i, (inputs, targets, meta) in enumerate(self):
-            for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
-                if key in self.two_level_inputs:
-                    # Extract tensor out of OrderedDict to see if it contains NaNs
-                    tuple_list = list(data.items())
-                    tensor = tuple_list[0][1]
-                    if np.isnan(np.array(tensor)).any() and (i not in nan_idx):
-                        nan_idx.append(i)
-                else:
-                    # save index of the NaN-containing sample
-                    if np.isnan(np.array(data)).any() and (i not in nan_idx):
-                        nan_idx.append(i)
-            if np.isnan(np.array(targets)).any() and (i not in nan_idx):
-                if (
-                    i < len(self) - predict_steps
-                ):  # do not remove the targets that were inserted for prediction at the end
-                    nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
+        # NaNs in inputs
+        for key, data in self.inputs.items():
+            if isinstance(data, torch.Tensor):
+                nans = torch.where(torch.isnan(data))[0].tolist()
+                if len(nans) > 0:
+                    nan_idx += nans
+            elif isinstance(data, dict):
+                for subkey, subdata in data.items():
+                    nans = torch.where(torch.isnan(subdata))[0].tolist()
+                    if len(nans) > 0:
+                        nan_idx += nans
+
+        # NaNs in targets that are not inserted for prediction at the end
+        nans = torch.where(torch.isnan(self.targets))[0].tolist()
+        if len(nans) > 0:
+            for idx in nans:
+                if idx not in nan_idx and idx < len(self) - predict_steps:
+                    nan_idx.append(idx)
+
+        nan_idx = list(set(nan_idx))
+        nan_idx.sort()
         if drop_missing and len(nan_idx) > 0:
             log.warning(f"{len(nan_idx)} samples with missing values were dropped from the data. ")
             for key, data in self.inputs.items():
