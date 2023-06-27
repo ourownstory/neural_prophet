@@ -111,6 +111,25 @@ class TimeDataset(Dataset):
                 "Please either adjust imputation parameters, or set 'drop_missing' to True to drop those samples."
             )
 
+    @staticmethod
+    def _split_nested_dict(inputs):
+        """Split nested dict into list of dicts.
+        Parameters
+        ----------
+            inputs : ordered dict
+                Nested dict to be split.
+        Returns
+        -------
+            list of dicts
+                List of dicts with same keys as inputs.
+        """
+
+        def split_dict(inputs, index):
+            return {k: v[index] if not isinstance(v, dict) else split_dict(v, index) for k, v in inputs.items()}
+
+        length = next(iter(inputs.values())).shape[0]
+        return [split_dict(inputs, i) for i in range(length)]
+
     def init_after_tabularized(self, inputs, targets=None):
         """Create Timedataset with data.
         Parameters
@@ -144,25 +163,7 @@ class TimeDataset(Dataset):
                     self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
         self.meta["df_name"] = self.name
-        # Pre-compute all samples for faster iteration in __getitem__
-        self.samples = []
-        for index in range(self.length):
-            sample = OrderedDict({})
-            for key, data in self.inputs.items():
-                if key in self.two_level_inputs:
-                    if (
-                        key == "events" or key == "regressors"
-                    ):  # or key == "events_lagged" or key == "regressors_lagged":
-                        sample[key] = OrderedDict({})
-                        for mode, features in self.inputs[key].items():
-                            sample[key][mode] = features[index, :, :]
-                    else:
-                        sample[key] = OrderedDict({})
-                        for name, period_features in self.inputs[key].items():
-                            sample[key][name] = period_features[index]
-                else:
-                    sample[key] = data[index]
-            self.samples.append(sample)
+        self.samples = self._split_nested_dict(self.inputs)
 
     def filter_samples_after_init(
         self,
