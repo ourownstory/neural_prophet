@@ -13,7 +13,8 @@ Please come join us on our [Slack](https://join.slack.com/t/neuralprophet/shared
 If this is your first time contributing to NeuralProphet, please read our [wiki summary](https://github.com/ourownstory/neural_prophet/wiki#contributing-process) of the steps involved.
 
 ## Dev Install using Poetry
-First, install poetry. https://python-poetry.org/docs/#installing-with-the-official-installer
+First, [install poetry](https://python-poetry.org/docs/#installing-with-the-official-installer)
+[Tutorial Link](https://realpython.com/dependency-management-python-poetry/)
 [Work in Progress]
 
 ## Dev Install (old)
