@@ -22,30 +22,33 @@ def get_metrics(metric_input):
 
     Returns
     -------
-        dict
-            Dict of torchmetrics.Metric metrics.
+        list
+            List of strings of metrics to use.
     """
     if metric_input is None:
-        return {}
+        return []
     elif metric_input is True:
-        return {k: v for k, v in METRICS.items() if k in ["MAE", "RMSE"]}
+        return ["MAE", "RMSE"]
+        # return {k: v for k, v in METRICS.items() if k in ["MAE", "RMSE"]}
     elif isinstance(metric_input, str):
         if metric_input.upper() in METRICS.keys():
-            return {metric_input: METRICS[metric_input]}
+            return [metric_input]
+            # return {metric_input: METRICS[metric_input]}
         else:
             raise ValueError("Received unsupported argument for collect_metrics.")
     elif isinstance(metric_input, list):
         if all([m.upper() in METRICS.keys() for m in metric_input]):
-            return {k: v for k, v in METRICS.items() if k in metric_input}
+            return metric_input
+            # return {k: v for k, v in METRICS.items() if k in metric_input}
         else:
             raise ValueError("Received unsupported argument for collect_metrics.")
-    elif isinstance(metric_input, dict):
-        if all([isinstance(_metric, torchmetrics.Metric) for _, _metric in metric_input.items()]):
-            return metric_input
-        else:
-            raise ValueError(
-                "Received unsupported argument for collect_metrics. All metrics must be an instance of "
-                "torchmetrics.Metric."
-            )
+    # elif isinstance(metric_input, dict):
+    #    if all([isinstance(_metric, torchmetrics.Metric) for _, _metric in metric_input.items()]):
+    #        return metric_input
+    #    else:
+    #        raise ValueError(
+    #            "Received unsupported argument for collect_metrics. All metrics must be an instance of "
+    #            "torchmetrics.Metric."
+    #        )
     elif metric_input is not False:
         raise ValueError("Received unsupported argument for collect_metrics.")

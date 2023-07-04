@@ -163,6 +163,14 @@ class TimeNet(pl.LightningModule):
         self.batch_size = self.config_train.batch_size
 
         # Metrics Config
+        METRICS = {
+            "MAE": torchmetrics.MeanAbsoluteError(),
+            "MSE": torchmetrics.MeanSquaredError(squared=True),
+            "RMSE": torchmetrics.MeanSquaredError(squared=False),
+        }
+        # metrics is a list of strings (e.g. ["MAE", "MSE", "RMSE"]), which is converted to a dict of torchmetrics.Metric metrics
+        metrics = {metric: METRICS[metric] for metric in metrics}
+
         self.metrics_enabled = bool(metrics)  # yields True if metrics is not an empty dictionary
         if self.metrics_enabled:
             self.log_args = {
