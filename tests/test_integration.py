@@ -1411,6 +1411,17 @@ def test_metrics():
     assert metrics_df is None
     m_false.predict(df)
 
+    # None
+    m_none = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        collect_metrics=None,
+    )
+    metrics_df = m_none.fit(df, freq="D")
+    assert metrics_df is None
+    m_none.predict(df)
+
 
 def test_progress_display():
     log.info("testing: Progress Display")
