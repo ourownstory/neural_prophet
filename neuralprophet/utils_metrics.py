@@ -13,7 +13,7 @@ METRICS = {
 
 def get_metrics(metric_input):
     """
-    Returns a list of metrics.
+    Returns a dict or list of metrics.
 
     Parameters
     ----------
@@ -22,8 +22,8 @@ def get_metrics(metric_input):
 
     Returns
     -------
-        list
-            List of strings of metrics to use.
+        dict or list
+            Dict of torchmetrics or list of strings of metrics to use.
     """
     if metric_input is None:
         return []
@@ -42,13 +42,13 @@ def get_metrics(metric_input):
             # return {k: v for k, v in METRICS.items() if k in metric_input}
         else:
             raise ValueError("Received unsupported argument for collect_metrics.")
-    # elif isinstance(metric_input, dict):
-    #    if all([isinstance(_metric, torchmetrics.Metric) for _, _metric in metric_input.items()]):
-    #        return metric_input
-    #    else:
-    #        raise ValueError(
-    #            "Received unsupported argument for collect_metrics. All metrics must be an instance of "
-    #            "torchmetrics.Metric."
-    #        )
+    elif isinstance(metric_input, dict):
+        if all([isinstance(_metric, torchmetrics.Metric) for _, _metric in metric_input.items()]):
+            return metric_input
+        else:
+            raise ValueError(
+                "Received unsupported argument for collect_metrics. All metrics must be an instance of "
+                "torchmetrics.Metric."
+            )
     elif metric_input is not False:
         raise ValueError("Received unsupported argument for collect_metrics.")

@@ -168,11 +168,12 @@ class TimeNet(pl.LightningModule):
             "MSE": torchmetrics.MeanSquaredError(squared=True),
             "RMSE": torchmetrics.MeanSquaredError(squared=False),
         }
-        # metrics is a list of strings (e.g. ["MAE", "MSE", "RMSE"]), which is converted to a dict of torchmetrics.Metric metrics
-        metrics = {metric: METRICS[metric] for metric in metrics}
 
         self.metrics_enabled = bool(metrics)  # yields True if metrics is not an empty dictionary
         if self.metrics_enabled:
+            # only convert to dict if metrics is a list (metrics were not set in utils_metrics)
+            if isinstance(metrics, list):
+                metrics = {metric: METRICS[metric] for metric in metrics}
             self.log_args = {
                 "on_step": False,
                 "on_epoch": True,
