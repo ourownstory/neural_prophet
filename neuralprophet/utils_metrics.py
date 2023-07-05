@@ -23,23 +23,20 @@ def get_metrics(metric_input):
     Returns
     -------
         dict or list
-            Dict of torchmetrics or list of strings of metrics to use.
+            Dict of torchmetrics.Metric metrics or list of strings of metrics to use.
     """
     if metric_input is None:
         return []
     elif metric_input is True:
         return ["MAE", "RMSE"]
-        # return {k: v for k, v in METRICS.items() if k in ["MAE", "RMSE"]}
     elif isinstance(metric_input, str):
         if metric_input.upper() in METRICS.keys():
             return [metric_input]
-            # return {metric_input: METRICS[metric_input]}
         else:
             raise ValueError("Received unsupported argument for collect_metrics.")
     elif isinstance(metric_input, list):
         if all([m.upper() in METRICS.keys() for m in metric_input]):
             return metric_input
-            # return {k: v for k, v in METRICS.items() if k in metric_input}
         else:
             raise ValueError("Received unsupported argument for collect_metrics.")
     elif isinstance(metric_input, dict):
