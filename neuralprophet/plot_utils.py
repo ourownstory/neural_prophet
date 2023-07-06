@@ -423,7 +423,7 @@ def get_valid_configuration(  # move to utils
     if "events" in components:
         additive_events_flag = False
         muliplicative_events_flag = False
-        if m.config_events:
+        if m.config_events is not None:
             for event, configs in m.config_events.items():
                 if validator == "plot_components" and configs.mode == "additive":
                     additive_events_flag = True
@@ -439,7 +439,7 @@ def get_valid_configuration(  # move to utils
                     elif configs.mode == "multiplicative":
                         multiplicative_events = multiplicative_events + weight_list
 
-        if m.config_country_holidays:
+        if m.config_country_holidays is not None:
             for country_holiday in m.config_country_holidays.holiday_names:
                 if validator == "plot_components" and m.config_country_holidays.mode == "additive":
                     additive_events_flag = True
