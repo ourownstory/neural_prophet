@@ -47,7 +47,8 @@ def get_metrics(metric_input):
                 torchmetrics.__dict__[_metric]()
         except KeyError:
             raise ValueError(
-                "Received unsupported argument for collect_metrics. All metrics must be valid names of torchmetrics.Metric objects."
+                "Received unsupported argument for collect_metrics."
+                "All metrics must be valid names of torchmetrics.Metric objects."
             )
         return {k: [v, {}] for k, v in metric_input.items()}
     elif metric_input is not False:

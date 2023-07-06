@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-import torchmetrics
 
 from neuralprophet import NeuralProphet, df_utils, set_random_seed
 from neuralprophet.data.process import _handle_missing_data, _validate_column_name
