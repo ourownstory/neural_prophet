@@ -162,18 +162,9 @@ class TimeNet(pl.LightningModule):
         self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
         self.batch_size = self.config_train.batch_size
 
-        # Metrics Config
-        METRICS = {
-            "MAE": torchmetrics.MeanAbsoluteError(),
-            "MSE": torchmetrics.MeanSquaredError(squared=True),
-            "RMSE": torchmetrics.MeanSquaredError(squared=False),
-        }
-
         self.metrics_enabled = bool(metrics)  # yields True if metrics is not an empty dictionary
         if self.metrics_enabled:
-            # only convert to dict if metrics is a list (metrics were not set in utils_metrics)
-            if isinstance(metrics, list):
-                metrics = {metric: METRICS[metric] for metric in metrics}
+            metrics = {metric: torchmetrics.__dict__[metrics[metric][0]](**metrics[metric][1]) for metric in metrics}
             self.log_args = {
                 "on_step": False,
                 "on_epoch": True,

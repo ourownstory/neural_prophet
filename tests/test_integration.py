@@ -1383,7 +1383,7 @@ def test_metrics():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        collect_metrics={"ABC": torchmetrics.MeanAbsoluteError()},
+        collect_metrics={"ABC": "MeanSquaredLogError"},
     )
     metrics_df = m_dict.fit(df, freq="D")
     assert "ABC" in metrics_df.columns
