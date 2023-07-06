@@ -162,6 +162,7 @@ class TimeNet(pl.LightningModule):
         self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
         self.batch_size = self.config_train.batch_size
 
+        # Metrics Config
         self.metrics_enabled = bool(metrics)  # yields True if metrics is not an empty dictionary
         if self.metrics_enabled:
             metrics = {metric: torchmetrics.__dict__[metrics[metric][0]](**metrics[metric][1]) for metric in metrics}
