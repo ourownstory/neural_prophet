@@ -35,6 +35,7 @@ Application examples
 
     Building load forecasting: Hospital in SF<application-examples/energy_hospital_load>
     Renewable Energy: Forecasting hourly solar irradiance<application-examples/energy_solar_pv>
+    Forecasting energy load with visualization<application-examples/energy_tool>
 
 Migrate From Prophet
 --------------------
