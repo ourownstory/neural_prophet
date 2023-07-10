@@ -19,7 +19,7 @@ SeasonalityArgument = Union[Literal["auto"], bool, int]
 
 GrowthMode = Literal["off", "linear", "discontinuous"]
 
-CollectMetricsMode = Union[List[str], bool, Dict[str, torchmetrics.Metric]]
+CollectMetricsMode = Union[Dict, bool]
 
 SeasonGlobalLocalMode = Literal["global", "local"]
 

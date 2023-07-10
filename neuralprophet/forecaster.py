@@ -816,7 +816,7 @@ class NeuralProphet:
         learning_rate: Optional[float] = None,
         early_stopping: bool = False,
         minimal: bool = False,
-        metrics: Optional[dict] = None,
+        metrics: Optional[np_types.CollectMetricsMode] = None,
         progress: Optional[str] = "bar",
         checkpointing: bool = False,
         continue_training: bool = False,
