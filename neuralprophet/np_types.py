@@ -1,8 +1,7 @@
 import sys
-from typing import Dict, List, Union
+from typing import Dict, Union
 
 import torch
-import torchmetrics
 
 # Ensure compatibility with python 3.7
 if sys.version_info >= (3, 8):
