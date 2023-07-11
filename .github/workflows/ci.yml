@@ -60,6 +60,10 @@ jobs:
         uses: abatilo/actions-poetry@v2
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
+      - name: Generate lock file
+        run: poetry lock
+      - name: Update lock file
+        run: poetry update
       - name: Setup Requirements
         run: poetry install --with=docs
       - name: Build with Sphinx
