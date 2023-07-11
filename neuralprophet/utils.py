@@ -109,7 +109,7 @@ def reg_func_trend(weights, threshold=None):
     return reg
 
 
-def reg_func_trend_glocal(trend_k0, trend_deltas, glocal_trend_reg):
+def reg_func_trend_glocal(trend_k0, trend_deltas, trend_local_reg):
     """Regularization of weights to induce similarity between global and local trend
     Parameters
     ----------
@@ -117,7 +117,7 @@ def reg_func_trend_glocal(trend_k0, trend_deltas, glocal_trend_reg):
         #     Local trend intercept
         # trend_deltas : torch.Tensor
         #     Local trend slopes
-        # glocal_trend_reg : float
+        # trend_local_reg : float
         #     glocal trend regularization coefficient
     Returns
     -------
@@ -127,16 +127,16 @@ def reg_func_trend_glocal(trend_k0, trend_deltas, glocal_trend_reg):
     trend_k0_val = (trend_k0 - trend_k0.mean()).pow(2).mean()
     trend_val = (trend_deltas - trend_deltas.mean(-2).unsqueeze(-2)).pow(2).mean()
 
-    return glocal_trend_reg * (trend_k0_val + trend_val)
+    return trend_local_reg * (trend_k0_val + trend_val)
 
 
-def reg_func_seasonality_glocal(season_params, glocal_seasonality_reg):
+def reg_func_seasonality_glocal(season_params, seasonality_local_reg):
     """Regularization of weights to induce similarity between global and local trend
     Parameters
     ----------
         # season_params : torch.Tensor
         #     Local season params
-        # glocal_seasonality_reg : float
+        # seasonality_local_reg : float
         #     glocal season regularization coefficient
     Returns
     -------
@@ -150,7 +150,7 @@ def reg_func_seasonality_glocal(season_params, glocal_seasonality_reg):
         result = (season_params_i - season_params_i.mean(-2).unsqueeze(-2)).pow(2).mean()
         results.append(result)
 
-    return glocal_seasonality_reg * sum(results)
+    return seasonality_local_reg * sum(results)
 
 
 def reg_func_season(weights):
@@ -284,12 +284,12 @@ def check_for_regularization(configs: list):
         if hasattr(config, "reg_lambda"):
             if config.reg_lambda is not None:
                 reg_sum += config.reg_lambda
-        if hasattr(config, "glocal_trend_reg"):
-            if config.glocal_trend_reg is not None:
-                reg_sum += config.glocal_trend_reg
-        if hasattr(config, "glocal_seasonality_reg"):
-            if config.glocal_seasonality_reg is not None:
-                reg_sum += config.glocal_seasonality_reg
+        if hasattr(config, "trend_local_reg"):
+            if config.trend_local_reg is not None:
+                reg_sum += config.trend_local_reg
+        if hasattr(config, "seasonality_local_reg"):
+            if config.seasonality_local_reg is not None:
+                reg_sum += config.seasonality_local_reg
     return reg_sum > 0
 
 

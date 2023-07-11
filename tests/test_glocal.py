@@ -284,7 +284,7 @@ def test_adding_new_local_seasonality():
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
 
 
-def test_glocal_trend_reg():
+def test_trend_local_reg():
     ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
@@ -301,7 +301,7 @@ def test_glocal_trend_reg():
             batch_size=BATCH_SIZE,
             learning_rate=LR,
             trend_global_local="local",
-            glocal_trend_reg=coef_i,
+            trend_local_reg=coef_i,
         )
 
         m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="global")
@@ -343,7 +343,7 @@ def test_glocal_seasonality_reg():
         metrics = m.test(test_df)
 
 
-def test_glocal_trend_reg_if_global():
+def test_trend_local_reg_if_global():
     ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
@@ -360,7 +360,7 @@ def test_glocal_trend_reg_if_global():
             batch_size=BATCH_SIZE,
             learning_rate=LR,
             trend_global_local="global",
-            glocal_trend_reg=3,
+            trend_local_reg=3,
         )
 
         train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
@@ -450,7 +450,7 @@ def test_adding_new_local_seasonality():
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
 
 
-def test_glocal_trend_reg():
+def test_trend_local_reg():
     ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
@@ -467,7 +467,7 @@ def test_glocal_trend_reg():
             batch_size=BATCH_SIZE,
             learning_rate=LR,
             trend_global_local="local",
-            glocal_trend_reg=coef_i,
+            trend_local_reg=coef_i,
         )
 
         m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="global")
@@ -498,7 +498,7 @@ def test_glocal_seasonality_reg():
             learning_rate=LR,
             season_global_local="local",
             yearly_seasonality_glocal_mode="global",
-            glocal_seasonality_reg=coef_i,
+            seasonality_local_reg=coef_i,
         )
 
         m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="global")
@@ -509,7 +509,7 @@ def test_glocal_seasonality_reg():
         metrics = m.test(test_df)
 
 
-def test_glocal_trend_reg_if_global():
+def test_trend_local_reg_if_global():
     ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
@@ -526,7 +526,7 @@ def test_glocal_trend_reg_if_global():
             batch_size=BATCH_SIZE,
             learning_rate=LR,
             trend_global_local="global",
-            glocal_trend_reg=3,
+            trend_local_reg=3,
         )
 
         train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)

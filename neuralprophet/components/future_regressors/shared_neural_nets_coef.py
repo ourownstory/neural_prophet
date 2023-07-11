@@ -90,10 +90,7 @@ class SharedNeuralNetsCoefFutureRegressors(FutureRegressors):
 
         # segment the last dimension to match the quantiles
         x = x.reshape(x.shape[0], self.n_forecasts, regressor_inputs.shape[-1], len(self.quantiles))
-        if mode == "additive":
-            x = (regressor_inputs.unsqueeze(-1) * x).sum(-2)
-        elif mode == "multiplicative":
-            x = (regressor_inputs.unsqueeze(-1) * x).prod(-2)
+        x = (regressor_inputs.unsqueeze(-1) * x).sum(-2)
         return x
 
     def forward(self, inputs, mode, indeces=None):

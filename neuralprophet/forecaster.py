@@ -108,8 +108,13 @@ class NeuralProphet:
             Internally it will be set to ``global``, meaning that all the elements(only one in this case)
             are modelled with the same trend.
 
-        glocal_trend_reg : Optional[Union[bool, float]] = False,
+        trend_local_reg : Optional[Union[bool, float]] = False,
             Parameter to regularize weights to induce similarity between global and local trend
+
+            Note
+            ----
+            Large values (~100) will limit the variability of changepoints.
+            Small values (~0.001) will allow changepoints to change faster.
 
         COMMENT
         Seasonality Config
@@ -175,8 +180,13 @@ class NeuralProphet:
             When only one time series is input, this parameter should not be provided.
             Internally it will be set to ``global``, meaning that all the elements(only one in this case)
             are modelled with the same seasonality.
-        glocal_seasonality_reg : Optional[Union[bool, float]] = False,
+        seasonality_local_reg : Optional[Union[bool, float]] = False,
             Parameter to regularize weights to induce similarity between global and local seasonality
+
+            Note
+            ----
+            Large values (~100) will limit the variability of changepoints.
+            Small values (~0.001) will allow changepoints to change faster.
 
         COMMENT
         Future Regressors
@@ -380,7 +390,7 @@ class NeuralProphet:
         trend_reg: float = 0,
         trend_reg_threshold: Optional[Union[bool, float]] = False,
         trend_global_local: str = "global",
-        glocal_trend_reg: Optional[Union[bool, float]] = False,
+        trend_local_reg: Optional[Union[bool, float]] = False,
         yearly_seasonality: np_types.SeasonalityArgument = "auto",
         yearly_seasonality_glocal_mode: np_types.SeasonalityArgument = "auto",
         weekly_seasonality: np_types.SeasonalityArgument = "auto",
@@ -390,7 +400,7 @@ class NeuralProphet:
         seasonality_mode: np_types.SeasonalityMode = "additive",
         seasonality_reg: float = 0,
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
-        glocal_seasonality_reg: Optional[Union[bool, float]] = False,
+        seasonality_local_reg: Optional[Union[bool, float]] = False,
         future_regressors_model: np_types.FutureRegressorsModel = "linear",
         future_regressors_d_hidden: int = 4,
         future_regressors_num_hidden_layers: int = 2,
@@ -483,7 +493,7 @@ class NeuralProphet:
             trend_reg=trend_reg,
             trend_reg_threshold=trend_reg_threshold,
             trend_global_local=trend_global_local,
-            glocal_trend_reg=glocal_trend_reg,
+            trend_local_reg=trend_local_reg,
         )
 
         # Seasonality
@@ -494,7 +504,7 @@ class NeuralProphet:
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
             global_local=season_global_local,
-            glocal_seasonality_reg=glocal_seasonality_reg,
+            seasonality_local_reg=seasonality_local_reg,
             yearly_global_local=yearly_seasonality_glocal_mode,
             weekly_global_local=weekly_seasonality_glocal_mode,
             daily_global_local=daily_seasonality_glocal_mode,
@@ -1022,7 +1032,13 @@ class NeuralProphet:
             self.num_seasonalities_modelled_dict[season_i] = (
                 len(self.id_list) if self.config_seasonality.periods[season_i].global_local == "local" else 1
             )
-        self.meta_used_in_model = self.num_trends_modelled != 1 or self.num_seasonalities_modelled != 1
+        # check if any of the values of the dictionary self.num_seasonalities_modelled_dict is different from 1
+
+        self.meta_used_in_model = (
+            self.num_trends_modelled != 1
+            or self.num_seasonalities_modelled != 1
+            or any(value != 1 for value in self.num_seasonalities_modelled_dict.values())
+        )
 
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
