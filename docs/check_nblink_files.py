@@ -4,10 +4,10 @@ import os
 import pathlib
 
 # define relative paths
-DIR = pathlib.Path(__file__).parent.parent.absolute()
-TARGET_DIR = os.path.join(DIR, "docs", "source", "notebooks")
-FEAT_TUT_DIR = os.path.join(DIR, "tutorials", "feature-use")
-APP_TUT_DIR = os.path.join(DIR, "tutorials", "application-example")
+DIR = pathlib.Path(__file__).resolve().parent.parent
+TARGET_DIR = DIR / "docs" / "source" / "notebooks"
+FEAT_TUT_DIR = DIR / "tutorials" / "feature-use"
+APP_TUT_DIR = DIR / "tutorials" / "application-example"
 
 # get list of nblink files and remove all .nblink files
 nblink_list = os.listdir(TARGET_DIR)
