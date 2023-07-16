@@ -43,9 +43,11 @@ class ReversibleNormalization(nn.Module):
             raise ValueError("Reversible normalization allowed modes are 'instance' and 'batch'")
 
     def _normalize(self, x):
-        x = x - self.mean
-        x = x / self.stdev
-
+        #x = x - self.mean
+        #x = x / self.stdev
+        # temp
+        x = x / self.mean
+        
         if self.affine:
             x = x * self.affine_weight
             x = x + self.affine_bias
@@ -55,6 +57,8 @@ class ReversibleNormalization(nn.Module):
         if self.affine:
             x = x - self.affine_bias
             x = x / (self.affine_weight + self.eps * self.eps)
-        x = x * self.stdev
-        x = x + self.mean
+        # temp
+        x = x * self.mean
+        #x = x * self.stdev
+        #x = x + self.mean
         return x
