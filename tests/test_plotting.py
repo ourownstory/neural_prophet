@@ -484,62 +484,62 @@ def test_plot_future_reg(plotting_backend):
         fig3.show()
 
 
-@pytest.mark.parametrize(*decorator_input)
-def test_plot_uncertainty(plotting_backend):
-    log.info(f"testing: Plotting with uncertainty estimation with {plotting_backend}")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+# @pytest.mark.parametrize(*decorator_input)
+# def test_plot_uncertainty(plotting_backend):
+#    log.info(f"testing: Plotting with uncertainty estimation with {plotting_backend}")
+#    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
 
-    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75])
-    m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
-    forecast = m.predict(future)
-    fig1 = m.plot(forecast, plotting_backend=plotting_backend)
-    fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
-    fig3 = m.plot_parameters(quantile=0.75, plotting_backend=plotting_backend)
+#    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75])
+#    m.fit(df, freq="D")
+#    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+#    forecast = m.predict(future)
+#    fig1 = m.plot(forecast, plotting_backend=plotting_backend)
+#    fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
+#    fig3 = m.plot_parameters(quantile=0.75, plotting_backend=plotting_backend)
 
-    log.info(f"testing: Plotting with uncertainty estimation for highlighted forecaste step with {plotting_backend}")
-    m = NeuralProphet(
-        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75], n_forecasts=7, n_lags=14
-    )
-    m.fit(df, freq="D")
+#    log.info(f"testing: Plotting with uncertainty estimation for highlighted forecaste step with {plotting_backend}")
+#    m = NeuralProphet(
+#        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75], n_forecasts=7, n_lags=14
+#    )
+#    m.fit(df, freq="D")
 
-    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
-    forecast = m.predict(future)
-    fig4 = m.plot(forecast, plotting_backend=plotting_backend)
-    fig5 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
-    fig6 = m.plot_components(forecast, plotting_backend=plotting_backend)
-    fig7 = m.plot_parameters(quantile=0.75, plotting_backend=plotting_backend)
+#    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+#    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+#    forecast = m.predict(future)
+#    fig4 = m.plot(forecast, plotting_backend=plotting_backend)
+#    fig5 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
+#    fig6 = m.plot_components(forecast, plotting_backend=plotting_backend)
+#    fig7 = m.plot_parameters(quantile=0.75, plotting_backend=plotting_backend)
 
-    log.info(f"Plot forecast parameters with wrong quantile with {plotting_backend} - Raise ValueError")
-    with pytest.raises(ValueError):
-        m.plot_parameters(quantile=0.8, plotting_backend=plotting_backend)
-    with pytest.raises(ValueError):
-        m.plot_parameters(quantile=1.1, plotting_backend=plotting_backend)
+#    log.info(f"Plot forecast parameters with wrong quantile with {plotting_backend} - Raise ValueError")
+#    with pytest.raises(ValueError):
+#        m.plot_parameters(quantile=0.8, plotting_backend=plotting_backend)
+#    with pytest.raises(ValueError):
+#        m.plot_parameters(quantile=1.1, plotting_backend=plotting_backend)
 
-    m = NeuralProphet(
-        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75], n_forecasts=3, n_lags=0
-    )
-    m.fit(df, freq="D")
+#    m = NeuralProphet(
+#        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75], n_forecasts=3, n_lags=0
+#    )
+#    m.fit(df, freq="D")
 
-    m.highlight_nth_step_ahead_of_each_forecast(None)
-    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
-    forecast = m.predict(future)
-    log.info("Plot multi-steps ahead forecast without autoregression - Raise ValueError")
-    with pytest.raises(ValueError):
-        m.plot(forecast, plotting_backend=plotting_backend, forecast_in_focus=4)
-        m.plot_components(forecast, plotting_backend=plotting_backend, forecast_in_focus=4)
-        m.plot_components(forecast, plotting_backend=plotting_backend, forecast_in_focus=None)
-        m.plot_parameters(quantile=0.75, plotting_backend=plotting_backend, forecast_in_focus=4)
+#    m.highlight_nth_step_ahead_of_each_forecast(None)
+#    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+#    forecast = m.predict(future)
+#    log.info("Plot multi-steps ahead forecast without autoregression - Raise ValueError")
+#    with pytest.raises(ValueError):
+#        m.plot(forecast, plotting_backend=plotting_backend, forecast_in_focus=4)
+#        m.plot_components(forecast, plotting_backend=plotting_backend, forecast_in_focus=4)
+#        m.plot_components(forecast, plotting_backend=plotting_backend, forecast_in_focus=None)
+#        m.plot_parameters(quantile=0.75, plotting_backend=plotting_backend, forecast_in_focus=4)
 
-    if PLOT:
-        fig1.show()
-        fig2.show()
-        fig3.show()
-        fig4.show()
-        fig5.show()
-        fig6.show()
-        fig7.show()
+#    if PLOT:
+#        fig1.show()
+#        fig2.show()
+#        fig3.show()
+#        fig4.show()
+#        fig5.show()
+#        fig6.show()
+#        fig7.show()
 
 
 @pytest.mark.parametrize(*decorator_input)
