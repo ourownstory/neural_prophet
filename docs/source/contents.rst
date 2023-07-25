@@ -39,31 +39,6 @@ NeuralProphet changes the way time series modelling and forecasting is done:
     >>> forecast = m.predict(your_df)
     >>> m.plot(forecast)
 
-
-Installing
-----------
-
-NeuralProphet can be installed with `pip <https://pypi.org/project/neuralprophet/>`_:
-
-.. code-block:: bash
-
-    $ pip install neuralprophet
-
-If you plan to use the package in a Jupyter notebook, we recommend to install the 'live' version:
-
-.. code-block:: bash
-
-    $ pip install neuralprophet[live]
-
-Alternatively, you can get the most up to date version by cloning directly from `GitHub <https://github.com/ourownstory/neural_prophet>`_:
-
-.. code-block:: bash
-
-    $ git clone https://github.com/ourownstory/neural_prophet.git
-    $ cd neural_prophet
-    $ pip install .
-
-
 .. toctree::
     :hidden:
     :maxdepth: 1
