@@ -43,9 +43,9 @@ torch = [
   {url = "https://download.pytorch.org/whl/cpu/torch-2.0.1%2Bcpu-cp38-cp38-linux_x86_64.whl", platform = "linux", python = ">=3.8 <3.9"},
   {url = "https://download.pytorch.org/whl/cpu/torch-2.0.1%2Bcpu-cp39-cp39-linux_x86_64.whl", platform = "linux", python = ">=3.9 <3.10"},
   {url = "https://download.pytorch.org/whl/cpu/torch-2.0.1%2Bcpu-cp310-cp310-linux_x86_64.whl", platform = "linux", python = ">=3.10 <3.11"},
-  {url = "https://download.pytorch.org/whl/cpu/torch-2.0.1%2Bcpu-cp38-cp38-win_amd64.whl", platform = "windows", python = ">=3.8 <3.9"},
-  {url = "https://download.pytorch.org/whl/cpu/torch-2.0.1%2Bcpu-cp39-cp39-win_amd64.whl", platform = "windows", python = ">=3.9 <3.10"},
-  {url = "https://download.pytorch.org/whl/cpu/torch-2.0.1%2Bcpu-cp310-cp310-win_amd64.whl", platform = "windows", python = ">=3.10 <3.11"}, 
+  {url = "https://download.pytorch.org/whl/cpu/torch-2.0.1%2Bcpu-cp38-cp38-win_amd64.whl", platform = "win32", python = ">=3.8 <3.9"},
+  {url = "https://download.pytorch.org/whl/cpu/torch-2.0.1%2Bcpu-cp39-cp39-win_amd64.whl", platform = "win32", python = ">=3.9 <3.10"},
+  {url = "https://download.pytorch.org/whl/cpu/torch-2.0.1%2Bcpu-cp310-cp310-win_amd64.whl", platform = "win32", python = ">=3.10 <3.11"}, 
 ]
 
 [tool.poetry.extras]
