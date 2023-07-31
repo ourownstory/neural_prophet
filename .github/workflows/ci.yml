@@ -31,10 +31,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install Poetry
         uses: snok/install-poetry@v1
-      - name: Generate lock file
-        run: poetry lock
-      - name: Update lock file
-        run: poetry update
       - name: Install dependencies
         run: poetry install --with=tests,cpu
       - name: Pytest
@@ -60,10 +56,6 @@ jobs:
         uses: abatilo/actions-poetry@v2
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
-      - name: Generate lock file
-        run: poetry lock
-      - name: Update lock file
-        run: poetry update
       - name: Setup Requirements
         run: poetry install --with=docs
       - name: Build with Sphinx

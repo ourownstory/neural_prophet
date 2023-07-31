@@ -84,10 +84,6 @@ jobs:
       - name: Setup poetry
         if: steps.poetry-cache.outputs.cache-hit != 'true'
         uses: snok/install-poetry@v1
-      - name: Generate lock file
-        run: poetry lock
-      - name: Update lock file
-        run: poetry update
       - name: Install dependencies
         run: poetry install --with=docs,pyright
       - name: pyright
