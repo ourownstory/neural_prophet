@@ -830,7 +830,7 @@ def find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
         n_valid = max(1, int(n_samples * valid_p))
     else:
         assert valid_p >= 1
-        assert type(valid_p) == int
+        assert isinstance(valid_p, int)
         n_valid = valid_p
     n_train = n_samples - n_valid
     threshold_time_stamp = df_merged.loc[n_train, "ds"]
@@ -925,7 +925,7 @@ def split_df(
             n_valid = n_samples.apply(lambda x: max(1, int(x * valid_p)))
         else:
             assert valid_p >= 1
-            assert type(valid_p) == int
+            assert isinstance(valid_p, int)
             n_valid = valid_p
         n_train = n_samples - n_valid
 
