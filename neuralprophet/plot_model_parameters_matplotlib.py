@@ -265,9 +265,12 @@ def plot_trend(m, quantile, ax=None, plot_name="Trend", figsize=(10, 6), df_name
             trend_1 = trend_0
         else:
             if m.model.config_trend.trend_global_local == "local":
-                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
+                trend_1 = (
+                    trend_0
+                    + m.model.trend.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy().squeeze()
+                )
             else:
-                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, 0].detach().numpy()
+                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, 0].detach().numpy().squeeze()
 
         data_params = m.config_normalization.get_data_params(df_name)
         shift = data_params["y"].shift
