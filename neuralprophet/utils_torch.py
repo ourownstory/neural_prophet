@@ -55,7 +55,7 @@ def create_optimizer_from_config(optimizer_name, optimizer_args):
             optimizer_args : dict
                 The optimizer arguments.
     """
-    if type(optimizer_name) == str:
+    if isinstance(optimizer_name, str):
         if optimizer_name.lower() == "adamw":
             # Tends to overfit, but reliable
             optimizer = torch.optim.AdamW
