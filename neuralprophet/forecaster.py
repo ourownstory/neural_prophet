@@ -242,12 +242,15 @@ class NeuralProphet:
                 * (default) ``True``: [``mae``, ``rmse``]
                 * ``False``: No metrics
                 * ``list``:  Valid options: [``mae``, ``rmse``, ``mse``]
-                * ``dict``:  Collection of torchmetrics.Metric objects
+                * ``dict``:  Collection of names of torchmetrics.Metric objects
 
             Examples
             --------
             >>> from neuralprophet import NeuralProphet
+            >>> # computer MSE, MAE and RMSE
             >>> m = NeuralProphet(collect_metrics=["MSE", "MAE", "RMSE"])
+            >>> # use custorm torchmetrics names
+            >>> m = NeuralProphet(collect_metrics={"MAPE": "MeanAbsolutePercentageError", "MSLE": "MeanSquaredLogError",
 
         COMMENT
         Uncertainty Estimation
@@ -366,7 +369,7 @@ class NeuralProphet:
         impute_linear: int = 10,
         impute_rolling: int = 10,
         drop_missing: bool = False,
-        collect_metrics: np_types.CollectMetricsMode = True,
+        collect_metrics: Union[bool, list, dict] = True,
         normalize: np_types.NormalizeMode = "auto",
         global_normalization: bool = False,
         global_time_normalization: bool = True,
