@@ -459,8 +459,6 @@ def check_dataframe(
         raise ValueError("Dataframe must have columns 'ds' with the dates.")
     if df["ds"].isnull().any():
         raise ValueError("Found NaN in column ds.")
-    if df["ds"].dtype == np.int64:
-        df["ds"] = df.loc[:, "ds"].astype(str)
     if not np.issubdtype(df["ds"].to_numpy().dtype, np.datetime64):
         df["ds"] = pd.to_datetime(df.loc[:, "ds"], utc=True).dt.tz_convert(None)
     if df.groupby("ID").apply(lambda x: x.duplicated("ds").any()).any():
