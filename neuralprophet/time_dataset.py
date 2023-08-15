@@ -136,7 +136,15 @@ class TimeDataset(Dataset):
             if key in self.two_level_inputs:
                 self.inputs[key] = OrderedDict({})
                 for name, features in data.items():
-                    self.inputs[key][name] = torch.from_numpy(features.astype(float)).type(inputs_dtype[key])
+                    if features.dtype != np.float32:  # 1196.5 MiB
+                        features = features.astype(np.float32, copy=False)
+
+                    tensor = torch.from_numpy(features)
+
+                    if tensor.dtype != inputs_dtype[key]:
+                        self.inputs[key][name] = tensor.to(dtype=inputs_dtype[key])
+                    else:
+                        self.inputs[key][name] = tensor
             else:
                 if key == "timestamps":
                     self.inputs[key] = data
@@ -335,7 +343,7 @@ def tabularize_univariate_datetime(
         series = df.loc[:, df_col_name].values
         # Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
         return np.array(
-            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
+            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float32
         )
 
     def _stride_timestamps_for_forecasts(x):
@@ -488,7 +496,7 @@ def fourier_series(dates, period, series_order):
             Matrix with seasonality features
     """
     # convert to days since epoch
-    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(float)) / (3600 * 24.0)
+    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
     return fourier_series_t(t, period, series_order)
 
 
@@ -603,7 +611,7 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
     if config_events is not None:
         for event, configs in config_events.items():
             if event not in df.columns:
-                df[event] = np.zeros_like(df["ds"], dtype=np.float64)
+                df[event] = np.zeros_like(df["ds"], dtype=np.float32)
             feature = df[event]
             _create_event_offset_features(event, configs, feature, additive_events, multiplicative_events)
 
