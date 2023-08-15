@@ -517,6 +517,8 @@ def _handle_missing_data(
             df_to_add = df.groupby("ID", group_keys=False).apply(lambda x: x.loc[last_valid_index[x.name] + 1 :])
             df = df_dropped
             log.info(f"Dropped {n_dropped} rows at the end with NaNs in 'y' column.")
+    if df["y"].dtype != np.float32:
+        df["y"] = df["y"].astype(np.float32)
 
     if config_missing.impute_missing:
         # impute missing values

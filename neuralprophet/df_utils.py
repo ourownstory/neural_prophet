@@ -463,8 +463,6 @@ def check_dataframe(
         df["ds"] = df.loc[:, "ds"].astype(str)
     if not np.issubdtype(df["ds"].to_numpy().dtype, np.datetime64):
         df["ds"] = pd.to_datetime(df.loc[:, "ds"], utc=True).dt.tz_convert(None)
-    if df["y"].dtype != np.float32:
-        df["y"] = df["y"].astype(np.float32)
     if df.groupby("ID").apply(lambda x: x.duplicated("ds").any()).any():
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
 
