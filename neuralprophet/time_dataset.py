@@ -6,6 +6,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import torch
+from memory_profiler import profile
 from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure, utils
@@ -63,6 +64,7 @@ class TimeDataset(Dataset):
             "events",
             "regressors",
         ]
+        log.info(f"Creating dataset for {name}")
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
         self.filter_samples_after_init(kwargs["prediction_frequency"])
@@ -111,6 +113,7 @@ class TimeDataset(Dataset):
                 "Please either adjust imputation parameters, or set 'drop_missing' to True to drop those samples."
             )
 
+    @profile
     def init_after_tabularized(self, inputs, targets=None):
         """Create Timedataset with data.
         Parameters
