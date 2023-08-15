@@ -314,9 +314,17 @@ def tabularize_univariate_datetime(
     inputs = OrderedDict({})
 
     def _stride_time_features_for_forecasts(x):
-        return np.array(
-            [x[i + max_lags - n_lags : i + max_lags + n_forecasts] for i in range(n_samples)], dtype=x.dtype
-        )
+        window_size = n_lags + n_forecasts
+
+        if x.ndim == 1:
+            shape = (n_samples, window_size)
+        else:
+            shape = (n_samples, window_size) + x.shape[1:]
+
+        stride = x.strides[0]
+        strides = (stride, stride) + x.strides[1:]
+        start_index = max_lags - n_lags
+        return np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
 
     def _stride_future_time_features_for_forecasts(x):
         return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
