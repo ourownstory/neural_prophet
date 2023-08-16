@@ -29,7 +29,7 @@ class GlobalTimeDataset(Dataset):
         """
         # TODO (future): vectorize
         if num_workers > 0:
-            print(f"num_workers: {num_workers}")
+            log.info(f"num_workers: {num_workers}")
             grouped_dfs = list(df.groupby("ID"))
             df_names = [item[0] for item in grouped_dfs]
             dataframes = [item[1] for item in grouped_dfs]
@@ -43,7 +43,7 @@ class GlobalTimeDataset(Dataset):
     @staticmethod
     def worker_function(args):
         df_i, df_name, kwargs = args
-        print(f"Creating dataset for {df_name}")
+        log.info(f"Creating dataset for {df_name}")
         return TimeDataset(df_i, df_name, **kwargs)
 
     @staticmethod
