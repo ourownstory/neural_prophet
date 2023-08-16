@@ -572,7 +572,7 @@ def _handle_missing_data(
     return df
 
 
-def _create_dataset(model, df, predict_mode, prediction_frequency=None):
+def _create_dataset(model, df, predict_mode, prediction_frequency=None, num_workers=0):
     """Construct dataset from dataframe.
 
     (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -605,6 +605,9 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
             value: int
                 forecast origin of the predictions to be made, e.g. 7 for 7am in case of 'daily-hour'.
 
+        num_workers : int
+            number of workers to use for data loading
+
     Returns
     -------
         TimeDataset
@@ -612,6 +615,7 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     return time_dataset.GlobalTimeDataset(
         df,
+        num_workers=num_workers,
         predict_mode=predict_mode,
         n_lags=model.n_lags,
         n_forecasts=model.n_forecasts,
