@@ -28,8 +28,8 @@ class GlobalTimeDataset(Dataset):
                 Identical to :meth:`tabularize_univariate_datetime`
         """
         # TODO (future): vectorize
+        log.info(f"num_workers: {num_workers}")
         if num_workers > 0:
-            log.info(f"num_workers: {num_workers}")
             grouped_dfs = list(df.groupby("ID"))
             df_names = [item[0] for item in grouped_dfs]
             dataframes = [item[1] for item in grouped_dfs]
