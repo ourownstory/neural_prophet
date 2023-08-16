@@ -7,7 +7,6 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import torch
-from memory_profiler import profile
 from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure, utils
