@@ -132,7 +132,7 @@ def _reshape_raw_predictions_to_forecst_df(
             for j in range(len(quantiles)):
                 forecast_0 = components[comp][0, :, j]
                 forecast_rest = components[comp][1:, n_forecasts - 1, j]
-                yhat = yhat = np.pad(
+                yhat = np.pad(
                     np.concatenate((forecast_0, forecast_rest)), (max_lags, 0), mode="constant", constant_values=np.NaN
                 )
                 if prediction_frequency is not None:
