@@ -2567,7 +2567,7 @@ class NeuralProphet:
             self.config_country_holidays.init_holidays(df_merged)
 
         dataset = _create_dataset(
-            self, df, predict_mode=False, prediction_frequency=self.prediction_frequency, num_workers=num_workers
+            self, df, predict_mode=False, prediction_frequency=self.prediction_frequency
         )  # needs to be called after set_auto_seasonalities
 
         # Determine the max_number of epochs
@@ -2577,6 +2577,7 @@ class NeuralProphet:
             dataset,
             batch_size=self.config_train.batch_size,
             shuffle=True,
+            num_workers=num_workers,
         )
 
         return loader
