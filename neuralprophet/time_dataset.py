@@ -1,7 +1,6 @@
 import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
-from multiprocessing import Pool
 from typing import Optional
 
 import numpy as np
@@ -17,7 +16,7 @@ log = logging.getLogger("NP.time_dataset")
 
 
 class GlobalTimeDataset(Dataset):
-    def __init__(self, df, num_workers, **kwargs):
+    def __init__(self, df, **kwargs):
         """Initialize Timedataset from time-series df.
         Parameters
         ----------
@@ -27,33 +26,10 @@ class GlobalTimeDataset(Dataset):
             **kwargs : dict
                 Identical to :meth:`tabularize_univariate_datetime`
         """
-        # TODO (future): vectorize
-        log.info(f"num_workers: {num_workers}")
-        if num_workers > 0:
-            grouped_dfs = list(df.groupby("ID"))
-            df_names = [item[0] for item in grouped_dfs]
-            dataframes = [item[1] for item in grouped_dfs]
-            timedatasets = self.parallel_time_datasets(dataframes, df_names, kwargs, num_workers)
-        else:
-            timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
-
+        # # TODO (future): vectorize
+        timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
         self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
         self.length = sum(timedataset.length for timedataset in timedatasets)
-
-    @staticmethod
-    def worker_function(args):
-        df_i, df_name, kwargs = args
-        log.info(f"Creating dataset for {df_name}")
-        return TimeDataset(df_i, df_name, **kwargs)
-
-    @staticmethod
-    def parallel_time_datasets(dataframes, df_names, kwargs, num_workers):
-        args = [(df_i, df_name, kwargs) for df_i, df_name in zip(dataframes, df_names)]
-
-        with Pool(num_workers) as pool:
-            results = pool.map(GlobalTimeDataset.worker_function, args)
-
-        return results
 
     def __len__(self):
         return self.length
@@ -160,7 +136,7 @@ class TimeDataset(Dataset):
             if key in self.two_level_inputs:
                 self.inputs[key] = OrderedDict({})
                 for name, features in data.items():
-                    if features.dtype != np.float32:  # 1196.5 MiB
+                    if features.dtype != np.float32:
                         features = features.astype(np.float32, copy=False)
 
                     tensor = torch.from_numpy(features)
