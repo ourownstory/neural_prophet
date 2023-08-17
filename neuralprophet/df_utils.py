@@ -1020,7 +1020,7 @@ def convert_events_to_features(df, config_events: ConfigEvents, events_df):
     """
 
     for event in config_events.keys():
-        event_feature = pd.Series([0.0] * df.shape[0])
+        event_feature = pd.Series(0, index=range(df.shape[0]), dtype="float32")
         # events_df may be None in case ID from original df is not provided in events df
         if events_df is None:
             dates = None

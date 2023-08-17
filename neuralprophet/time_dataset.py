@@ -142,7 +142,9 @@ class TimeDataset(Dataset):
                     tensor = torch.from_numpy(features)
 
                     if tensor.dtype != inputs_dtype[key]:
-                        self.inputs[key][name] = tensor.to(dtype=inputs_dtype[key])
+                        self.inputs[key][name] = tensor.to(
+                            dtype=inputs_dtype[key]
+                        )  # this can probably be removed, but was included in the previous code
                     else:
                         self.inputs[key][name] = tensor
             else:
@@ -610,8 +612,6 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
     # create all user specified events
     if config_events is not None:
         for event, configs in config_events.items():
-            if event not in df.columns:
-                df[event] = np.zeros_like(df["ds"], dtype=np.float32)
             feature = df[event]
             _create_event_offset_features(event, configs, feature, additive_events, multiplicative_events)
 
