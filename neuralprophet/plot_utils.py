@@ -260,14 +260,14 @@ def get_valid_configuration(  # move to utils
         valid_configuration: dict
             dict of validated components and values to be plotted
     """
-    if type(valid_set) is not list:
+    if not isinstance(valid_set, list):
         valid_set = [valid_set]
 
     if components is None:
         components = valid_set
         components = check_if_configured(m=m, components=components)
     else:
-        if type(components) is not list:
+        if not isinstance(components, list):
             components = [components]
         components = [comp.lower() for comp in components]
         for comp in components:
