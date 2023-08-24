@@ -1101,13 +1101,15 @@ class NeuralProphet:
         self.predict_steps = self.n_forecasts
         return df
 
-    def test(self, df: pd.DataFrame):
+    def test(self, df: pd.DataFrame, verbose: bool = True):
         """Evaluate model on holdout data.
 
         Parameters
         ----------
             df : pd.DataFrame
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with with holdout data
+            verbose : bool
+                If True, prints the test results.
         Returns
         -------
             pd.DataFrame
@@ -1132,7 +1134,7 @@ class NeuralProphet:
         )
         loader = self._init_val_loader(df)
         # Use Lightning to calculate metrics
-        val_metrics = self.trainer.test(self.model, dataloaders=loader)
+        val_metrics = self.trainer.test(self.model, dataloaders=loader, verbose=verbose)
         val_metrics_df = pd.DataFrame(val_metrics)
         # TODO Check whether supported by Lightning
         if not self.config_normalization.global_normalization:
