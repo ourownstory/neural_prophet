@@ -477,7 +477,7 @@ def check_dataframe(
                     "Automatically removed variable."
                 )
                 regressors_to_remove.append(reg)
-        if type(regressors) is list:
+        if isinstance(regressors, list):
             columns.extend(regressors)
         else:  # treat as dict
             columns.extend(regressors.keys())
@@ -489,12 +489,12 @@ def check_dataframe(
                     "Automatically removed variable."
                 )
                 lag_regressors_to_remove.append(covar)
-        if type(covariates) is list:
+        if isinstance(covariates, list):
             columns.extend(covariates)
         else:  # treat as dict
             columns.extend(covariates.keys())
     if events is not None:
-        if type(events) is list:
+        if isinstance(events, list):
             columns.extend(events)
         else:  # treat as dict
             columns.extend(events.keys())
