@@ -88,7 +88,7 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
     return new_df
 
 
-def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors], n_lags):
+def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors], n_lags: int) -> int:
     """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
@@ -459,8 +459,6 @@ def check_dataframe(
         raise ValueError("Dataframe must have columns 'ds' with the dates.")
     if df["ds"].isnull().any():
         raise ValueError("Found NaN in column ds.")
-    if df["ds"].dtype == np.int64:
-        df["ds"] = df.loc[:, "ds"].astype(str)
     if not np.issubdtype(df["ds"].to_numpy().dtype, np.datetime64):
         df["ds"] = pd.to_datetime(df.loc[:, "ds"], utc=True).dt.tz_convert(None)
     if df.groupby("ID").apply(lambda x: x.duplicated("ds").any()).any():
@@ -479,7 +477,7 @@ def check_dataframe(
                     "Automatically removed variable."
                 )
                 regressors_to_remove.append(reg)
-        if type(regressors) is list:
+        if isinstance(regressors, list):
             columns.extend(regressors)
         else:  # treat as dict
             columns.extend(regressors.keys())
@@ -491,12 +489,12 @@ def check_dataframe(
                     "Automatically removed variable."
                 )
                 lag_regressors_to_remove.append(covar)
-        if type(covariates) is list:
+        if isinstance(covariates, list):
             columns.extend(covariates)
         else:  # treat as dict
             columns.extend(covariates.keys())
     if events is not None:
-        if type(events) is list:
+        if isinstance(events, list):
             columns.extend(events)
         else:  # treat as dict
             columns.extend(events.keys())
@@ -830,7 +828,7 @@ def find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
         n_valid = max(1, int(n_samples * valid_p))
     else:
         assert valid_p >= 1
-        assert type(valid_p) == int
+        assert isinstance(valid_p, int)
         n_valid = valid_p
     n_train = n_samples - n_valid
     threshold_time_stamp = df_merged.loc[n_train, "ds"]
@@ -925,7 +923,7 @@ def split_df(
             n_valid = n_samples.apply(lambda x: max(1, int(x * valid_p)))
         else:
             assert valid_p >= 1
-            assert type(valid_p) == int
+            assert isinstance(valid_p, int)
             n_valid = valid_p
         n_train = n_samples - n_valid
 
@@ -1022,7 +1020,7 @@ def convert_events_to_features(df, config_events: ConfigEvents, events_df):
     """
 
     for event in config_events.keys():
-        event_feature = pd.Series([0.0] * df.shape[0])
+        event_feature = pd.Series(0, index=range(df.shape[0]), dtype="float32")
         # events_df may be None in case ID from original df is not provided in events df
         if events_df is None:
             dates = None

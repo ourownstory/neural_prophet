@@ -168,6 +168,7 @@ class TimeNet(pl.LightningModule):
         # Metrics Config
         self.metrics_enabled = bool(metrics)  # yields True if metrics is not an empty dictionary
         if self.metrics_enabled:
+            metrics = {metric: torchmetrics.__dict__[metrics[metric][0]](**metrics[metric][1]) for metric in metrics}
             self.log_args = {
                 "on_step": False,
                 "on_epoch": True,

@@ -5,15 +5,16 @@ import torchmetrics
 log = logging.getLogger("NP.metrics")
 
 METRICS = {
-    "MAE": torchmetrics.MeanAbsoluteError(),
-    "MSE": torchmetrics.MeanSquaredError(squared=True),
-    "RMSE": torchmetrics.MeanSquaredError(squared=False),
+    # "short_name": [torchmetrics.Metric name, {optional args}]
+    "MAE": ["MeanAbsoluteError", {}],
+    "MSE": ["MeanSquaredError", {"squared": True}],
+    "RMSE": ["MeanSquaredError", {"squared": False}],
 }
 
 
 def get_metrics(metric_input):
     """
-    Returns a list of metrics.
+    Returns a dict of metrics.
 
     Parameters
     ----------
@@ -23,29 +24,32 @@ def get_metrics(metric_input):
     Returns
     -------
         dict
-            Dict of torchmetrics.Metric metrics.
+            Dict of names of torchmetrics.Metric metrics
     """
     if metric_input is None:
         return {}
     elif metric_input is True:
-        return {k: v for k, v in METRICS.items() if k in ["MAE", "RMSE"]}
+        return {"MAE": METRICS["MAE"], "RMSE": METRICS["RMSE"]}
     elif isinstance(metric_input, str):
         if metric_input.upper() in METRICS.keys():
-            return {metric_input: METRICS[metric_input]}
+            return {metric_input: METRICS[metric_input.upper()]}
         else:
             raise ValueError("Received unsupported argument for collect_metrics.")
     elif isinstance(metric_input, list):
         if all([m.upper() in METRICS.keys() for m in metric_input]):
-            return {k: v for k, v in METRICS.items() if k in metric_input}
+            return {m: METRICS[m.upper()] for m in metric_input}
         else:
             raise ValueError("Received unsupported argument for collect_metrics.")
     elif isinstance(metric_input, dict):
-        if all([isinstance(_metric, torchmetrics.Metric) for _, _metric in metric_input.items()]):
-            return metric_input
-        else:
+        # check if all values are names belonging to torchmetrics.Metric
+        try:
+            for _metric in metric_input.values():
+                torchmetrics.__dict__[_metric]()
+        except KeyError:
             raise ValueError(
-                "Received unsupported argument for collect_metrics. All metrics must be an instance of "
-                "torchmetrics.Metric."
+                "Received unsupported argument for collect_metrics."
+                "All metrics must be valid names of torchmetrics.Metric objects."
             )
+        return {k: [v, {}] for k, v in metric_input.items()}
     elif metric_input is not False:
         raise ValueError("Received unsupported argument for collect_metrics.")

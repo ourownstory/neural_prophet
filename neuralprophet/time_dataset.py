@@ -78,23 +78,27 @@ class TimeDataset(Dataset):
                 number of steps to predict
         """
         nan_idx = []
-        for i, (inputs, targets, meta) in enumerate(self):
-            for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
-                if key in self.two_level_inputs:
-                    # Extract tensor out of OrderedDict to see if it contains NaNs
-                    tuple_list = list(data.items())
-                    tensor = tuple_list[0][1]
-                    if np.isnan(np.array(tensor)).any() and (i not in nan_idx):
-                        nan_idx.append(i)
-                else:
-                    # save index of the NaN-containing sample
-                    if np.isnan(np.array(data)).any() and (i not in nan_idx):
-                        nan_idx.append(i)
-            if np.isnan(np.array(targets)).any() and (i not in nan_idx):
-                if (
-                    i < len(self) - predict_steps
-                ):  # do not remove the targets that were inserted for prediction at the end
-                    nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
+        # NaNs in inputs
+        for key, data in self.inputs.items():
+            if isinstance(data, torch.Tensor):
+                nans = torch.where(torch.isnan(data))[0].tolist()
+                if len(nans) > 0:
+                    nan_idx += nans
+            elif isinstance(data, dict):
+                for subkey, subdata in data.items():
+                    nans = torch.where(torch.isnan(subdata))[0].tolist()
+                    if len(nans) > 0:
+                        nan_idx += nans
+
+        # NaNs in targets that are not inserted for prediction at the end
+        nans = torch.where(torch.isnan(self.targets))[0].tolist()
+        if len(nans) > 0:
+            for idx in nans:
+                if idx not in nan_idx and idx < len(self) - predict_steps:
+                    nan_idx.append(idx)
+
+        nan_idx = list(set(nan_idx))
+        nan_idx.sort()
         if drop_missing and len(nan_idx) > 0:
             log.warning(f"{len(nan_idx)} samples with missing values were dropped from the data. ")
             for key, data in self.inputs.items():
@@ -110,6 +114,25 @@ class TimeDataset(Dataset):
                 "Inputs/targets with missing values detected. "
                 "Please either adjust imputation parameters, or set 'drop_missing' to True to drop those samples."
             )
+
+    @staticmethod
+    def _split_nested_dict(inputs):
+        """Split nested dict into list of dicts.
+        Parameters
+        ----------
+            inputs : ordered dict
+                Nested dict to be split.
+        Returns
+        -------
+            list of dicts
+                List of dicts with same keys as inputs.
+        """
+
+        def split_dict(inputs, index):
+            return {k: v[index] if not isinstance(v, dict) else split_dict(v, index) for k, v in inputs.items()}
+
+        length = next(iter(inputs.values())).shape[0]
+        return [split_dict(inputs, i) for i in range(length)]
 
     def init_after_tabularized(self, inputs, targets=None):
         """Create Timedataset with data.
@@ -136,7 +159,17 @@ class TimeDataset(Dataset):
             if key in self.two_level_inputs:
                 self.inputs[key] = OrderedDict({})
                 for name, features in data.items():
-                    self.inputs[key][name] = torch.from_numpy(features.astype(float)).type(inputs_dtype[key])
+                    if features.dtype != np.float32:
+                        features = features.astype(np.float32, copy=False)
+
+                    tensor = torch.from_numpy(features)
+
+                    if tensor.dtype != inputs_dtype[key]:
+                        self.inputs[key][name] = tensor.to(
+                            dtype=inputs_dtype[key]
+                        )  # this can probably be removed, but was included in the previous code
+                    else:
+                        self.inputs[key][name] = tensor
             else:
                 if key == "timestamps":
                     self.inputs[key] = data
@@ -144,25 +177,7 @@ class TimeDataset(Dataset):
                     self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
         self.meta["df_name"] = self.name
-        # Pre-compute all samples for faster iteration in __getitem__
-        self.samples = []
-        for index in range(self.length):
-            sample = OrderedDict({})
-            for key, data in self.inputs.items():
-                if key in self.two_level_inputs:
-                    if (
-                        key == "events" or key == "regressors"
-                    ):  # or key == "events_lagged" or key == "regressors_lagged":
-                        sample[key] = OrderedDict({})
-                        for mode, features in self.inputs[key].items():
-                            sample[key][mode] = features[index, :, :]
-                    else:
-                        sample[key] = OrderedDict({})
-                        for name, period_features in self.inputs[key].items():
-                            sample[key][name] = period_features[index]
-                else:
-                    sample[key] = data[index]
-            self.samples.append(sample)
+        self.samples = self._split_nested_dict(self.inputs)
 
     def filter_samples_after_init(
         self,
@@ -314,9 +329,17 @@ def tabularize_univariate_datetime(
     inputs = OrderedDict({})
 
     def _stride_time_features_for_forecasts(x):
-        return np.array(
-            [x[i + max_lags - n_lags : i + max_lags + n_forecasts] for i in range(n_samples)], dtype=x.dtype
-        )
+        window_size = n_lags + n_forecasts
+
+        if x.ndim == 1:
+            shape = (n_samples, window_size)
+        else:
+            shape = (n_samples, window_size) + x.shape[1:]
+
+        stride = x.strides[0]
+        strides = (stride, stride) + x.strides[1:]
+        start_index = max_lags - n_lags
+        return np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
 
     def _stride_future_time_features_for_forecasts(x):
         return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
@@ -327,7 +350,7 @@ def tabularize_univariate_datetime(
         series = df.loc[:, df_col_name].values
         # Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
         return np.array(
-            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
+            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float32
         )
 
     def _stride_timestamps_for_forecasts(x):
@@ -480,7 +503,7 @@ def fourier_series(dates, period, series_order):
             Matrix with seasonality features
     """
     # convert to days since epoch
-    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(float)) / (3600 * 24.0)
+    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
     return fourier_series_t(t, period, series_order)
 
 
@@ -594,8 +617,6 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
     # create all user specified events
     if config_events is not None:
         for event, configs in config_events.items():
-            if event not in df.columns:
-                df[event] = np.zeros_like(df["ds"], dtype=np.float64)
             feature = df[event]
             _create_event_offset_features(event, configs, feature, additive_events, multiplicative_events)
 

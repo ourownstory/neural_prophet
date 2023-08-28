@@ -965,3 +965,17 @@ def test_multiple_countries():
     assert "Christmas Day" not in holiday_names
     assert "Erster Weihnachtstag" in holiday_names
     assert "Neujahr" in holiday_names
+
+
+def test_float32_inputs():
+    # test if float32 inputs are forecasted as float32 outputs
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df["y"] = df["y"].astype(np.float32)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    m.fit(df, freq="D")
+    forecast = m.predict(df)
+    assert forecast["yhat1"].dtype == np.float32
