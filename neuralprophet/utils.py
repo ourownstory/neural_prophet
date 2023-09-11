@@ -38,9 +38,16 @@ def save(forecaster, path: str):
         >>> save(forecaster, "test_save_model.np")
     """
     # Remove the Lightning trainer since it does not serialise correcly with torch.save
-    for attr in ["trainer"]:
+    attrs_to_remove = ["trainer"]
+    removed_attrs = {}
+    for attr in attrs_to_remove:
+        removed_attrs[attr] = getattr(forecaster, attr)
         setattr(forecaster, attr, None)
     torch.save(forecaster, path)
+
+    # Restore the Lightning trainer
+    for attr in attrs_to_remove:
+        setattr(forecaster, attr, removed_attrs[attr])
 
 
 def load(path: str):
