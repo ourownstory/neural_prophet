@@ -294,6 +294,45 @@ def test_plot_events(plotting_backend):
 
 
 @pytest.mark.parametrize(*decorator_input)
+def test_plot_events_components(plotting_backend):
+    log.info(f"testing: Plotting components with events with {plotting_backend}")
+    df = pd.read_csv(PEYTON_FILE)[-NROWS:]
+
+    events_df = pd.DataFrame(
+        {
+            "event": "superbowl",
+            "ds": pd.to_datetime(["2010-02-07", "2014-02-02", "2016-02-07"]),
+        }
+    )
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=2,
+        n_forecasts=30,
+        daily_seasonality=False,
+    )
+    # set event windows
+    m = m.add_events(
+        ["superbowl"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
+    )
+    history_df = m.create_df_with_events(df, events_df)
+    m.fit(history_df, freq="D")
+    future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
+    forecast = m.predict(df=future)
+    log.debug(f"Event Parameters:: {m.model.event_params}")
+
+    fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(plotting_backend=plotting_backend)
+
+    if PLOT:
+        fig1.show()
+        fig2.show()
+        fig3.show()
+
+
+@pytest.mark.parametrize(*decorator_input)
 def test_plot_trend(plotting_backend):
     log.info(f"testing: Plotting linear trend with {plotting_backend}")
     df = pd.read_csv(AIR_FILE)
