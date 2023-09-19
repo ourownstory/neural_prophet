@@ -336,9 +336,7 @@ def test_plot_events_additive(plotting_backend):
         daily_seasonality=False,
     )
     # set event windows
-    m = m.add_events(
-        ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive", regularization=0.5
-    )
+    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive", regularization=0.5)
     # add the country specific holidays
     m = m.add_country_holidays("US", mode="additive", regularization=0.5)
     m.add_country_holidays("Indonesia")
