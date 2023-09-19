@@ -22,24 +22,23 @@ if TYPE_CHECKING:
 log = logging.getLogger("NP.utils")
 
 
-import torch
-
-
 def save(forecaster, path: str, minimal=True):
     """Save a fitted Neural Prophet model to disk.
 
     Parameters:
         forecaster : np.forecaster.NeuralProphet
-            The fitted forecaster to save.
+            input forecaster that is fitted
         path : str
-            The file path to save the model to.
+            path and filename to be saved. filename could be any but suggested to have extension .np.
         minimal : bool
-            Whether to save only the essential parts of the model for prediction.
-    """
-    # Always remove 'trainer' as it's not serializable
-    attrs_to_remove = ["trainer"]
+            whether to save only the essential parts of the model for prediction.
 
-    # Temporary storage for removed attributes
+    After you fitted a model, you may save the model to save_test_model.np
+        >>> from neuralprophet import save
+        >>> save(forecaster, "test_save_model.np")
+    """
+    # Remove the Lightning trainer since it does not serialise correcly with torch.save
+    attrs_to_remove = ["trainer"]
     removed_attrs = {}
 
     for attr in attrs_to_remove:
