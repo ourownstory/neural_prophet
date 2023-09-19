@@ -313,9 +313,7 @@ def test_plot_events_components(plotting_backend):
         daily_seasonality=False,
     )
     # set event windows
-    m = m.add_events(
-        ["superbowl"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
-    )
+    m = m.add_events(["superbowl"], lower_window=-1, upper_window=1, mode="additive", regularization=0.5)
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
