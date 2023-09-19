@@ -271,7 +271,7 @@ def test_plot_events(plotting_backend):
         ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
     )
     # add the country specific holidays
-    m = m.add_country_holidays("US", mode="additive", regularization=0.5)
+    m = m.add_country_holidays("US", mode="multiplicative", regularization=0.5)
     m.add_country_holidays("Indonesia")
     m.add_country_holidays("Thailand")
     m.add_country_holidays("Philippines")
