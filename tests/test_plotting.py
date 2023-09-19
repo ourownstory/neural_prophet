@@ -294,6 +294,75 @@ def test_plot_events(plotting_backend):
 
 
 @pytest.mark.parametrize(*decorator_input)
+def test_plot_events_additive(plotting_backend):
+    log.info(f"testing: Plotting with events with {plotting_backend}")
+    df = pd.read_csv(PEYTON_FILE)[-NROWS:]
+    playoffs = pd.DataFrame(
+        {
+            "event": "playoff",
+            "ds": pd.to_datetime(
+                [
+                    "2008-01-13",
+                    "2009-01-03",
+                    "2010-01-16",
+                    "2010-01-24",
+                    "2010-02-07",
+                    "2011-01-08",
+                    "2013-01-12",
+                    "2014-01-12",
+                    "2014-01-19",
+                    "2014-02-02",
+                    "2015-01-11",
+                    "2016-01-17",
+                    "2016-01-24",
+                    "2016-02-07",
+                ]
+            ),
+        }
+    )
+    superbowls = pd.DataFrame(
+        {
+            "event": "superbowl",
+            "ds": pd.to_datetime(["2010-02-07", "2014-02-02", "2016-02-07"]),
+        }
+    )
+    events_df = pd.concat((playoffs, superbowls))
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=2,
+        n_forecasts=30,
+        daily_seasonality=False,
+    )
+    # set event windows
+    m = m.add_events(
+        ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive", regularization=0.5
+    )
+    # add the country specific holidays
+    m = m.add_country_holidays("US", mode="additive", regularization=0.5)
+    m.add_country_holidays("Indonesia")
+    m.add_country_holidays("Thailand")
+    m.add_country_holidays("Philippines")
+    m.add_country_holidays("Pakistan")
+    m.add_country_holidays("Belarus")
+    history_df = m.create_df_with_events(df, events_df)
+    m.fit(history_df, freq="D")
+    future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
+    forecast = m.predict(df=future)
+    log.debug(f"Event Parameters:: {m.model.event_params}")
+
+    fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(plotting_backend=plotting_backend)
+
+    if PLOT:
+        fig1.show()
+        fig2.show()
+        fig3.show()
+
+
+@pytest.mark.parametrize(*decorator_input)
 def test_plot_events_components(plotting_backend):
     log.info(f"testing: Plotting components with events with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE)[-NROWS:]
@@ -308,9 +377,10 @@ def test_plot_events_components(plotting_backend):
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        n_lags=2,
-        n_forecasts=30,
-        daily_seasonality=False,
+        n_forecasts=7,
+        n_lags=14,
+        yearly_seasonality=True,
+        weekly_seasonality=True,
     )
     # set event windows
     m = m.add_events(["superbowl"], lower_window=-1, upper_window=1, mode="additive", regularization=0.5)
