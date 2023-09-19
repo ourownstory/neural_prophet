@@ -49,11 +49,7 @@ def save(forecaster, path: str, minimal=True):
     if minimal:
         # List of attributes in TimeNet model that are not essential for prediction
         non_essential_model_attrs = [
-            "logger.history",
-            "metrics_train",
-            "metrics_val",
-            "train_epoch_prediction",
-            "_state_dict_hooks",
+            "_trainer",
         ]
 
         # Remove non-essential attributes in TimeNet model
