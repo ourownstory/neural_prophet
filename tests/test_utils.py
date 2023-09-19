@@ -36,17 +36,25 @@ def test_save_load():
         n_changepoints=0,
     )
     _ = m.fit(df, freq="D")
+    log.info("testing: save fitted model")
+    save(m, "test_model_fit.pt")
+    log.info(f"size of saved fitted model: {os.path.getsize('test_model_fit.pt')}")
+
     future = m.make_future_dataframe(df, periods=3)
     forecast = m.predict(df=future)
-    log.info("testing: save")
-    save(m, "test_model.pt")
+    log.info("testing: save forecast model")
+    save(m, "test_model_forecast.pt")
+    log.info(f"size of saved forecast model: {os.path.getsize('test_model_forecast.pt')}")
 
     log.info("testing: load")
-    m2 = load("test_model.pt")
+    m2 = load("test_model_fit.pt")
+    m3 = load("test_model_forecast.pt")
     forecast2 = m2.predict(df=future)
+    forecast3 = m3.predict(df=future)
 
     # Check that the forecasts are the same
     pd.testing.assert_frame_equal(forecast, forecast2)
+    pd.testing.assert_frame_equal(forecast, forecast3)
 
 
 # TODO: add functionality to continue training

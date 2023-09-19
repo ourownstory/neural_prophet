@@ -22,32 +22,60 @@ if TYPE_CHECKING:
 log = logging.getLogger("NP.utils")
 
 
-def save(forecaster, path: str):
-    """save a fitted np model to a disk file.
+import torch
 
-    Parameters
-    ----------
+
+def save(forecaster, path: str, minimal=True):
+    """Save a fitted Neural Prophet model to disk.
+
+    Parameters:
         forecaster : np.forecaster.NeuralProphet
-            input forecaster that is fitted
+            The fitted forecaster to save.
         path : str
-            path and filename to be saved. filename could be any but suggested to have extension .np.
-    Examples
-    --------
-    After you fitted a model, you may save the model to save_test_model.np
-        >>> from neuralprophet import save
-        >>> save(forecaster, "test_save_model.np")
+            The file path to save the model to.
+        minimal : bool
+            Whether to save only the essential parts of the model for prediction.
     """
-    # Remove the Lightning trainer since it does not serialise correcly with torch.save
+    # Always remove 'trainer' as it's not serializable
     attrs_to_remove = ["trainer"]
-    removed_attrs = {}
-    for attr in attrs_to_remove:
-        removed_attrs[attr] = getattr(forecaster, attr)
-        setattr(forecaster, attr, None)
-    torch.save(forecaster, path)
 
-    # Restore the Lightning trainer
+    # Temporary storage for removed attributes
+    removed_attrs = {}
+
     for attr in attrs_to_remove:
-        setattr(forecaster, attr, removed_attrs[attr])
+        if hasattr(forecaster, attr):
+            removed_attrs[attr] = getattr(forecaster, attr)
+            setattr(forecaster, attr, None)
+
+    if minimal:
+        # List of attributes in TimeNet model that are not essential for prediction
+        non_essential_model_attrs = [
+            "logger.history",
+            "metrics_train",
+            "metrics_val",
+            "train_epoch_prediction",
+            "_state_dict_hooks",
+        ]
+
+        # Remove non-essential attributes in TimeNet model
+        for attr in non_essential_model_attrs:
+            if hasattr(forecaster.model, attr):
+                removed_attrs[attr] = getattr(forecaster.model, attr)
+                setattr(forecaster.model, attr, None)
+
+    # Perform the save operation
+    try:
+        torch.save(forecaster, path)
+    except Exception as e:
+        print(f"An error occurred while saving the model: {e}")
+        raise
+    finally:
+        # Restore the removed attributes
+        for attr, value in removed_attrs.items():
+            if hasattr(forecaster, attr):
+                setattr(forecaster, attr, value)
+            elif hasattr(forecaster.model, attr):
+                setattr(forecaster.model, attr, value)
 
 
 def load(path: str):
