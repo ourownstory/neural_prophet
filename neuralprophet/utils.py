@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 log = logging.getLogger("NP.utils")
 
 
-def save(forecaster, path: str, minimal=True):
+def save(forecaster, path: str):
     """Save a fitted Neural Prophet model to disk.
 
     Parameters:
@@ -30,31 +30,29 @@ def save(forecaster, path: str, minimal=True):
             input forecaster that is fitted
         path : str
             path and filename to be saved. filename could be any but suggested to have extension .np.
-        minimal : bool
-            whether to save only the essential parts of the model for prediction.
 
     After you fitted a model, you may save the model to save_test_model.np
         >>> from neuralprophet import save
         >>> save(forecaster, "test_save_model.np")
     """
-    # Remove the Lightning trainer since it does not serialise correcly with torch.save
-    attrs_to_remove = ["trainer"]
+    # List of attributes to remove
+    attrs_to_remove_forecaster = ["trainer"]
+    attrs_to_remove_model = ["_trainer"]
+
+    # Store removed attributes temporarily
     removed_attrs = {}
 
-    for attr in attrs_to_remove:
+    # Remove specified attributes from forecaster
+    for attr in attrs_to_remove_forecaster:
         if hasattr(forecaster, attr):
             removed_attrs[attr] = getattr(forecaster, attr)
             setattr(forecaster, attr, None)
 
-    if minimal:
-        # List of attributes in TimeNet model that are not essential for prediction
-        non_essential_model_attrs = ["_trainer"]
-
-        # Remove non-essential attributes in TimeNet model
-        for attr in non_essential_model_attrs:
-            if hasattr(forecaster.model, attr):
-                removed_attrs[attr] = getattr(forecaster.model, attr)
-                setattr(forecaster.model, attr, None)
+    # Remove specified attributes from forecaster.model
+    for attr in attrs_to_remove_model:
+        if hasattr(forecaster.model, attr):
+            removed_attrs[attr] = getattr(forecaster.model, attr)
+            setattr(forecaster.model, attr, None)
 
     # Perform the save operation
     try:
