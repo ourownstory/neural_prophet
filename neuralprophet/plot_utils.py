@@ -304,10 +304,6 @@ def get_valid_configuration(  # move to utils
                         )
                     else:
                         df_name = m.id_list[0]
-                        log.warning(
-                            "Local model set with > 1 time series in the pd.DataFrame. Plotting components of first \
-                                time series. "
-                        )
                 else:
                     log.warning("Local normalization set, but df_name is None. Using global data params instead.")
                     df_name = "__df__"
