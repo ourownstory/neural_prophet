@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "neuralprophet"
-version = "1.0.0rc2"
+version = "1.0.0rc4"
 description = "NeuralProphet is an easy to learn framework for interpretable time series forecasting."
 authors = ["Oskar Triebe <triebe@stanford.edu>"]
 license = "MIT"
@@ -22,14 +22,14 @@ python = ">=3.8,<3.11"
 captum = "^0.6.0"
 holidays = "^0.21"
 matplotlib = "^3.5.3"
-numpy = ">=1.22.0,<1.24.0"
+numpy = "^1.22.0"
 pandas = "^1.3.5"
 plotly = "^5.13.1"
 kaleido = "0.2.1"
 plotly-resampler = "^0.8.3.1"
 pytorch-lightning = "^1.9.4"
 tensorboard = "^2.11.2"
-torch = "^1.13.1"
+torch = "2.0.0"
 torchmetrics = "^0.11.3"
 typing-extensions = "^4.5.0"
 nbformat = ">=4.2.0"
@@ -110,3 +110,7 @@ include = [
     "neuralprophet/df_utils.py",
     "neuralprophet/hdays_utils.py",
 ]
+
+[tool.ruff]
+line-length = 120
+typing-modules = ["neuralprophet.np_types"]

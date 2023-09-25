@@ -9,7 +9,6 @@ import time
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import pytest
 from plotly.subplots import make_subplots
 from plotly_resampler import unregister_plotly_resampler
 
@@ -60,7 +59,6 @@ def create_metrics_plot(metrics):
     prediction_color = "#2d92ff"
     actual_color = "black"
     line_width = 2
-    marker_size = 4
     xaxis_args = {"showline": True, "mirror": True, "linewidth": 1.5, "showgrid": False}
     yaxis_args = {
         "showline": True,

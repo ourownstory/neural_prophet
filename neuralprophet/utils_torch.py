@@ -55,7 +55,7 @@ def create_optimizer_from_config(optimizer_name, optimizer_args):
             optimizer_args : dict
                 The optimizer arguments.
     """
-    if type(optimizer_name) == str:
+    if isinstance(optimizer_name, str):
         if optimizer_name.lower() == "adamw":
             # Tends to overfit, but reliable
             optimizer = torch.optim.AdamW
@@ -120,7 +120,8 @@ def interprete_model(target_model: pl.LightningModule, net: str, forward_func: s
             attributions = torch.cat((attributions, target_attribution), 0)
 
     # Average the attributions over the input features
-    # Idea: Average attribution of each lag on all forecasts (eg. the n'th lag has an attribution of xyz on the forecast)
-    # TODO: support the visualization of 2d tensors in plot_parameters (aka the attribution of the n'th lag on the m'th forecast)
+    # Idea: Average attribution of each lag on all forecasts (eg the n'th lag has an attribution of xyz on the forecast)
+    # TODO: support the visualization of 2d tensors in plot_parameters
+    # (aka the attribution of the n'th lag on the m'th forecast)
 
     return attributions

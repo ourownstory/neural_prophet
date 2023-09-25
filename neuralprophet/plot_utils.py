@@ -260,14 +260,14 @@ def get_valid_configuration(  # move to utils
         valid_configuration: dict
             dict of validated components and values to be plotted
     """
-    if type(valid_set) is not list:
+    if not isinstance(valid_set, list):
         valid_set = [valid_set]
 
     if components is None:
         components = valid_set
         components = check_if_configured(m=m, components=components)
     else:
-        if type(components) is not list:
+        if not isinstance(components, list):
             components = [components]
         components = [comp.lower() for comp in components]
         for comp in components:
@@ -299,13 +299,11 @@ def get_valid_configuration(  # move to utils
                     ):
                         df_name = m.id_list
                         log.warning(
-                            "Glocal model set with > 1 time series in the pd.DataFrame. Plotting components of mean time series and quants. "
+                            "Glocal model set with > 1 time series in the pd.DataFrame. Plotting components of mean \
+                                time series and quants. "
                         )
                     else:
                         df_name = m.id_list[0]
-                        log.warning(
-                            "Local model set with > 1 time series in the pd.DataFrame. Plotting components of first time series. "
-                        )
                 else:
                     log.warning("Local normalization set, but df_name is None. Using global data params instead.")
                     df_name = "__df__"
@@ -561,7 +559,8 @@ def get_valid_configuration(  # move to utils
 
 def validate_current_env_for_resampler(auto: bool = False) -> Optional[bool]:
     """
-    Validate the current environment to check if it is a valid environment for plotly-resampler and if invalid trigger warning message.
+    Validate the current environment to check if it is a valid environment for plotly-resampler and if invalid trigger
+    warning message.
 
     Parameters
     ----------
