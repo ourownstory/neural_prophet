@@ -1059,6 +1059,36 @@ def add_missing_dates_nan(df, freq):
     return df_resampled, num_added
 
 
+def create_dummy_datestamps(
+    df, freq="S", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
+):
+    """
+    Helper function to create a dummy series of datestamps for equidistant data without ds.
+    Parameters
+    ----------
+        df : pd.DataFrame
+            dataframe with column 'y' and without column 'ds'
+        freq : str
+            Frequency of data recording, any valid frequency for pd.date_range, such as ``D`` or ``M``
+        startyear, startmonth, startday, starthour, startminute, startsecond : int
+            Defines the first datestamp
+    Returns
+    -------
+        pd.DataFrame
+            dataframe with dummy equidistant datestamps
+    """
+    if "ds" in df:
+        raise ValueError("Column 'ds' in df detected.")
+    log.info(f"Dummy equidistant datestamps added. Frequency={freq}.")
+    df_length = len(df)
+    startdate = pd.Timestamp(
+        year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute, second=startsecond
+    )
+    datestamps = pd.date_range(startdate, periods=df_length, freq=freq)
+    df_dummy = pd.DataFrame({"ds": datestamps, "y": df["y"]})
+    return df_dummy
+
+
 def fill_linear_then_rolling_avg(series, limit_linear, rolling):
     """Adds missing dates, fills missing values with linear imputation or trend.
 
