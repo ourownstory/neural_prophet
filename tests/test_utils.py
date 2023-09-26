@@ -6,7 +6,7 @@ import pathlib
 
 import pandas as pd
 
-from neuralprophet import NeuralProphet, load, save, df_utils
+from neuralprophet import NeuralProphet, df_utils, load, save
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
