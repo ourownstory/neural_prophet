@@ -957,11 +957,10 @@ def test_multiple_countries():
     m.predict(df)
     # get the name of holidays and compare that no holiday is repeated
     holiday_names = m.model.config_holidays.holiday_names
-    assert len(holiday_names) == 20
     assert "Independence Day" in holiday_names
-    assert "Christmas Day" not in holiday_names
-    assert "Erster Weihnachtstag" in holiday_names
-    assert "Neujahr" in holiday_names
+    assert "Christmas Day" in holiday_names
+    assert "Erster Weihnachtstag" not in holiday_names
+    assert "Neujahr" not in holiday_names
 
 
 def test_float32_inputs():

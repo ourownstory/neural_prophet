@@ -338,12 +338,13 @@ def get_holidays_from_country(country: Union[str, Iterable[str]], df=None):
     if isinstance(country, str):
         country = [country]
 
-    holidays = {}
+    unique_holidays = {}
     for single_country in country:
         holidays_country = get_country_holidays(single_country, years)
-        # only add holiday if it is not already in the dict
-        holidays.update(holidays_country)
-    holiday_names = holidays.values()
+        for date, name in holidays_country.items():
+            if date not in unique_holidays:
+                unique_holidays[date] = name
+    holiday_names = unique_holidays.values()
     return set(holiday_names)
 
 
