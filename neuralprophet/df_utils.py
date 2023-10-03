@@ -1076,6 +1076,16 @@ def create_dummy_datestamps(
     -------
         pd.DataFrame
             dataframe with dummy equidistant datestamps
+
+    Examples
+    --------
+    Adding dummy datestamps to a dataframe without datestamps.
+    To prepare the dataframe for training, import df_utils and insert your prefered dates.
+        >>> from neuralprophet import df_utils
+        >>> df_drop = df.drop("ds", axis=1)
+        >>> df_dummy = df_utils.create_dummy_datestamps(
+        >>> df_drop, freq="S", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
+        >>> )
     """
     if "ds" in df:
         raise ValueError("Column 'ds' in df detected.")
