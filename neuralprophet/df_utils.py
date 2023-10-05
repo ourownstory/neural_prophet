@@ -88,7 +88,7 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
     return new_df
 
 
-def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors], n_lags):
+def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors], n_lags: int) -> int:
     """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
@@ -417,102 +417,6 @@ def normalize(df, data_params):
     return df
 
 
-def check_single_dataframe(df, check_y, covariates, regressors, events, seasonalities):
-    """Performs basic data sanity checks and ordering
-    as well as prepare dataframe for fitting or predicting.
-
-    Parameters
-    ----------
-        df : pd.DataFrame
-            with columns ds
-        check_y : bool
-            if df must have series values (``True`` if training or predicting with autoregression)
-        covariates : list or dict
-            covariate column names
-        regressors : list or dict
-            regressor column names
-        events : list or dict
-            event column names
-        seasonalities : list or dict
-            seasonalities column names
-
-    Returns
-    -------
-        pd.DataFrame
-    """
-    # Receives df with single ID column
-    assert len(df["ID"].unique()) == 1
-    if df.shape[0] == 0:
-        raise ValueError("Dataframe has no rows.")
-    if "ds" not in df:
-        raise ValueError('Dataframe must have columns "ds" with the dates.')
-    if df.loc[:, "ds"].isnull().any():
-        raise ValueError("Found NaN in column ds.")
-    if df["ds"].dtype == np.int64:
-        df["ds"] = df.loc[:, "ds"].astype(str)
-    if not np.issubdtype(df["ds"].dtype, np.datetime64):
-        df["ds"] = pd.to_datetime(df.loc[:, "ds"], utc=True).dt.tz_convert(None)
-    if len(df.ds.unique()) != len(df.ds):
-        raise ValueError("Column ds has duplicate values. Please remove duplicates.")
-    if regressors is not None:
-        for reg in regressors:
-            if len(df[reg].unique()) < 2:
-                log.warning(
-                    "Encountered future regressor with only unique values in training set. "
-                    "Variable will be removed for global modeling if this is true for all time series."
-                )
-    if covariates is not None:
-        for covar in covariates:
-            if len(df[covar].unique()) < 2:
-                log.warning(
-                    "Encountered lagged regressor with only unique values in training set. "
-                    "Variable will be removed for global modeling if this is true for all time series."
-                )
-
-    columns = []
-    if check_y:
-        columns.append("y")
-    if covariates is not None:
-        if type(covariates) is list:
-            columns.extend(covariates)
-        else:  # treat as dict
-            columns.extend(covariates.keys())
-    if regressors is not None:
-        if type(regressors) is list:
-            columns.extend(regressors)
-        else:  # treat as dict
-            columns.extend(regressors.keys())
-    if events is not None:
-        if type(events) is list:
-            columns.extend(events)
-        else:  # treat as dict
-            columns.extend(events.keys())
-    if seasonalities is not None:
-        for season in seasonalities.periods:
-            condition_name = seasonalities.periods[season].condition_name
-            if condition_name is not None:
-                if not df[condition_name].isin([True, False]).all() and not df[condition_name].between(0, 1).all():
-                    raise ValueError(f"Condition column {condition_name} must be boolean or numeric between 0 and 1.")
-                columns.append(condition_name)
-    for name in columns:
-        if name not in df:
-            raise ValueError(f"Column {name!r} missing from dataframe")
-        if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
-            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
-        if not np.issubdtype(df[name].dtype, np.number):
-            df.loc[:, name] = pd.to_numeric(df.loc[:, name])
-        if np.isinf(df.loc[:, name].values).any():
-            df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
-        if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
-            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
-
-    if df.index.name == "ds":
-        df.index.name = None
-    df = df.sort_values("ds")
-    df = df.reset_index(drop=True)
-    return df
-
-
 def check_dataframe(
     df: pd.DataFrame,
     check_y: bool = True,
@@ -549,14 +453,22 @@ def check_dataframe(
             checked dataframe
     """
     df, _, _, _ = prep_or_copy_df(df)
-    checked_df = pd.DataFrame()
-    for df_name, df_i in df.groupby("ID"):
-        df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events, seasonalities)
-        df_aux = df_aux.copy(deep=True)
-        df_aux["ID"] = df_name
-        checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
+    if df.groupby("ID").size().min() < 1:
+        raise ValueError("Dataframe has no rows.")
+    if "ds" not in df:
+        raise ValueError("Dataframe must have columns 'ds' with the dates.")
+    if df["ds"].isnull().any():
+        raise ValueError("Found NaN in column ds.")
+    if not np.issubdtype(df["ds"].to_numpy().dtype, np.datetime64):
+        df["ds"] = pd.to_datetime(df.loc[:, "ds"], utc=True).dt.tz_convert(None)
+    if df.groupby("ID").apply(lambda x: x.duplicated("ds").any()).any():
+        raise ValueError("Column ds has duplicate values. Please remove duplicates.")
+
     regressors_to_remove = []
     lag_regressors_to_remove = []
+    columns = []
+    if check_y:
+        columns.append("y")
     if regressors is not None:
         for reg in regressors:
             if len(df[reg].unique()) < 2:
@@ -565,6 +477,10 @@ def check_dataframe(
                     "Automatically removed variable."
                 )
                 regressors_to_remove.append(reg)
+        if isinstance(regressors, list):
+            columns.extend(regressors)
+        else:  # treat as dict
+            columns.extend(regressors.keys())
     if covariates is not None:
         for covar in covariates:
             if len(df[covar].unique()) < 2:
@@ -573,17 +489,45 @@ def check_dataframe(
                     "Automatically removed variable."
                 )
                 lag_regressors_to_remove.append(covar)
+        if isinstance(covariates, list):
+            columns.extend(covariates)
+        else:  # treat as dict
+            columns.extend(covariates.keys())
+    if events is not None:
+        if isinstance(events, list):
+            columns.extend(events)
+        else:  # treat as dict
+            columns.extend(events.keys())
+    if seasonalities is not None:
+        for season in seasonalities.periods:
+            condition_name = seasonalities.periods[season].condition_name
+            if condition_name is not None:
+                if not df[condition_name].isin([True, False]).all() and not df[condition_name].between(0, 1).all():
+                    raise ValueError(f"Condition column {condition_name} must be boolean or numeric between 0 and 1.")
+                columns.append(condition_name)
+    for name in columns:
+        if name not in df:
+            raise ValueError(f"Column {name!r} missing from dataframe")
+        if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
+            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
+        if not np.issubdtype(df[name].dtype, np.number):
+            df[name] = pd.to_numeric(df[name])
+        if np.isinf(df.loc[:, name].values).any():
+            df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
+        if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
+            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
+
     if future:
-        return checked_df, regressors_to_remove, lag_regressors_to_remove
+        return df, regressors_to_remove, lag_regressors_to_remove
     if len(regressors_to_remove) > 0:
         regressors_to_remove = list(set(regressors_to_remove))
-        checked_df = checked_df.drop(regressors_to_remove, axis=1)
-        assert checked_df is not None
+        df = df.drop(regressors_to_remove, axis=1)
+        assert df is not None
     if len(lag_regressors_to_remove) > 0:
         lag_regressors_to_remove = list(set(lag_regressors_to_remove))
-        checked_df = checked_df.drop(lag_regressors_to_remove, axis=1)
-        assert checked_df is not None
-    return checked_df, regressors_to_remove, lag_regressors_to_remove
+        df = df.drop(lag_regressors_to_remove, axis=1)
+        assert df is not None
+    return df, regressors_to_remove, lag_regressors_to_remove
 
 
 def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
@@ -857,52 +801,6 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
     return folds_val, folds_test
 
 
-def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
-    """Splits timeseries df into train and validation sets.
-    Additionally, prevents overbleed of targets. Overbleed of inputs can be configured.
-    In case of global modeling the split could be either local or global.
-
-    Parameters
-    ----------
-        df : pd.DataFrame
-            data to be splitted
-        n_lags : int
-            identical to NeuralProphet
-        n_forecasts : int
-            identical to NeuralProphet
-        valid_p : float, int
-            fraction (0,1) of data to use for holdout validation set, or number of validation samples >1
-        inputs_overbleed : bool
-            Whether to allow last training targets to be first validation inputs (never targets)
-
-    Returns
-    -------
-        pd.DataFrame
-            training data
-        pd.DataFrame
-            validation data
-    """
-    # Receives df with single ID column
-    assert len(df["ID"].unique()) == 1
-    n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
-    n_samples = n_samples if inputs_overbleed else n_samples - n_lags
-    if 0.0 < valid_p < 1.0:
-        n_valid = max(1, int(n_samples * valid_p))
-    else:
-        assert valid_p >= 1
-        assert type(valid_p) == int
-        n_valid = valid_p
-    n_train = n_samples - n_valid
-    assert n_train >= 1
-
-    split_idx_train = n_train + n_lags + n_forecasts - 1
-    split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
-    df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
-    df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
-    log.debug(f"{n_train} n_train, {n_samples - n_train} n_eval")
-    return df_train, df_val
-
-
 def find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     """Find time threshold for dividing timeseries into train and validation sets.
     Prevents overbleed of targets. Overbleed of inputs can be configured.
@@ -930,7 +828,7 @@ def find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
         n_valid = max(1, int(n_samples * valid_p))
     else:
         assert valid_p >= 1
-        assert type(valid_p) == int
+        assert isinstance(valid_p, int)
         n_valid = valid_p
     n_train = n_samples - n_valid
     threshold_time_stamp = df_merged.loc[n_train, "ds"]
@@ -1017,22 +915,31 @@ def split_df(
     df_train = pd.DataFrame()
     df_val = pd.DataFrame()
     if local_split:
-        for df_name, df_i in df.groupby("ID"):
-            df_t, df_v = _split_df(df_i, n_lags, n_forecasts, valid_p, inputs_overbleed)
-            df_train = pd.concat((df_train, df_t.copy(deep=True)), ignore_index=True)
-            df_val = pd.concat((df_val, df_v.copy(deep=True)), ignore_index=True)
-    else:
-        if len(df["ID"].unique()) == 1:
-            for df_name, df_i in df.groupby("ID"):
-                df_train, df_val = _split_df(df_i, n_lags, n_forecasts, valid_p, inputs_overbleed)
+        n_samples = df.groupby("ID").size()
+        n_samples = n_samples - n_lags + 2 - (2 * n_forecasts)
+        n_samples = n_samples if inputs_overbleed else n_samples - n_lags
+
+        if 0.0 < valid_p < 1.0:
+            n_valid = n_samples.apply(lambda x: max(1, int(x * valid_p)))
         else:
-            # Split data according to time threshold defined by the valid_p
-            threshold_time_stamp = find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
-            df_train, df_val = split_considering_timestamp(
-                df, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp
-            )
-    # df_train and df_val are returned as pd.DataFrames, if necessary those will be restored to dict in the forecaster
-    # split_df
+            assert valid_p >= 1
+            assert isinstance(valid_p, int)
+            n_valid = valid_p
+        n_train = n_samples - n_valid
+
+        log.debug(f"{n_train} n_train, {n_samples - n_train} n_eval")
+
+    else:
+        # Split data according to time threshold defined by the valid_p
+        threshold_time_stamp = find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
+        n_train = df["ds"].groupby(df["ID"]).apply(lambda x: x[x < threshold_time_stamp].count())
+
+    assert n_train.min() > 1
+    split_idx_train = n_train + n_lags + n_forecasts - 1
+    split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
+    df_train = df.groupby("ID", group_keys=False).apply(lambda x: x.iloc[: split_idx_train[x.name]])
+    df_val = df.groupby("ID", group_keys=False).apply(lambda x: x.iloc[split_idx_val[x.name] :])
+
     return df_train, df_val
 
 
@@ -1113,7 +1020,7 @@ def convert_events_to_features(df, config_events: ConfigEvents, events_df):
     """
 
     for event in config_events.keys():
-        event_feature = pd.Series([0.0] * df.shape[0])
+        event_feature = pd.Series(0, index=range(df.shape[0]), dtype="float32")
         # events_df may be None in case ID from original df is not provided in events df
         if events_df is None:
             dates = None
@@ -1126,7 +1033,7 @@ def convert_events_to_features(df, config_events: ConfigEvents, events_df):
 
 
 def add_missing_dates_nan(df, freq):
-    """Fills missing datetimes in ``ds``, with NaN for all other columns
+    """Fills missing datetimes in ``ds``, with NaN for all other columns except ``ID``.
 
     Parameters
     ----------
@@ -1141,15 +1048,55 @@ def add_missing_dates_nan(df, freq):
         pd.DataFrame
             dataframe without date-gaps but nan-values
     """
-    if df["ds"].dtype == np.int64:
-        df["ds"] = df.loc[:, "ds"].astype(str)
-    df["ds"] = pd.to_datetime(df.loc[:, "ds"])
+    df["ds"] = pd.to_datetime(df["ds"])
+    df = df.set_index("ds")
+    df_resampled = df.resample(freq).asfreq()
+    if "ID" in df.columns:
+        df_resampled["ID"].fillna(df["ID"].iloc[0], inplace=True)
+    df_resampled.reset_index(inplace=True)
 
-    data_len = len(df)
-    r = pd.date_range(start=df["ds"].min(), end=df["ds"].max(), freq=freq)
-    df_all = df.set_index("ds").reindex(r).rename_axis("ds").reset_index()
-    num_added = len(df_all) - data_len
-    return df_all, num_added
+    num_added = len(df_resampled) - len(df)
+    return df_resampled, num_added
+
+
+def create_dummy_datestamps(
+    df, freq="S", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
+):
+    """
+    Helper function to create a dummy series of datestamps for equidistant data without ds.
+    Parameters
+    ----------
+        df : pd.DataFrame
+            dataframe with column 'y' and without column 'ds'
+        freq : str
+            Frequency of data recording, any valid frequency for pd.date_range, such as ``D`` or ``M``
+        startyear, startmonth, startday, starthour, startminute, startsecond : int
+            Defines the first datestamp
+    Returns
+    -------
+        pd.DataFrame
+            dataframe with dummy equidistant datestamps
+
+    Examples
+    --------
+    Adding dummy datestamps to a dataframe without datestamps.
+    To prepare the dataframe for training, import df_utils and insert your prefered dates.
+        >>> from neuralprophet import df_utils
+        >>> df_drop = df.drop("ds", axis=1)
+        >>> df_dummy = df_utils.create_dummy_datestamps(
+        >>> df_drop, freq="S", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
+        >>> )
+    """
+    if "ds" in df:
+        raise ValueError("Column 'ds' in df detected.")
+    log.info(f"Dummy equidistant datestamps added. Frequency={freq}.")
+    df_length = len(df)
+    startdate = pd.Timestamp(
+        year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute, second=startsecond
+    )
+    datestamps = pd.date_range(startdate, periods=df_length, freq=freq)
+    df_dummy = pd.DataFrame({"ds": datestamps, "y": df["y"]})
+    return df_dummy
 
 
 def fill_linear_then_rolling_avg(series, limit_linear, rolling):

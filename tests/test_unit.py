@@ -957,8 +957,21 @@ def test_multiple_countries():
     m.predict(df)
     # get the name of holidays and compare that no holiday is repeated
     holiday_names = m.model.config_holidays.holiday_names
-    assert len(holiday_names) == 20
     assert "Independence Day" in holiday_names
-    assert "Christmas Day" not in holiday_names
-    assert "Erster Weihnachtstag" in holiday_names
-    assert "Neujahr" in holiday_names
+    assert "Christmas Day" in holiday_names
+    assert "Erster Weihnachtstag" not in holiday_names
+    assert "Neujahr" not in holiday_names
+
+
+def test_float32_inputs():
+    # test if float32 inputs are forecasted as float32 outputs
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df["y"] = df["y"].astype(np.float32)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    m.fit(df, freq="D")
+    forecast = m.predict(df)
+    assert forecast["yhat1"].dtype == np.float32

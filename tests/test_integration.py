@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-import torchmetrics
 
 from neuralprophet import NeuralProphet, df_utils, set_random_seed
 from neuralprophet.data.process import _handle_missing_data, _validate_column_name
@@ -1367,25 +1366,60 @@ def test_get_latest_forecast():
 def test_metrics():
     log.info("testing: Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(
+    # list
+    m_list = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
         collect_metrics=["MAE", "MSE", "RMSE"],
     )
-    metrics_df = m.fit(df, freq="D")
+    metrics_df = m_list.fit(df, freq="D")
     assert all([metric in metrics_df.columns for metric in ["MAE", "MSE", "RMSE"]])
-    m.predict(df)
+    m_list.predict(df)
 
-    m2 = NeuralProphet(
+    # dict
+    m_dict = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        collect_metrics={"ABC": torchmetrics.MeanAbsoluteError()},
+        collect_metrics={"ABC": "MeanSquaredLogError"},
     )
-    metrics_df = m2.fit(df, freq="D")
+    metrics_df = m_dict.fit(df, freq="D")
     assert "ABC" in metrics_df.columns
-    m2.predict(df)
+    m_dict.predict(df)
+
+    # string
+    m_string = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        collect_metrics="MAE",
+    )
+    metrics_df = m_string.fit(df, freq="D")
+    assert "MAE" in metrics_df.columns
+    m_string.predict(df)
+
+    # False
+    m_false = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        collect_metrics=False,
+    )
+    metrics_df = m_false.fit(df, freq="D")
+    assert metrics_df is None
+    m_false.predict(df)
+
+    # None
+    m_none = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        collect_metrics=None,
+    )
+    metrics_df = m_none.fit(df, freq="D")
+    assert metrics_df is None
+    m_none.predict(df)
 
 
 def test_progress_display():

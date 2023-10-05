@@ -242,12 +242,15 @@ class NeuralProphet:
                 * (default) ``True``: [``mae``, ``rmse``]
                 * ``False``: No metrics
                 * ``list``:  Valid options: [``mae``, ``rmse``, ``mse``]
-                * ``dict``:  Collection of torchmetrics.Metric objects
+                * ``dict``:  Collection of names of torchmetrics.Metric objects
 
             Examples
             --------
             >>> from neuralprophet import NeuralProphet
+            >>> # computer MSE, MAE and RMSE
             >>> m = NeuralProphet(collect_metrics=["MSE", "MAE", "RMSE"])
+            >>> # use custorm torchmetrics names
+            >>> m = NeuralProphet(collect_metrics={"MAPE": "MeanAbsolutePercentageError", "MSLE": "MeanSquaredLogError",
 
         COMMENT
         Uncertainty Estimation
@@ -366,7 +369,7 @@ class NeuralProphet:
         impute_linear: int = 10,
         impute_rolling: int = 10,
         drop_missing: bool = False,
-        collect_metrics: np_types.CollectMetricsMode = True,
+        collect_metrics: Union[bool, list, dict] = True,
         normalize: np_types.NormalizeMode = "auto",
         global_normalization: bool = False,
         global_time_normalization: bool = True,
@@ -690,7 +693,7 @@ class NeuralProphet:
         and create the corresponding configs such as lower, upper windows and the regularization
         parameters
 
-        Holidays can only be added for a single country. Calling the function
+        Holidays can only be added for a single country or country list. Calling the function
         multiple times will override already added country holidays.
 
         Parameters
@@ -1098,13 +1101,15 @@ class NeuralProphet:
         self.predict_steps = self.n_forecasts
         return df
 
-    def test(self, df: pd.DataFrame):
+    def test(self, df: pd.DataFrame, verbose: bool = True):
         """Evaluate model on holdout data.
 
         Parameters
         ----------
             df : pd.DataFrame
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with with holdout data
+            verbose : bool
+                If True, prints the test results.
         Returns
         -------
             pd.DataFrame
@@ -1129,7 +1134,7 @@ class NeuralProphet:
         )
         loader = self._init_val_loader(df)
         # Use Lightning to calculate metrics
-        val_metrics = self.trainer.test(self.model, dataloaders=loader)
+        val_metrics = self.trainer.test(self.model, dataloaders=loader, verbose=verbose)
         val_metrics_df = pd.DataFrame(val_metrics)
         # TODO Check whether supported by Lightning
         if not self.config_normalization.global_normalization:

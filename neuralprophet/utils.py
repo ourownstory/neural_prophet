@@ -23,24 +23,50 @@ log = logging.getLogger("NP.utils")
 
 
 def save(forecaster, path: str):
-    """save a fitted np model to a disk file.
+    """Save a fitted Neural Prophet model to disk.
 
-    Parameters
-    ----------
+    Parameters:
         forecaster : np.forecaster.NeuralProphet
             input forecaster that is fitted
         path : str
             path and filename to be saved. filename could be any but suggested to have extension .np.
-    Examples
-    --------
+
     After you fitted a model, you may save the model to save_test_model.np
         >>> from neuralprophet import save
         >>> save(forecaster, "test_save_model.np")
     """
-    # Remove the Lightning trainer since it does not serialise correcly with torch.save
-    for attr in ["trainer"]:
-        setattr(forecaster, attr, None)
-    torch.save(forecaster, path)
+    # List of attributes to remove
+    attrs_to_remove_forecaster = ["trainer"]
+    attrs_to_remove_model = ["_trainer"]
+
+    # Store removed attributes temporarily
+    removed_attrs = {}
+
+    # Remove specified attributes from forecaster
+    for attr in attrs_to_remove_forecaster:
+        if hasattr(forecaster, attr):
+            removed_attrs[attr] = getattr(forecaster, attr)
+            setattr(forecaster, attr, None)
+
+    # Remove specified attributes from forecaster.model
+    for attr in attrs_to_remove_model:
+        if hasattr(forecaster.model, attr):
+            removed_attrs[attr] = getattr(forecaster.model, attr)
+            setattr(forecaster.model, attr, None)
+
+    # Perform the save operation
+    try:
+        torch.save(forecaster, path)
+    except Exception as e:
+        print(f"An error occurred while saving the model: {e}")
+        raise
+    finally:
+        # Restore the removed attributes
+        for attr, value in removed_attrs.items():
+            if hasattr(forecaster, attr):
+                setattr(forecaster, attr, value)
+            elif hasattr(forecaster.model, attr):
+                setattr(forecaster.model, attr, value)
 
 
 def load(path: str):
@@ -312,12 +338,13 @@ def get_holidays_from_country(country: Union[str, Iterable[str]], df=None):
     if isinstance(country, str):
         country = [country]
 
-    holidays = {}
+    unique_holidays = {}
     for single_country in country:
         holidays_country = get_country_holidays(single_country, years)
-        # only add holiday if it is not already in the dict
-        holidays.update(holidays_country)
-    holiday_names = holidays.values()
+        for date, name in holidays_country.items():
+            if date not in unique_holidays:
+                unique_holidays[date] = name
+    holiday_names = unique_holidays.values()
     return set(holiday_names)
 
 

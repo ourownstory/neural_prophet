@@ -94,7 +94,7 @@ class Train:
     optimizer: Union[str, Type[torch.optim.Optimizer]]
     quantiles: List[float] = field(default_factory=list)
     optimizer_args: dict = field(default_factory=dict)
-    scheduler: Optional[Type[torch.optim.lr_scheduler._LRScheduler]] = None
+    scheduler: Optional[Type[torch.optim.lr_scheduler.OneCycleLR]] = None
     scheduler_args: dict = field(default_factory=dict)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0

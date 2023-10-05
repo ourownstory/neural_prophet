@@ -82,7 +82,7 @@ pip install neuralprophet[live]
 ```
 This will allow you to enable `plot_live_loss` in the `fit` function to get a live plot of train (and validation) loss.
 
-If you would like the most up to date version, you can instead install direclty from github:
+If you would like the most up to date version, you can instead install directly from github:
 ```shell
 git clone <copied link from github>
 cd neural_prophet

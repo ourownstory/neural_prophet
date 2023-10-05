@@ -76,7 +76,7 @@ def _reshape_raw_predictions_to_forecst_df(
             forecast = predicted[:, forecast_lag - 1, j]
             pad_before = max_lags + forecast_lag - 1
             pad_after = n_forecasts - forecast_lag
-            yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
+            yhat = np.pad(forecast, (pad_before, pad_after), mode="constant", constant_values=np.NaN)
             if prediction_frequency is not None:
                 ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
                 mask = df_utils.create_mask_for_prediction_frequency(
@@ -86,7 +86,7 @@ def _reshape_raw_predictions_to_forecst_df(
                 )
                 yhat = np.full((len(ds),), np.nan)
                 yhat[mask] = forecast
-                yhat = np.concatenate(([np.NaN] * pad_before, yhat, [np.NaN] * pad_after))
+                yhat = np.pad(yhat, (pad_before, pad_after), mode="constant", constant_values=np.NaN)
             # 0 is the median quantile index
             if j == 0:
                 name = f"yhat{forecast_lag}"
@@ -111,7 +111,7 @@ def _reshape_raw_predictions_to_forecst_df(
                     forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
                     pad_before = max_lags + forecast_lag - 1
                     pad_after = n_forecasts - forecast_lag
-                    yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
+                    yhat = np.pad(forecast, (pad_before, pad_after), mode="constant", constant_values=np.NaN)
                     if prediction_frequency is not None:
                         ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
                         mask = df_utils.create_mask_for_prediction_frequency(
@@ -121,7 +121,7 @@ def _reshape_raw_predictions_to_forecst_df(
                         )
                         yhat = np.full((len(ds),), np.nan)
                         yhat[mask] = forecast
-                        yhat = np.concatenate(([np.NaN] * pad_before, yhat, [np.NaN] * pad_after))
+                        yhat = np.pad(yhat, (pad_before, pad_after), mode="constant", constant_values=np.NaN)
                     if j == 0:  # temporary condition to add only the median component
                         name = f"{comp}{forecast_lag}"
                         df_forecast[name] = yhat
@@ -132,7 +132,9 @@ def _reshape_raw_predictions_to_forecst_df(
             for j in range(len(quantiles)):
                 forecast_0 = components[comp][0, :, j]
                 forecast_rest = components[comp][1:, n_forecasts - 1, j]
-                yhat = np.concatenate(([np.NaN] * max_lags, forecast_0, forecast_rest))
+                yhat = np.pad(
+                    np.concatenate((forecast_0, forecast_rest)), (max_lags, 0), mode="constant", constant_values=np.NaN
+                )
                 if prediction_frequency is not None:
                     date_list = []
                     for key, value in prediction_frequency.items():
@@ -479,167 +481,72 @@ def _handle_missing_data(
 
     """
     df, _, _, _ = df_utils.prep_or_copy_df(df)
-    df_handled_missing = pd.DataFrame()
-    for df_name, df_i in df.groupby("ID"):
-        df_handled_missing_aux = _handle_missing_data_single_id(
-            df=df_i,
-            freq=freq,
-            n_lags=n_lags,
-            n_forecasts=n_forecasts,
-            config_missing=config_missing,
-            config_regressors=config_regressors,
-            config_lagged_regressors=config_lagged_regressors,
-            config_events=config_events,
-            config_seasonality=config_seasonality,
-            predicting=predicting,
-        ).copy(deep=True)
-        df_handled_missing_aux["ID"] = df_name
-        df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
-    return df_handled_missing
 
-
-def _handle_missing_data_single_id(
-    df: pd.DataFrame,
-    freq: Optional[str],
-    n_lags: int,
-    n_forecasts: int,
-    config_missing,
-    config_regressors: Optional[ConfigFutureRegressors],
-    config_lagged_regressors: Optional[ConfigLaggedRegressors],
-    config_events: Optional[ConfigEvents],
-    config_seasonality: Optional[ConfigSeasonality],
-    predicting: bool = False,
-) -> pd.DataFrame:
-    """
-    Checks and normalizes new data
-
-    Data is also auto-imputed, unless impute_missing is set to ``False``.
-
-        Parameters
-    ----------
-    df : pd.DataFrame
-        Dataframe containing columns 'ds', 'y', and optionally 'ID' of a single ID.
-    freq : str
-            data step sizes. Frequency of data recording,
-
-            Note
-            ----
-            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to
-            automatically set frequency.
-    n_lags : int
-        Previous time series steps to include in auto-regression. Aka AR-order
-    n_forecasts : int
-        Number of steps ahead of prediction time step to forecast.
-    config_missing :
-        Configuration options for handling missing data.
-    config_regressors : Optional[ConfigFutureRegressors]
-        Configuration options for adding future regressors to the model.
-    config_lagged_regressors : Optional[ConfigLaggedRegressors]
-        Configuration options for adding lagged external regressors to the model.
-    config_events : Optional[ConfigEvents]
-        Configuration options for adding events to the model.
-    config_seasonality : Optional[ConfigSeasonality]
-        Configuration options for adding seasonal components to the model.
-    predicting : bool, default False
-        If True, allows missing values in the 'y' column for the forecast period, or missing completely.
-
-    Returns
-    -------
-    pd.DataFrame
-        The pre-processed DataFrame, including imputed missing data, if applicable.
-    """
-    # Receives df with single ID column
-    assert len(df["ID"].unique()) == 1
     if n_lags == 0 and not predicting:
-        # we can drop rows with NA in y
-        sum_na = sum(df["y"].isna())
-        if sum_na > 0:
-            df = df[df["y"].notna()]
-            log.info(f"dropped {sum_na} NAN row in 'y'")
+        # drop rows with NaNs in y and count them
+        df_na_dropped = df.dropna(subset=["y"])
+        n_dropped = len(df) - len(df_na_dropped)
+        if n_dropped > 0:
+            df = df_na_dropped
+            log.info(f"Dropped {n_dropped} rows with NaNs in 'y' column.")
 
-    # add missing dates for autoregression modelling
     if n_lags > 0:
-        df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
-        if missing_dates > 0:
-            if config_missing.impute_missing:
-                log.info(f"{missing_dates} missing dates added.")
-                # FIX Issue#52
-                # Comment error raising to allow missing data for autoregression flow.
-                # else:
-                #     raise ValueError(
-                #         f"{missing_dates} missing dates found. Please preprocess data manually or set \
-                #             impute_missing to True."
-                #     )
-            # END FIX
+        # add missig dates to df
+        df_grouped = df.groupby("ID").apply(lambda x: x.set_index("ds").resample(freq).asfreq()).drop(columns=["ID"])
+        n_missing_dates = len(df_grouped) - len(df)
+        if n_missing_dates > 0:
+            df = df_grouped.reset_index()
+            log.info(f"Added {n_missing_dates} missing dates.")
 
     if config_regressors is not None:
-        # if future regressors, check that they are not nan at end, else drop
-        # we ignore missing events, as those will be filled in with zeros.
-        reg_nan_at_end = 0
-        for col, regressor in config_regressors.items():
-            # check for completeness of the regressor values
-            col_nan_at_end = 0
-            while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
-                col_nan_at_end += 1
-            reg_nan_at_end = max(reg_nan_at_end, col_nan_at_end)
-        if reg_nan_at_end > 0:
-            # drop rows at end due to missing future regressors
-            df = df[:-reg_nan_at_end]
-            log.info(f"Dropped {reg_nan_at_end} rows at end due to missing future regressor values.")
+        # drop complete row for future regressors that are NaN at the end
+        last_valid_index = df.groupby("ID")[list(config_regressors.keys())].apply(lambda x: x.last_valid_index())
+        df_dropped = df.groupby("ID", group_keys=False).apply(lambda x: x.loc[: last_valid_index[x.name]])
+        n_dropped = len(df) - len(df_dropped)
+        if n_dropped > 0:
+            df = df_dropped
+            log.info(f"Dropped {n_dropped} rows at the end with NaNs in future regressors.")
 
-    df_end_to_append = None
-    nan_at_end = 0
-    while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
-        nan_at_end += 1
-    if nan_at_end > 0:
-        if predicting:
-            # allow nans at end - will re-add at end
-            if n_forecasts > 1 and n_forecasts < nan_at_end:
-                # check that not more than n_forecasts nans, else drop surplus
-                df = df[: -(nan_at_end - n_forecasts)]
-                # correct new length:
-                nan_at_end = n_forecasts
-                log.info(
-                    "Detected y to have more NaN values than n_forecast can predict. "
-                    f"Dropped {nan_at_end - n_forecasts} rows at end."
+    dropped_trailing_y = False
+    if df["y"].isna().any():
+        # drop complete row if y of ID ends with nan
+        last_valid_index = df.groupby("ID")["y"].apply(lambda x: x.last_valid_index())
+        df_dropped = df.groupby("ID", group_keys=False).apply(lambda x: x.loc[: last_valid_index[x.name]])
+        n_dropped = len(df) - len(df_dropped)
+        if n_dropped > 0:
+            dropped_trailing_y = True
+            # save dropped rows for later
+            df_to_add = df.groupby("ID", group_keys=False).apply(lambda x: x.loc[last_valid_index[x.name] + 1 :])
+            df = df_dropped
+            log.info(f"Dropped {n_dropped} rows at the end with NaNs in 'y' column.")
+
+    if config_missing.impute_missing:
+        # impute missing values
+        data_columns = []
+        if n_lags > 0:
+            data_columns.append("y")
+        if config_lagged_regressors is not None:
+            data_columns.extend(config_lagged_regressors.keys())
+        if config_regressors is not None:
+            data_columns.extend(config_regressors.keys())
+        if config_events is not None:
+            data_columns.extend(config_events.keys())
+        conditional_cols = []
+        if config_seasonality is not None:
+            conditional_cols = list(
+                set(
+                    [
+                        value.condition_name
+                        for key, value in config_seasonality.periods.items()
+                        if value.condition_name is not None
+                    ]
                 )
-            df_end_to_append = df[-nan_at_end:]
-            df = df[:-nan_at_end]
-        else:
-            # training - drop nans at end
-            df = df[:-nan_at_end]
-            log.info(
-                f"Dropped {nan_at_end} consecutive nans at end. "
-                "Training data can only be imputed up to last observation."
             )
-
-    # impute missing values
-    data_columns = []
-    if n_lags > 0:
-        data_columns.append("y")
-    if config_lagged_regressors is not None:
-        data_columns.extend(config_lagged_regressors.keys())
-    if config_regressors is not None:
-        data_columns.extend(config_regressors.keys())
-    if config_events is not None:
-        data_columns.extend(config_events.keys())
-    conditional_cols = []
-    if config_seasonality is not None:
-        conditional_cols = list(
-            set(
-                [
-                    value.condition_name
-                    for key, value in config_seasonality.periods.items()
-                    if value.condition_name is not None
-                ]
-            )
-        )
-        data_columns.extend(conditional_cols)
-    for column in data_columns:
-        sum_na = sum(df[column].isnull())
-        if sum_na > 0:
-            log.warning(f"{sum_na} missing values in column {column} were detected in total. ")
-            if config_missing.impute_missing:
+            data_columns.extend(conditional_cols)
+        for column in data_columns:
+            sum_na = df[column].isna().sum()
+            if sum_na > 0:
+                log.warning(f"{sum_na} missing values in column {column} were detected in total. ")
                 # use 0 substitution for holidays and events missing values
                 if config_events is not None and column in config_events.keys():
                     df[column].fillna(0, inplace=True)
@@ -657,15 +564,9 @@ def _handle_missing_data_single_id(
                             missing values encountered in column {column}. "
                         f"{remaining_na} NA remain after auto-imputation. "
                     )
-            # FIX Issue#52
-            # Comment error raising to allow missing data for autoregression flow.
-            # else:  # fail because set to not impute missing
-            #    raise ValueError(
-            #        "Missing values found. " "Please preprocess data manually or set impute_missing to True."
-            #    )
-            # END FIX
-    if df_end_to_append is not None:
-        df = pd.concat([df, df_end_to_append])
+    if dropped_trailing_y and predicting:
+        # add trailing y values again if in predict mode
+        df = pd.concat([df, df_to_add])
         if config_seasonality is not None and len(conditional_cols) > 0:
             df[conditional_cols] = df[conditional_cols].ffill()  # type: ignore
     return df
