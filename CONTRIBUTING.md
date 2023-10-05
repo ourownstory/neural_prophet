@@ -13,7 +13,9 @@ Please come join us on our [Slack](https://join.slack.com/t/neuralprophet/shared
 If this is your first time contributing to NeuralProphet, please read our [wiki summary](https://github.com/ourownstory/neural_prophet/wiki#contributing-process) of the steps involved.
 
 ## Dev Install using Poetry
-* First, [install poetry](https://python-poetry.org/docs/#installing-with-the-official-installer). Next, change directories to your cloned neuralprophet github. There, run `poetry shell` to (create and) start a (new) poetry virtual environment. If you run `poetry env info --path` you should see the path to the venv.
+Prerequisite:  [install poetry](https://python-poetry.org/docs/#installing-with-the-official-installer).
+* Start by cloning the repo with `git clone <copied link from github>`.
+* Make sure you have changed directories to your cloned neuralprophet github `cd neural_prophet`. There, run `poetry shell` to (create and) start a (new) poetry virtual environment. If you run `poetry env info --path` you should see the path to the venv.
 * To complete the venv setup, install neuralprophet (in editable mode by default) with `poetry install`.
 Note: poetry will automatically use the specific dependencies in the `poetry.lock` file for reproducibility. If you want to install the latest dependencies instead, run `poetry update`. This will update all dependencies and update the `poetry.lock` file. Be mindful to not track the `poetry.lock` file with git when commiting, unless the purpose of your pull request is to update it.
 
