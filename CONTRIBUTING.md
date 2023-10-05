@@ -22,9 +22,7 @@ Note: poetry will automatically use the specific dependencies in the `poetry.loc
 Warning, you are still lacking some git hooks to auto-format your code pre-commit and to run pytests pre-push.
 Currently these need to be self-added. Simplified instructions to follow.
 
-
 [Tutorial Link](https://realpython.com/dependency-management-python-poetry/)
-[Work in Progress]
 
 ## Dev Install (old)
 Before starting it's a good idea to first create and activate a new virtual environment:
