@@ -193,7 +193,7 @@ def check_if_configured(m, components, error_flag=False):  # move to utils
     if "lagged_regressors" in components and m.config_lagged_regressors is None:
         components.remove("lagged_regressors")
         invalid_components.append("lagged_regressors")
-    if "events" in components and (m.config_events and m.config_country_holidays) is None:
+    if "events" in components and (m.config_events is None and m.config_country_holidays is None):
         components.remove("events")
         invalid_components.append("events")
     if "future_regressors" in components and m.config_regressors.regressors is None:
@@ -419,31 +419,37 @@ def get_valid_configuration(  # move to utils
     if "events" in components:
         additive_events_flag = False
         muliplicative_events_flag = False
-        for event, configs in m.config_events.items():
-            if validator == "plot_components" and configs.mode == "additive":
-                additive_events_flag = True
-            elif validator == "plot_components" and configs.mode == "multiplicative":
-                muliplicative_events_flag = True
-            elif validator == "plot_parameters":
-                event_params = m.model.get_event_weights(event)
-                weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
-                if configs.mode == "additive":
-                    additive_events = additive_events + weight_list
-                elif configs.mode == "multiplicative":
-                    multiplicative_events = multiplicative_events + weight_list
+        if m.config_events is not None:
+            for event, configs in m.config_events.items():
+                if validator == "plot_components" and configs.mode == "additive":
+                    additive_events_flag = True
+                elif validator == "plot_components" and configs.mode == "multiplicative":
+                    muliplicative_events_flag = True
+                elif validator == "plot_parameters":
+                    event_params = m.model.get_event_weights(event)
+                    weight_list = [
+                        (key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()
+                    ]
+                    if configs.mode == "additive":
+                        additive_events = additive_events + weight_list
+                    elif configs.mode == "multiplicative":
+                        multiplicative_events = multiplicative_events + weight_list
 
-        for country_holiday in m.config_country_holidays.holiday_names:
-            if validator == "plot_components" and m.config_country_holidays.mode == "additive":
-                additive_events_flag = True
-            elif validator == "plot_components" and m.config_country_holidays.mode == "multiplicative":
-                muliplicative_events_flag = True
-            elif validator == "plot_parameters":
-                event_params = m.model.get_event_weights(country_holiday)
-                weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
-                if m.config_country_holidays.mode == "additive":
-                    additive_events = additive_events + weight_list
-                elif m.config_country_holidays.mode == "multiplicative":
-                    multiplicative_events = multiplicative_events + weight_list
+        if m.config_country_holidays is not None:
+            for country_holiday in m.config_country_holidays.holiday_names:
+                if validator == "plot_components" and m.config_country_holidays.mode == "additive":
+                    additive_events_flag = True
+                elif validator == "plot_components" and m.config_country_holidays.mode == "multiplicative":
+                    muliplicative_events_flag = True
+                elif validator == "plot_parameters":
+                    event_params = m.model.get_event_weights(country_holiday)
+                    weight_list = [
+                        (key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()
+                    ]
+                    if m.config_country_holidays.mode == "additive":
+                        additive_events = additive_events + weight_list
+                    elif m.config_country_holidays.mode == "multiplicative":
+                        multiplicative_events = multiplicative_events + weight_list
 
         if additive_events_flag:
             plot_components.append(

@@ -759,7 +759,7 @@ class NeuralProphet:
         and create the corresponding configs such as lower, upper windows and the regularization
         parameters
 
-        Holidays can only be added for a single country. Calling the function
+        Holidays can only be added for a single country or country list. Calling the function
         multiple times will override already added country holidays.
 
         Parameters

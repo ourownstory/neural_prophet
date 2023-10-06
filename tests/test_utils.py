@@ -5,8 +5,9 @@ import os
 import pathlib
 
 import pandas as pd
+import pytest
 
-from neuralprophet import NeuralProphet, load, save
+from neuralprophet import NeuralProphet, df_utils, load, save
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -23,6 +24,19 @@ LR = 1.0
 BATCH_SIZE = 64
 
 PLOT = False
+
+
+def test_create_dummy_datestamps():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df_drop = df.drop("ds", axis=1)
+    df_dummy = df_utils.create_dummy_datestamps(df_drop)
+    df["ds"] = pd.NA
+    with pytest.raises(ValueError):
+        _ = df_utils.create_dummy_datestamps(df)
+
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+    _ = m.fit(df_dummy)
+    _ = m.make_future_dataframe(df_dummy, periods=365, n_historic_predictions=True)
 
 
 def test_save_load():
