@@ -724,7 +724,6 @@ def test_advanced_conformal_prediction_plots():
     train_df, cal_df = m.split_df(train_df, freq="D", valid_p=0.15)
     m.fit(train_df, freq="D")
     alpha = 0.1
-    plotting_backend = "plotly"
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
         future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
         forecast = m.conformal_predict(
