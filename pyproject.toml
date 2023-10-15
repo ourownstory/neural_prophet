@@ -42,11 +42,6 @@ black = { extras = ["jupyter"], version = "^23.1.0" }
 flake8 = "^5.0.4"
 isort = "^5.11.5"
 pytest = "^7.2.2"
-
-[tool.poetry.group.tests]
-optional = true
-
-[tool.poetry.group.tests.dependencies]
 kaleido = "0.2.1"
 pytest-cov = "^4.0.0"
 
@@ -60,6 +55,9 @@ nbsphinx-link = "^1.3.0"
 sphinx = "^4.2.0"
 sphinx-fontawesome = "^0.0.6"
 furo = "^2022.9.29"
+
+[tool.poetry.group.pyright]
+optional = true
 
 [tool.poetry.group.pyright.dependencies]
 pandas-stubs = "^2"
