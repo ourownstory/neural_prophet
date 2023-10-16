@@ -194,11 +194,11 @@ class Train:
         self.scheduler = torch.optim.lr_scheduler.OneCycleLR
         self.scheduler_args.update(
             {
-                "pct_start": 0.4,
+                "pct_start": 0.3,
                 "anneal_strategy": "cos",
                 "div_factor": 10.0,
                 "final_div_factor": 10.0,
-                "three_phase": True,
+                "three_phase": False,
             }
         )
 
