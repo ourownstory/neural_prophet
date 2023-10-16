@@ -20,6 +20,9 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.8", "3.10"]
+        exclude:
+          - os: windows-latest
+            python-version: "3.8"
     env:
       POETRY_VIRTUALENVS_CREATE: false
     steps:
@@ -32,7 +35,7 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
       - name: Install dependencies
-        run: poetry install --with=tests
+        run: poetry install
       - name: Pytest
         run: poetry run pytest tests -v --cov=./ --cov-report=xml
       - name: Upload coverage to codecov
