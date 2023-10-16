@@ -1,59 +1,64 @@
-## Development Timeline
-### v0.1 Alpha [released in 2020]
-Working version of NeuralProphet with missing features and potentially containing bugs.
+Development Timeline for NeuralProphet
+v0.1 Alpha [Initial Release - 2020]
 
-### v0.2 to v0.5 Beta NeuralProphet [current]
-Modelling capabilities:
-* [done] Trend, piecewise linear changepoints
-* [done] Auto-regression, univariate, multi-step ahead forecasts
-* [done] Seasonalities, based on fourier-terms
-* [done] Optional hidden layers for AR
-* [done] Manage missing data - basic automatic imputation
-* [done] Basic Automatic hyperparameter selection 
-* [done] Custom Metrics
-* [done] Training with evaluation on holdout set
-* [done] Events and Holidays
-* [done] Exagenous variables (as covariate inputs)
-* Simple Uncertainty estimation
+NeuralProphet's journey began with its alpha release, which marked its initial presence in the time-series forecasting landscape. While functional, this version lacked some essential features and may have contained bugs.
+v0.2 to v0.5 Beta NeuralProphet [Current Stage]
 
-User Interface:
-* simple package with limited capabilities
-* similar to Facebook Prophet's basic features
+Modelling Capabilities
 
-Accompanying Products:
-* Quickstart documentation and examples
-* Benchmarks (Accuracy and Execution time)
-* Few datasets
+Trend modeling with piecewise linear changepoints.
+Auto-regression for univariate and multi-step ahead forecasts.
+Seasonalities based on Fourier terms.
+Optional hidden layers for auto-regression.
+Basic missing data management with automatic imputation.
+Preliminary automatic hyperparameter selection.
+Customizable metrics for forecasting accuracy.
+Training with evaluation on a dedicated holdout set.
+Integration of events and holidays.
+Support for exogenous variables as covariate inputs.
+Simple uncertainty estimation.
+User Interface
 
-### v1.0 NeuralProphet
-Added modelling capabilities:
-* More intelligent Automatic hyperparameter selection
-* different ways to manage trend/normalize data and compute seasonality (rolling, local seasonality, ...)
-* Inclusion of traditional models (ets, sarimax, ...)
-* Component-wise uncertainty
+The current version of NeuralProphet offers a straightforward package with limited capabilities, aiming for ease of use.
+It shares similarities with the basic features of Facebook Prophet.
+Accompanying Products
 
-User Interface:
-* More user-control (set trend changepoint times, ...)
-* Rich analytics and plotting 
-* Model gives user feedback on how to improve hyperparameters (if set)
-* Integration with Time-Series Preprocessing tools
+Quickstart documentation and examples to help users get started.
+Benchmarking tools for assessing accuracy and execution time.
+A small collection of sample time-series datasets for testing and demonstration purposes.
+v1.0 NeuralProphet
 
-Accompanying Products:
-* Large collection of time-series datasets
-* Professional documentation and more tutorials
+Modelling Capabilities
 
-### v2.0 Redesigned - Modular Framework
-Here, we will re-write large portions of the code structure in order to make it a modular framework where model components can freely be interchanged and combined. 
+Enhanced automatic hyperparameter selection for more intelligent forecasting.
+Diverse options for trend modeling, data normalization, and seasonality computation (e.g., rolling, local seasonality).
+Integration of traditional models like ETS and SARIMA.
+Component-wise uncertainty estimation to provide a clearer picture of prediction quality.
+User Interface
 
-Added modelling capabilities:
-* Inclusion of more potent models (Recurrence, Convolution, Attention, ...)
+A more user-friendly interface with increased control over settings, including trend changepoint times.
+Rich analytics and advanced plotting features.
+Feedback mechanisms guiding users on how to optimize hyperparameters.
+Seamless integration with Time-Series Preprocessing tools.
+Accompanying Products
 
-User Interface:
-* Tools for Understanding of model and input-output mapping
-* Integration with relevant Interfaces (Pytorch metrics, Tensorboard, scikitlearn, ...)
+A comprehensive repository of diverse time-series datasets for research and application.
+Professional-grade documentation, including an extensive set of tutorials for users at all skill levels.
+v2.0 Redesigned - Modular Framework
 
-Accompanying Products:
-* Pre-trained models
+Modelling Capabilities
 
-### v3.0 Nice UI for non-programmers
-Alternative visual web-interface, potentially cloud-based execution
+A complete overhaul of the code structure to create a modular framework.
+Introduction of more powerful modeling options, including recurrent, convolutional, and attention-based models.
+User Interface
+
+Advanced tools for understanding the model and its input-output mapping.
+Integration with relevant interfaces and libraries such as PyTorch metrics, Tensorboard, scikit-learn, and more.
+Accompanying Products
+
+Availability of pre-trained models for expedited forecasting tasks.
+v3.0 User-Friendly Web Interface
+
+Changes
+
+Introducing an alternative visual web-based interface with the possibility of cloud-based execution.
