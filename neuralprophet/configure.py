@@ -195,7 +195,7 @@ class Train:
         self.scheduler_args.update(
             {
                 "pct_start": 0.4,
-                "anneal_strategy": "linear",
+                "anneal_strategy": "cos",
                 "div_factor": 10.0,
                 "final_div_factor": 10.0,
                 "three_phase": True,
