@@ -196,8 +196,8 @@ class Train:
             {
                 "pct_start": 0.3,
                 "anneal_strategy": "cos",
-                "div_factor": 10.0,
-                "final_div_factor": 10.0,
+                "div_factor": 25.0,
+                "final_div_factor": 10000.0,
                 "three_phase": False,
             }
         )
