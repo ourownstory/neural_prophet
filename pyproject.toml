@@ -44,6 +44,7 @@ isort = "^5.11.5"
 pytest = "^7.2.2"
 kaleido = "0.2.1"
 pytest-cov = "^4.0.0"
+tabulate = "^0.9" # Used in CI model metrics tests only, for PR bot
 
 [tool.poetry.group.docs]
 optional = true
