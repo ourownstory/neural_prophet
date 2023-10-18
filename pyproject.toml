@@ -41,10 +41,10 @@ live = ["livelossplot"]
 black = { extras = ["jupyter"], version = "^23.1.0" }
 flake8 = "^5.0.4"
 isort = "^5.11.5"
-pytest = "^7.2.2"
-kaleido = "0.2.1"
-pytest-cov = "^4.0.0"
-tabulate = "^0.9" # Used in CI model metrics tests only, for PR bot
+pytest = "^7.2"
+pytest-cov = "^4.0"
+kaleido = "0.2.1" # required for plotly static image export
+tabulate = "^0.9" # Used in model metrics CI only; md export for github-actions bot
 
 [tool.poetry.group.docs]
 optional = true
