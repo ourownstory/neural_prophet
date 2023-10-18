@@ -910,6 +910,17 @@ files = [
 ]
 
 [[package]]
+name = "entrypoints"
+version = "0.4"
+description = "Discover and load entry points from installed packages."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "entrypoints-0.4-py3-none-any.whl", hash = "sha256:f174b5ff827504fd3cd97cc3f8649f3693f51538c7e4bdf3ef002c8429d42f9f"},
+    {file = "entrypoints-0.4.tar.gz", hash = "sha256:b706eddaa9218a19ebcd67b56818f05bb27589b1ca9e8d797b74affad4ccacd4"},
+]
+
+[[package]]
 name = "exceptiongroup"
 version = "1.1.3"
 description = "Backport of PEP 654 (exception groups)"
@@ -936,20 +947,6 @@ files = [
 
 [package.extras]
 tests = ["asttokens (>=2.1.0)", "coverage", "coverage-enable-subprocess", "ipython", "littleutils", "pytest", "rich"]
-
-[[package]]
-name = "fastjsonschema"
-version = "2.18.1"
-description = "Fastest Python implementation of JSON schema"
-optional = false
-python-versions = "*"
-files = [
-    {file = "fastjsonschema-2.18.1-py3-none-any.whl", hash = "sha256:aec6a19e9f66e9810ab371cc913ad5f4e9e479b63a7072a2cd060a9369e329a8"},
-    {file = "fastjsonschema-2.18.1.tar.gz", hash = "sha256:06dc8680d937628e993fa0cd278f196d20449a1adc087640710846b324d422ea"},
-]
-
-[package.extras]
-devel = ["colorama", "json-spec", "jsonschema", "pylint", "pytest", "pytest-benchmark", "pytest-cache", "validictory"]
 
 [[package]]
 name = "filelock"
@@ -1306,13 +1303,13 @@ protobuf = ["grpcio-tools (>=1.59.0)"]
 
 [[package]]
 name = "holidays"
-version = "0.33"
+version = "0.35"
 description = "Generate and work with holidays in Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "holidays-0.33-py3-none-any.whl", hash = "sha256:49e87b6d39227ddc8569bb2a27d333ffcd1bc2f182a7561cd48b9f7a393b2212"},
-    {file = "holidays-0.33.tar.gz", hash = "sha256:7fb33f5f1776f0fc95d98733aa9c3fece7dcdf5124574d0a003b61a1b6f93515"},
+    {file = "holidays-0.35-py3-none-any.whl", hash = "sha256:3e179ff248f86dee813160c92e2c4babe3bb3c732287499430d1e3ee90c15f16"},
+    {file = "holidays-0.35.tar.gz", hash = "sha256:e62b797ca3ba2366093458cda0cde33d65e7168be8104815b4149afd4ea4a9ed"},
 ]
 
 [package.dependencies]
@@ -1459,6 +1456,17 @@ parallel = ["ipyparallel"]
 qtconsole = ["qtconsole"]
 test = ["pytest (<7.1)", "pytest-asyncio", "testpath"]
 test-extra = ["curio", "matplotlib (!=3.2.0)", "nbformat", "numpy (>=1.21)", "pandas", "pytest (<7.1)", "pytest-asyncio", "testpath", "trio"]
+
+[[package]]
+name = "ipython-genutils"
+version = "0.2.0"
+description = "Vestigial utilities from IPython"
+optional = false
+python-versions = "*"
+files = [
+    {file = "ipython_genutils-0.2.0-py2.py3-none-any.whl", hash = "sha256:72dd37233799e619666c9f639a9da83c34013a73e8bbc79a7a6348d93c61fab8"},
+    {file = "ipython_genutils-0.2.0.tar.gz", hash = "sha256:eb2e116e75ecef9d4d228fdc66af54269afa26ab4463042e33785b887c628ba8"},
+]
 
 [[package]]
 name = "isort"
@@ -1628,17 +1636,6 @@ retrying = "*"
 
 [package.extras]
 dev = ["jupyter-server-proxy", "jupyterlab (>=2.0)", "notebook (>=6.0)"]
-
-[[package]]
-name = "jupyterlab-pygments"
-version = "0.2.2"
-description = "Pygments theme using JupyterLab CSS variables"
-optional = false
-python-versions = ">=3.7"
-files = [
-    {file = "jupyterlab_pygments-0.2.2-py2.py3-none-any.whl", hash = "sha256:2405800db07c9f770863bcf8049a529c3dd4d3e28536638bd7c1c01d2748309f"},
-    {file = "jupyterlab_pygments-0.2.2.tar.gz", hash = "sha256:7405d7fde60819d905a9fa8ce89e4cd830e318cdad22a0030f7a901da705585d"},
-]
 
 [[package]]
 name = "kaleido"
@@ -2050,13 +2047,13 @@ files = [
 
 [[package]]
 name = "mistune"
-version = "3.0.2"
-description = "A sane and fast Markdown parser with useful plugins and renderers"
+version = "0.8.4"
+description = "The fastest markdown parser in pure Python"
 optional = false
-python-versions = ">=3.7"
+python-versions = "*"
 files = [
-    {file = "mistune-3.0.2-py3-none-any.whl", hash = "sha256:71481854c30fdbc938963d3605b72501f5c10a9320ecd412c121c163a1c7d205"},
-    {file = "mistune-3.0.2.tar.gz", hash = "sha256:fc7f93ded930c92394ef2cb6f04a8aabab4117a91449e72dcc8dfa646a508be8"},
+    {file = "mistune-0.8.4-py2.py3-none-any.whl", hash = "sha256:88a1051873018da288eee8538d476dffe1262495144b33ecb586c4ab266bb8d4"},
+    {file = "mistune-0.8.4.tar.gz", hash = "sha256:59a3429db53c50b5c6bcc8a07f8848cb00d7dc8bdb431a4ab41920d201d4756e"},
 ]
 
 [[package]]
@@ -2197,85 +2194,55 @@ rtd = ["ipython", "sphinx-book-theme", "sphinx-design", "sphinxcontrib.mermaid (
 testing = ["beautifulsoup4", "coverage[toml]", "pytest (>=6,<7)", "pytest-cov", "pytest-param-files (>=0.3.4,<0.4.0)", "pytest-regressions", "sphinx (<5.2)", "sphinx-pytest"]
 
 [[package]]
-name = "nbclient"
-version = "0.8.0"
-description = "A client library for executing notebooks. Formerly nbconvert's ExecutePreprocessor."
-optional = false
-python-versions = ">=3.8.0"
-files = [
-    {file = "nbclient-0.8.0-py3-none-any.whl", hash = "sha256:25e861299e5303a0477568557c4045eccc7a34c17fc08e7959558707b9ebe548"},
-    {file = "nbclient-0.8.0.tar.gz", hash = "sha256:f9b179cd4b2d7bca965f900a2ebf0db4a12ebff2f36a711cb66861e4ae158e55"},
-]
-
-[package.dependencies]
-jupyter-client = ">=6.1.12"
-jupyter-core = ">=4.12,<5.0.dev0 || >=5.1.dev0"
-nbformat = ">=5.1"
-traitlets = ">=5.4"
-
-[package.extras]
-dev = ["pre-commit"]
-docs = ["autodoc-traits", "mock", "moto", "myst-parser", "nbclient[test]", "sphinx (>=1.7)", "sphinx-book-theme", "sphinxcontrib-spelling"]
-test = ["flaky", "ipykernel (>=6.19.3)", "ipython", "ipywidgets", "nbconvert (>=7.0.0)", "pytest (>=7.0)", "pytest-asyncio", "pytest-cov (>=4.0)", "testpath", "xmltodict"]
-
-[[package]]
 name = "nbconvert"
-version = "7.9.2"
+version = "5.6.1"
 description = "Converting Jupyter Notebooks"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
 files = [
-    {file = "nbconvert-7.9.2-py3-none-any.whl", hash = "sha256:39fe4b8bdd1b0104fdd86fc8a43a9077ba64c720bda4c6132690d917a0a154ee"},
-    {file = "nbconvert-7.9.2.tar.gz", hash = "sha256:e56cc7588acc4f93e2bb5a34ec69028e4941797b2bfaf6462f18a41d1cc258c9"},
+    {file = "nbconvert-5.6.1-py2.py3-none-any.whl", hash = "sha256:f0d6ec03875f96df45aa13e21fd9b8450c42d7e1830418cccc008c0df725fcee"},
+    {file = "nbconvert-5.6.1.tar.gz", hash = "sha256:21fb48e700b43e82ba0e3142421a659d7739b65568cc832a13976a77be16b523"},
 ]
 
 [package.dependencies]
-beautifulsoup4 = "*"
-bleach = "!=5.0.0"
+bleach = "*"
 defusedxml = "*"
-importlib-metadata = {version = ">=3.6", markers = "python_version < \"3.10\""}
-jinja2 = ">=3.0"
-jupyter-core = ">=4.7"
-jupyterlab-pygments = "*"
-markupsafe = ">=2.0"
-mistune = ">=2.0.3,<4"
-nbclient = ">=0.5.0"
-nbformat = ">=5.7"
-packaging = "*"
+entrypoints = ">=0.2.2"
+jinja2 = ">=2.4"
+jupyter-core = "*"
+mistune = ">=0.8.1,<2"
+nbformat = ">=4.4"
 pandocfilters = ">=1.4.1"
-pygments = ">=2.4.1"
-tinycss2 = "*"
-traitlets = ">=5.1"
+pygments = "*"
+testpath = "*"
+traitlets = ">=4.2"
 
 [package.extras]
-all = ["nbconvert[docs,qtpdf,serve,test,webpdf]"]
-docs = ["ipykernel", "ipython", "myst-parser", "nbsphinx (>=0.2.12)", "pydata-sphinx-theme", "sphinx (==5.0.2)", "sphinxcontrib-spelling"]
-qtpdf = ["nbconvert[qtpng]"]
-qtpng = ["pyqtwebengine (>=5.15)"]
-serve = ["tornado (>=6.1)"]
-test = ["flaky", "ipykernel", "ipywidgets (>=7)", "pytest", "pytest-dependency"]
-webpdf = ["playwright"]
+all = ["ipykernel", "ipython", "ipywidgets (>=7)", "jupyter-client (>=5.3.1)", "mock", "nbsphinx (>=0.2.12)", "pebble", "pytest", "pytest-cov", "sphinx (>=1.5.1)", "sphinx-rtd-theme", "sphinxcontrib-github-alt", "tornado (>=4.0)"]
+docs = ["ipython", "jupyter-client (>=5.3.1)", "nbsphinx (>=0.2.12)", "sphinx (>=1.5.1)", "sphinx-rtd-theme", "sphinxcontrib-github-alt"]
+execute = ["jupyter-client (>=5.3.1)"]
+serve = ["tornado (>=4.0)"]
+test = ["ipykernel", "ipywidgets (>=7)", "jupyter-client (>=5.3.1)", "mock", "pebble", "pytest", "pytest-cov"]
 
 [[package]]
 name = "nbformat"
-version = "5.9.2"
+version = "4.4.0"
 description = "The Jupyter Notebook format"
 optional = false
-python-versions = ">=3.8"
+python-versions = "*"
 files = [
-    {file = "nbformat-5.9.2-py3-none-any.whl", hash = "sha256:1c5172d786a41b82bcfd0c23f9e6b6f072e8fb49c39250219e4acfff1efe89e9"},
-    {file = "nbformat-5.9.2.tar.gz", hash = "sha256:5f98b5ba1997dff175e77e0c17d5c10a96eaed2cbd1de3533d1fc35d5e111192"},
+    {file = "nbformat-4.4.0-py2.py3-none-any.whl", hash = "sha256:b9a0dbdbd45bb034f4f8893cafd6f652ea08c8c1674ba83f2dc55d3955743b0b"},
+    {file = "nbformat-4.4.0.tar.gz", hash = "sha256:f7494ef0df60766b7cabe0a3651556345a963b74dbc16bc7c18479041170d402"},
 ]
 
 [package.dependencies]
-fastjsonschema = "*"
-jsonschema = ">=2.6"
+ipython-genutils = "*"
+jsonschema = ">=2.4,<2.5.0 || >2.5.0"
 jupyter-core = "*"
-traitlets = ">=5.1"
+traitlets = ">=4.1"
 
 [package.extras]
-docs = ["myst-parser", "pydata-sphinx-theme", "sphinx", "sphinxcontrib-github-alt", "sphinxcontrib-spelling"]
-test = ["pep440", "pre-commit", "pytest", "testpath"]
+test = ["pytest", "pytest-cov", "testpath"]
 
 [[package]]
 name = "nbsphinx"
@@ -3880,22 +3847,18 @@ files = [
 ]
 
 [[package]]
-name = "tinycss2"
-version = "1.2.1"
-description = "A tiny CSS parser"
+name = "testpath"
+version = "0.6.0"
+description = "Test utilities for code working with files and commands"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">= 3.5"
 files = [
-    {file = "tinycss2-1.2.1-py3-none-any.whl", hash = "sha256:2b80a96d41e7c3914b8cda8bc7f705a4d9c49275616e886103dd839dfc847847"},
-    {file = "tinycss2-1.2.1.tar.gz", hash = "sha256:8cff3a8f066c2ec677c06dbc7b45619804a6938478d9d73c284b29d14ecb0627"},
+    {file = "testpath-0.6.0-py3-none-any.whl", hash = "sha256:8ada9f80a2ac6fb0391aa7cdb1a7d11cfa8429f693eda83f74dde570fe6fa639"},
+    {file = "testpath-0.6.0.tar.gz", hash = "sha256:2f1b97e6442c02681ebe01bd84f531028a7caea1af3825000f52345c30285e0f"},
 ]
 
-[package.dependencies]
-webencodings = ">=0.4"
-
 [package.extras]
-doc = ["sphinx", "sphinx_rtd_theme"]
-test = ["flake8", "isort", "pytest"]
+test = ["pytest"]
 
 [[package]]
 name = "tokenize-rt"
@@ -4314,4 +4277,4 @@ live = ["livelossplot"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "cf9b835b7aa3ca7b8f63cd6830a39930caec05b12688652b715faf55d35b235f"
+content-hash = "6e233b37589931a6a30a21a42758b0378dc09e294d3f86932aa2d287781a925c"
