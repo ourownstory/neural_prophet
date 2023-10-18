@@ -27,7 +27,7 @@ If it looks like the model is overfitting to the training data (the live loss pl
 you can reduce `epochs`  and `learning_rate`, and potentially increase the `batch_size`. 
 If it is underfitting, the number of `epochs` and `learning_rate` can be increased and the `batch_size` potentially decreased. 
 
-The default loss function is the 'Huber' loss, which is considered to be robust to outliers. 
+The default loss function is the 'SmoothL1Loss' loss, which is considered to be robust to outliers. 
 However, you are free to choose the standard `MSE` or any other PyTorch `torch.nn.modules.loss` loss function. 
 
 ## Increasing Depth of the Model
