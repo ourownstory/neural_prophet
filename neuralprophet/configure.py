@@ -119,7 +119,7 @@ class Train:
         if isinstance(self.loss_func, str):
             if self.loss_func.lower() in ["smoothl1", "smoothl1loss", "huber"]:
                 # keeping 'huber' for backwards compatiblility, though not identical
-                self.loss_func = torch.nn.SmoothL1Loss(reduction="none")  # , beta=0.1
+                self.loss_func = torch.nn.SmoothL1Loss(reduction="none", beta=0.1)
             elif self.loss_func.lower() in ["mae", "maeloss", "l1", "l1loss"]:
                 self.loss_func = torch.nn.L1Loss(reduction="none")
             elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
