@@ -208,10 +208,10 @@ def test_YosemiteTemps_test20():
     accuracy_metrics["time"] = round(end - start, 2)
     accuracy_metrics["system_performance"] = round(system_speed, 5)
     accuracy_metrics["system_std"] = round(std, 5)
-    with open(os.path.join(DIR, "tests", "metrics", "YosemiteTemps_test30.json"), "w") as outfile:
+    with open(os.path.join(DIR, "tests", "metrics", "YosemiteTemps_test20.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
 
-    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "YosemiteTemps_test30.svg"))
+    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "YosemiteTemps_test20.svg"))
 
 
 def test_AirPassengers():
