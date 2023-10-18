@@ -16,16 +16,18 @@ jobs:
     runs-on: ubuntu-latest
     container: docker://ghcr.io/iterative/cml:0-dvc2-base1
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Install Python "3.10"
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
       - name: Install dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install -e .
-          pip3 install pytest
-          pip3 install tabulate # required to md export
-          pip3 install kaleido # required for plotly export
+        run: poetry install
       - name: Train model
         run: |
           pytest tests/test_model_performance.py
@@ -49,10 +51,16 @@ jobs:
           echo "## Model Training" >> report.md
           echo "### PeytonManning" >> report.md
           cml asset publish tests/metrics/PeytonManning.svg --md >> report.md
+          echo "### PeytonManning_test30" >> report.md
+          cml asset publish tests/metrics/PeytonManning_test30.svg --md >> report.md
           echo "### YosemiteTemps" >> report.md
           cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
+          echo "### YosemiteTemps_test20" >> report.md
+          cml asset publish tests/metrics/YosemiteTemps_test20.svg --md >> report.md
           echo "### AirPassengers" >> report.md
           cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
+          echo "### AirPassengers_test30" >> report.md
+          cml asset publish tests/metrics/AirPassengers_test30.svg --md >> report.md
           echo "\n</details>" >> report.md
           # Post reports as comments in GitHub PRs
           cml comment update --pr report.md # post to PR
