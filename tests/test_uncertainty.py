@@ -60,7 +60,7 @@ def test_uncertainty_estimation_peyton_manning():
 
     m = NeuralProphet(
         n_forecasts=1,
-        loss_func="Huber",
+        loss_func="SmoothL1Loss",
         quantiles=[0.01, 0.99],
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
