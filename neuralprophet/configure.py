@@ -157,15 +157,15 @@ class Train:
     def set_auto_batch_epoch(
         self,
         n_data: int,
-        min_batch: int = 16,
-        max_batch: int = 512,
+        min_batch: int = 32,
+        max_batch: int = 1024,
         min_epoch: int = 10,
         max_epoch: int = 1000,
     ):
         assert n_data >= 1
         self.n_data = n_data
         if self.batch_size is None:
-            self.batch_size = int(2 ** (2 + int(np.log10(n_data))))
+            self.batch_size = int(2 ** (4 + int(np.log10(n_data))))
             self.batch_size = min(max_batch, max(min_batch, self.batch_size))
             self.batch_size = min(self.n_data, self.batch_size)
             log.info(f"Auto-set batch_size to {self.batch_size}")
