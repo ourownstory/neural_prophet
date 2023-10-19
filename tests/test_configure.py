@@ -9,7 +9,7 @@ def generate_config_train_params(overrides={}):
         "learning_rate": None,
         "epochs": None,
         "batch_size": None,
-        "loss_func": "Huber",
+        "loss_func": "SmoothL1Loss",
         "optimizer": "AdamW",
     }
     for key, value in overrides.items():
