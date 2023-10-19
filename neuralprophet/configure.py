@@ -165,7 +165,7 @@ class Train:
         assert n_data >= 1
         self.n_data = n_data
         if self.batch_size is None:
-            self.batch_size = int(2 ** (4 + int(np.log10(n_data))))
+            self.batch_size = int(2 ** (3 + int(np.log10(n_data))))
             self.batch_size = min(max_batch, max(min_batch, self.batch_size))
             self.batch_size = min(self.n_data, self.batch_size)
             log.info(f"Auto-set batch_size to {self.batch_size}")
