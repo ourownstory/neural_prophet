@@ -1306,13 +1306,13 @@ protobuf = ["grpcio-tools (>=1.59.0)"]
 
 [[package]]
 name = "holidays"
-version = "0.33"
+version = "0.35"
 description = "Generate and work with holidays in Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "holidays-0.33-py3-none-any.whl", hash = "sha256:49e87b6d39227ddc8569bb2a27d333ffcd1bc2f182a7561cd48b9f7a393b2212"},
-    {file = "holidays-0.33.tar.gz", hash = "sha256:7fb33f5f1776f0fc95d98733aa9c3fece7dcdf5124574d0a003b61a1b6f93515"},
+    {file = "holidays-0.35-py3-none-any.whl", hash = "sha256:3e179ff248f86dee813160c92e2c4babe3bb3c732287499430d1e3ee90c15f16"},
+    {file = "holidays-0.35.tar.gz", hash = "sha256:e62b797ca3ba2366093458cda0cde33d65e7168be8104815b4149afd4ea4a9ed"},
 ]
 
 [package.dependencies]
@@ -4314,4 +4314,5 @@ live = ["livelossplot"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "e9101b1a0eb4ed0cc7cd2d81f3dc43740bf74c6faab62a55e8d6e34734084a4c"
+content-hash = "94a84c35cfa5843698c73ef7023cdfb2a79643b7dbc4ba8833c8dc61f0e9176b"
+
