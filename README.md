@@ -91,31 +91,31 @@ pip install .
 
 ## Features
 ### Model components
-* Autoregression: Autocorrelation modelling - linear or NN (AR-Net)
-* Trend: Piecewise linear trend with optional automatic changepoint detection
+* Autoregression: Autocorrelation modelling - linear or NN (AR-Net).
+* Trend: Piecewise linear trend with optional automatic changepoint detection.
 * Seasonality: Fourier terms at different periods such as yearly, daily, weekly, hourly.
-* Lagged regressors: Lagged observations (e.g temperature sensor) - linear or NN
-* Future regressors: In advance known features (e.g. temperature forecast) - linear
-* Events: Country holidays & recurring custom events
+* Lagged regressors: Lagged observations (e.g temperature sensor) - linear or NN.
+* Future regressors: In advance known features (e.g. temperature forecast) - linear.
+* Events: Country holidays & recurring custom events.
 
 
 ### Framework features
-* Multiple time series: Fit a global/glocal model with (partially) shared model parameters
-* Uncertainty: Estimate values of specific quantiles - Quantile Regression
-* Regularize modelling components
-* Plotting of forecast components, model coefficients and more
-* Time series crossvalidation utility
-* Model checkpointing and validation
+* Multiple time series: Fit a global/glocal model with (partially) shared model parameters.
+* Uncertainty: Estimate values of specific quantiles - Quantile Regression.
+* Regularize modelling components.
+* Plotting of forecast components, model coefficients and more.
+* Time series crossvalidation utility.
+* Model checkpointing and validation.
 
 
 ### Coming soon<sup>:tm:</sup>
 
-* Cross-relation of lagged regressors
-* Cross-relation and non-linear modelling of future regressors
-* Static features / Time series featurization
+* Cross-relation of lagged regressors.
+* Cross-relation and non-linear modelling of future regressors.
+* Static features / Time series featurization.
 * Logistic growth for trend component.
-* Model bias modelling / correction with secondary model
-* Multimodal seasonality
+* Model bias modelling / correction with secondary model.
+* Multimodal seasonality.
 
 For a list of past changes, please refer to the [releases page](https://github.com/ourownstory/neural_prophet/releases).
 
