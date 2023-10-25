@@ -17,7 +17,7 @@ Please note that the project is still in beta phase. Please report any issues yo
 NeuralProphet is an easy to learn framework for interpretable time series forecasting.
 NeuralProphet is built on PyTorch and combines Neural Network and traditional time-series algorithms, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
 - With few lines of code, you can define, customize, visualize, and evaluate your own forecasting models.
-- It is designed for iterative human-in-the-loop model building. That means that you can build a first model quickly, interpret the results, improve, repeat. Due to the focus on interpretability and customization-ability, NeuralProphet may not be the most accurate model out-of-the-box; so, don't hesitate to adjust and iterate until you like your results.
+- It is designed for iterative human-in-the-loop model building, that means that you can build a first model quickly, interpret the results, improve, repeat. Due to the focus on interpretability and customization-ability, NeuralProphet may not be the most accurate model out-of-the-box; so, don't hesitate to adjust and iterate until you like your results.
 - NeuralProphet is best suited for time series data that is of higher-frequency (sub-daily) and longer duration (at least two full periods/years).
 
 
