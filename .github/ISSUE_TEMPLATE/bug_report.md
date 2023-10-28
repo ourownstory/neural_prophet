@@ -13,11 +13,11 @@ about: Create a report to help us improve
       cd neural_prophet
       pip install .
       ```
-    * Checked the Answered Questions on the Github Disscussion board: https://github.com/ourownstory/neural_prophet/discussions
+    * Checked the Answered Questions on the Github Discussion board: https://github.com/ourownstory/neural_prophet/discussions
       If you have the same question but the Answer does not solve your issue, please continue the conversation there.
     * Checked that your issue isn't already filed: https://github.com/ourownstory/neural_prophet/issues
       If you have the same issue but there is a twist to your situation, please add an explanation there.
-    * Considered whether your bug might actually be solveable by getting a question answered: 
+    * Considered whether your bug might actually be solvable by getting a question answered: 
       * Please [post a package use question](https://github.com/ourownstory/neural_prophet/discussions/categories/q-a-get-help-using-neuralprophet)
       * Please [post a forecasting best practice question](https://github.com/ourownstory/neural_prophet/discussions/categories/q-a-forecasting-best-practices)
       * Please [post an idea or feedback](https://github.com/ourownstory/neural_prophet/discussions/categories/ideas-feedback)
@@ -48,7 +48,7 @@ Describe what happens, and how often it happens.
 
 If applicable, add screenshots and console printouts to help explain your problem.
 
-**Environement (please complete the following information):**
+**Environment (please complete the following information):**
 
  - Python environment [e.g. Python 3.8, in standalone venv with no other packages]
  - NeuralProphet version and install method [e.g. 2.7, installed from PYPI with `pip install neuralprophet`]

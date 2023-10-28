@@ -100,7 +100,7 @@ pip install .
 
 
 ### Framework features
-* Multiple time series: Fit a global/glocal model with (partially) shared model parameters
+* Multiple time series: Fit a global/local model with (partially) shared model parameters
 * Uncertainty: Estimate values of specific quantiles - Quantile Regression
 * Regularize modelling components
 * Plotting of forecast components, model coefficients and more
