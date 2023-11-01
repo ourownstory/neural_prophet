@@ -23,6 +23,7 @@ DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
+ENERGY_PRICE_DAILY_FILE = os.path.join(DATA_DIR, "tutorial04_kaggle_energy_daily_temperature.csv")
 
 # Important to set seed for reproducibility
 set_random_seed(42)
@@ -142,36 +143,16 @@ def test_PeytonManning():
     create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "PeytonManning.svg"))
 
 
-def test_PeytonManning_test30():
-    df = pd.read_csv(PEYTON_FILE)
-    m = NeuralProphet()
-    df_train, df_test = m.split_df(df=df, freq="D", valid_p=0.3)
-
-    system_speed, std = get_system_speed()
-    start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="D")  # , early_stopping=True)
-    end = time.time()
-
-    accuracy_metrics = metrics.to_dict("records")[-1]
-    accuracy_metrics["time"] = round(end - start, 2)
-    accuracy_metrics["system_performance"] = round(system_speed, 5)
-    accuracy_metrics["system_std"] = round(std, 5)
-    with open(os.path.join(DIR, "tests", "metrics", "PeytonManning_test30.json"), "w") as outfile:
-        json.dump(accuracy_metrics, outfile)
-
-    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "PeytonManning_test30.svg"))
-
-
 def test_YosemiteTemps():
     df = pd.read_csv(YOS_FILE)
     m = NeuralProphet(
         n_lags=36,
         n_forecasts=12,
-        changepoints_range=0.95,
+        changepoints_range=0.9,
         n_changepoints=30,
         weekly_seasonality=False,
     )
-    df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.05)
+    df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.1)
 
     system_speed, std = get_system_speed()
     start = time.time()
@@ -186,32 +167,6 @@ def test_YosemiteTemps():
         json.dump(accuracy_metrics, outfile)
 
     create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "YosemiteTemps.svg"))
-
-
-def test_YosemiteTemps_test20():
-    df = pd.read_csv(YOS_FILE)
-    m = NeuralProphet(
-        n_lags=36,
-        n_forecasts=12,
-        changepoints_range=0.8,
-        n_changepoints=20,
-        weekly_seasonality=False,
-    )
-    df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.2)
-
-    system_speed, std = get_system_speed()
-    start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="5min")  # , early_stopping=True)
-    end = time.time()
-
-    accuracy_metrics = metrics.to_dict("records")[-1]
-    accuracy_metrics["time"] = round(end - start, 2)
-    accuracy_metrics["system_performance"] = round(system_speed, 5)
-    accuracy_metrics["system_std"] = round(std, 5)
-    with open(os.path.join(DIR, "tests", "metrics", "YosemiteTemps_test20.json"), "w") as outfile:
-        json.dump(accuracy_metrics, outfile)
-
-    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "YosemiteTemps_test20.svg"))
 
 
 def test_AirPassengers():
@@ -234,21 +189,33 @@ def test_AirPassengers():
     create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "AirPassengers.svg"))
 
 
-def test_AirPassengers_test30():
-    df = pd.read_csv(AIR_FILE)
-    m = NeuralProphet(seasonality_mode="multiplicative")
-    df_train, df_test = m.split_df(df=df, freq="MS", valid_p=0.3)
+def test_EnergyPriceDaily():
+    df = pd.read_csv(ENERGY_PRICE_DAILY_FILE)
+    df["temp"] = df["temperature"]
+
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_changepoints=0,
+        yearly_seasonality=True,
+        weekly_seasonality=True,
+        daily_seasonality=False,
+        n_lags=14,
+    )
+    m.add_lagged_regressor("temp", n_lags=3)
+    m.add_future_regressor("temperature")
+
+    df_train, df_test = m.split_df(df=df, freq="D", valid_p=0.1)
 
     system_speed, std = get_system_speed()
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="MS")  # , early_stopping=True)
+    metrics = m.fit(df_train, validation_df=df_test, freq="D")  # , early_stopping=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
     accuracy_metrics["time"] = round(end - start, 2)
     accuracy_metrics["system_performance"] = round(system_speed, 5)
     accuracy_metrics["system_std"] = round(std, 5)
-    with open(os.path.join(DIR, "tests", "metrics", "AirPassengers_test30.json"), "w") as outfile:
+    with open(os.path.join(DIR, "tests", "metrics", "EnergyPriceDaily.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
 
-    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "AirPassengers_test30.svg"))
+    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "EnergyPriceDaily.svg"))
