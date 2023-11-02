@@ -76,8 +76,10 @@ def load(path: str, map_location=None):
     ----------
         path : str
             path and filename to be saved. filename could be any but suggested to have extension .np.
-        map_location : str or torch.device, optional
-            specifying the location where the model should be loaded.  If you are running on a CPU-only machine, set map_location=torch.device('cpu') to map your storages to the CPU
+        map_location : str, optional
+            specifying the location where the model should be loaded.
+            If you are running on a CPU-only machine, set map_location='cpu' to map your storages to the CPU.
+            If you are running on CUDA, set map_location='cuda:device_id' (e.g. 'cuda:2').
             Default is None, which means the model is loaded to the same device as it was saved on.
     Returns
     -------
@@ -90,6 +92,8 @@ def load(path: str, map_location=None):
         >>> from neuralprophet import load
         >>> model = load("test_save_model.np")
     """
+    if map_location is not None:
+        map_location = torch.device(map_location)
     m = torch.load(path, map_location=map_location)
     m.restore_trainer()
     return m
