@@ -15,8 +15,8 @@ Please note that the project is still in beta phase. Please report any issues yo
 
 # NeuralProphet: human-centered forecasting
 NeuralProphet is an easy to learn framework for interpretable time series forecasting.
-NeuralProphet is built on PyTorch and combines Neural Network and traditional time-series algorithms, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
-- With few lines of code, you can define, customize, visualize, and evaluate your own forecasting models.
+NeuralProphet is built on PyTorch and combines Neural Networks and traditional time-series algorithms, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
+- With a few lines of code, you can define, customize, visualize, and evaluate your own forecasting models.
 - It is designed for iterative human-in-the-loop model building. That means that you can build a first model quickly, interpret the results, improve, repeat. Due to the focus on interpretability and customization-ability, NeuralProphet may not be the most accurate model out-of-the-box; so, don't hesitate to adjust and iterate until you like your results.
 - NeuralProphet is best suited for time series data that is of higher-frequency (sub-daily) and longer duration (at least two full periods/years).
 
@@ -31,7 +31,7 @@ We compiled a [Contributing to NeuralProphet](CONTRIBUTING.md) page with practic
 
 ## Community
 #### Discussion and Help
-If you have any question or suggestion, you can participate with [our community right here on Github](https://github.com/ourownstory/neural_prophet/discussions)
+If you have any questions or suggestion, you can participate in [our community right here on Github](https://github.com/ourownstory/neural_prophet/discussions)
 
 #### Slack Chat
 We also have an active [Slack community](https://join.slack.com/t/neuralprophet/shared_invite/zt-sgme2rw3-3dCH3YJ_wgg01IXHoYaeCg). Come and join the conversation!
@@ -91,31 +91,32 @@ pip install .
 
 ## Features
 ### Model components
-* Autoregression: Autocorrelation modelling - linear or NN (AR-Net)
-* Trend: Piecewise linear trend with optional automatic changepoint detection
+* Autoregression: Autocorrelation modelling - linear or NN (AR-Net).
+* Trend: Piecewise linear trend with optional automatic changepoint detection.
 * Seasonality: Fourier terms at different periods such as yearly, daily, weekly, hourly.
-* Lagged regressors: Lagged observations (e.g temperature sensor) - linear or NN
-* Future regressors: In advance known features (e.g. temperature forecast) - linear
-* Events: Country holidays & recurring custom events
+* Lagged regressors: Lagged observations (e.g temperature sensor) - linear or NN.
+* Future regressors: In advance known features (e.g. temperature forecast) - linear.
+* Events: Country holidays & recurring custom events.
 
 
 ### Framework features
-* Multiple time series: Fit a global/glocal model with (partially) shared model parameters
-* Uncertainty: Estimate values of specific quantiles - Quantile Regression
-* Regularize modelling components
-* Plotting of forecast components, model coefficients and more
-* Time series crossvalidation utility
-* Model checkpointing and validation
+* Multiple time series: Fit a global/glocal model with (partially) shared model parameters.
+* Uncertainty: Estimate values of specific quantiles - Quantile Regression.
+* Regularize modelling components.
+* Plotting of forecast components, model coefficients and more.
+* Time series crossvalidation utility.
+* Model checkpointing and validation.
+
 
 
 ### Coming soon<sup>:tm:</sup>
 
-* Cross-relation of lagged regressors
-* Cross-relation and non-linear modelling of future regressors
-* Static features / Time series featurization
+* Cross-relation of lagged regressors.
+* Cross-relation and non-linear modelling of future regressors.
+* Static features / Time series featurization.
 * Logistic growth for trend component.
-* Model bias modelling / correction with secondary model
-* Multimodal seasonality
+* Model bias modelling / correction with secondary model.
+* Multimodal seasonality.
 
 For a list of past changes, please refer to the [releases page](https://github.com/ourownstory/neural_prophet/releases).
 
@@ -135,5 +136,5 @@ Please cite [NeuralProphet](https://arxiv.org/abs/2111.15397) in your publicatio
 ```
 
 ## About
-NeuralProphet is and open-source community project, supported by awesome people like you. 
+NeuralProphet is an open-source community project, supported by awesome people like you. 
 If you are interested in joining the project, please feel free to reach out to me (Oskar) - you can find my email on the [NeuralProphet Paper](https://arxiv.org/abs/2111.15397).

@@ -270,7 +270,7 @@ class NeuralProphet:
             Type of loss to use:
 
             Options
-                * (default) ``Huber``: Huber loss function
+                * (default) ``SmoothL1Loss``: SmoothL1 loss function
                 * ``MSE``: Mean Squared Error loss function
                 * ``MAE``: Mean Absolute Error loss function
                 * ``torch.nn.functional.loss.``: loss or callable for custom loss, eg. L1-Loss
@@ -415,7 +415,7 @@ class NeuralProphet:
         learning_rate: Optional[float] = None,
         epochs: Optional[int] = None,
         batch_size: Optional[int] = None,
-        loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "Huber",
+        loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "SmoothL1Loss",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "AdamW",
         newer_samples_weight: float = 2,
         newer_samples_start: float = 0.0,

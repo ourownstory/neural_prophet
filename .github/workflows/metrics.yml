@@ -15,20 +15,22 @@ jobs:
   metrics:
     runs-on: ubuntu-latest
     container: docker://ghcr.io/iterative/cml:0-dvc2-base1
+    env:
+      POETRY_VIRTUALENVS_CREATE: false
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
-          pip3 install -e .
+          pip3 install .
           pip3 install pytest
           pip3 install tabulate # required to md export
           pip3 install kaleido # required for plotly export
       - name: Train model
-        run: |
-          pytest tests/test_model_performance.py
+        run: pytest tests/test_model_performance.py
       - name: Download metrics from main
         uses: dawidd6/action-download-artifact@v2
         with:
@@ -53,9 +55,11 @@ jobs:
           cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
           echo "### AirPassengers" >> report.md
           cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
+          echo "### EnergyPriceDaily" >> report.md
+          cml asset publish tests/metrics/EnergyPriceDaily.svg --md >> report.md
           echo "\n</details>" >> report.md
           # Post reports as comments in GitHub PRs
-          cml comment update --pr report.md # post to PR
+          cml comment update --target=pr report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
