@@ -69,14 +69,18 @@ def save(forecaster, path: str):
                 setattr(forecaster.model, attr, value)
 
 
-def load(path: str):
+def load(path: str, map_location=None):
     """retrieve a fitted model from a .np file that was saved by save.
 
     Parameters
     ----------
         path : str
             path and filename to be saved. filename could be any but suggested to have extension .np.
-
+        map_location : str, optional
+            specifying the location where the model should be loaded.
+            If you are running on a CPU-only machine, set map_location='cpu' to map your storages to the CPU.
+            If you are running on CUDA, set map_location='cuda:device_id' (e.g. 'cuda:2').
+            Default is None, which means the model is loaded to the same device as it was saved on.
     Returns
     -------
         np.forecaster.NeuralProphet
@@ -88,7 +92,9 @@ def load(path: str):
         >>> from neuralprophet import load
         >>> model = load("test_save_model.np")
     """
-    m = torch.load(path)
+    if map_location is not None:
+        map_location = torch.device(map_location)
+    m = torch.load(path, map_location=map_location)
     m.restore_trainer()
     return m
 

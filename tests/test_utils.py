@@ -59,8 +59,12 @@ def test_save_load():
     m2 = load("test_model.pt")
     forecast2 = m2.predict(df=future)
 
+    m3 = load("test_model.pt", map_location="cpu")
+    forecast3 = m3.predict(df=future)
+
     # Check that the forecasts are the same
     pd.testing.assert_frame_equal(forecast, forecast2)
+    pd.testing.assert_frame_equal(forecast, forecast3)
 
 
 # TODO: add functionality to continue training
