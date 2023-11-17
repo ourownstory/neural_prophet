@@ -40,16 +40,16 @@ class GlobalTimeDataset(Dataset):
         self.df = df
         self.kwargs = kwargs
         self.id_groups = df.groupby("ID")
-
         # Create a mapping from global index to (df_name, local_idx)
         self.index_mapping = []
+
         for df_name, df_i in self.id_groups:
-            for local_idx in range(len(df_i)):
+            n_samples = len(df_i) - kwargs['n_lags'] + 1 - kwargs['n_forecasts']
+            for local_idx in range(n_samples):
                 self.index_mapping.append((df_name, local_idx))
 
         self.total_length = len(self.index_mapping)
 
-        print('simon')
 
     def __len__(self):
         return self.total_length
@@ -70,9 +70,6 @@ class GlobalTimeDataset(Dataset):
         # Directly use the precomputed mapping
         df_name, local_idx = self.index_mapping[idx]
         df_i = self.id_groups.get_group(df_name)
-
-        if local_idx >= len(df_i):
-            raise IndexError(f"Local index {local_idx} out of range for df with length {len(df_i)} for group {df_name}")
 
         timedataset = TimeDataset(df_i, df_name, **self.kwargs)
         return timedataset[local_idx]
