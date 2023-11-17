@@ -582,7 +582,7 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
     ----------
         df : pd.DataFrame
             dataframe containing column ``ds``, ``y``, and optionally``ID`` and
-            normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
+            normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
         predict_mode : bool
             specifies predict mode
 
