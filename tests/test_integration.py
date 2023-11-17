@@ -31,6 +31,21 @@ LR = 1.0
 PLOT = False
 
 
+def test_minimal():
+    log.info("testing: Plotting")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    metrics_df = m.fit(df, freq="D", minimal=True)
+    assert metrics_df is None
+    m.predict(df)
+
+
 def test_names():
     log.info("testing: names")
     m = NeuralProphet()
@@ -1281,20 +1296,6 @@ def test_auto_normalization():
     m = m.add_future_regressor("future_dynamic")
     _ = m.fit(df, freq="D")
 
-
-def test_minimal():
-    log.info("testing: Plotting")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    metrics_df = m.fit(df, freq="D", minimal=True)
-    assert metrics_df is None
-    m.predict(df)
 
 
 def test_get_latest_forecast():

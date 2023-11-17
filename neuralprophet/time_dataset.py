@@ -27,15 +27,31 @@ class GlobalTimeDataset(Dataset):
                 Identical to :meth:`tabularize_univariate_datetime`
         """
         # # TODO (future): vectorize
-        timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
-        self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
-        self.length = sum(timedataset.length for timedataset in timedatasets)
+        #timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
+        #self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
+        #self.length = sum(timedataset.length for timedataset in timedatasets)
+        self.df = df
+        self.kwargs = kwargs
+        self.id_groups = df.groupby("ID")
+        self.lengths = {df_name: len(df_i) for df_name, df_i in self.id_groups}
+        self.total_length = sum(self.lengths.values())
+        print('simon')
 
     def __len__(self):
-        return self.length
+        return self.total_length
 
     def __getitem__(self, idx):
-        return self.combined_timedataset[idx]
+        # Find which group the index belongs to
+        for df_name, group_len in self.lengths.items():
+            if idx < group_len:
+                df_i = self.id_groups.get_group(df_name)
+                local_idx = idx
+                break
+            idx -= group_len
+
+        # Instantiate TimeDataset for the specific ID and get the item
+        timedataset = TimeDataset(df_i, df_name, **self.kwargs)
+        return timedataset[local_idx]
 
 
 class TimeDataset(Dataset):
@@ -250,6 +266,8 @@ class TimeDataset(Dataset):
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
+        if index >= len(self.samples):
+            raise IndexError(f"Index {index} is out of range for dataset with length {len(self.samples)}")
         sample = self.samples[index]
         targets = self.targets[index]
         meta = self.meta
