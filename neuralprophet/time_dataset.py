@@ -70,6 +70,10 @@ class GlobalTimeDataset(Dataset):
         # Directly use the precomputed mapping
         df_name, local_idx = self.index_mapping[idx]
         df_i = self.id_groups.get_group(df_name)
+
+        if local_idx >= len(df_i):
+            raise IndexError(f"Local index {local_idx} out of range for df with length {len(df_i)} for group {df_name}")
+
         timedataset = TimeDataset(df_i, df_name, **self.kwargs)
         return timedataset[local_idx]
 
@@ -287,7 +291,7 @@ class TimeDataset(Dataset):
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
         if index >= len(self.samples):
-            raise IndexError(f"Index {index} is out of range for dataset with length {len(self.samples)}")
+            raise IndexError(f"Index {index} is out of range for sample with length {len(self.samples)}")
         sample = self.samples[index]
         targets = self.targets[index]
         meta = self.meta
