@@ -26,20 +26,10 @@ class GlobalTimeDataset(Dataset):
             **kwargs : dict
                 Identical to :meth:`tabularize_univariate_datetime`
         """
-        # # TODO (future): vectorize
-        #timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
-        #self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
-        #self.length = sum(timedataset.length for timedataset in timedatasets)
-
-        #self.df = df
-        #self.kwargs = kwargs
-        #self.id_groups = df.groupby("ID")
-        #self.lengths = {df_name: len(df_i) for df_name, df_i in self.id_groups}
-        #self.total_length = sum(self.lengths.values())
-
         self.df = df
         self.kwargs = kwargs
         self.id_groups = df.groupby("ID")
+
         # Create a mapping from global index to (df_name, local_idx)
         self.index_mapping = []
 
@@ -55,18 +45,6 @@ class GlobalTimeDataset(Dataset):
         return self.total_length
 
     def __getitem__(self, idx):
-        ## Find which group the index belongs to
-        #for df_name, group_len in self.lengths.items():
-        #    if idx < group_len:
-        #        df_i = self.id_groups.get_group(df_name)
-        #        local_idx = idx
-        #        break
-        #    idx -= group_len
-
-        ## Instantiate TimeDataset for the specific ID and get the item
-        #timedataset = TimeDataset(df_i, df_name, **self.kwargs)
-        #return timedataset[local_idx]
-
         # Directly use the precomputed mapping
         df_name, local_idx = self.index_mapping[idx]
         df_i = self.id_groups.get_group(df_name)
