@@ -44,6 +44,7 @@ class GlobalTimeDataset(Dataset):
     def __len__(self):
         return self.total_length
 
+
     def __getitem__(self, idx):
         # Directly use the precomputed mapping
         df_name, local_idx = self.index_mapping[idx]
