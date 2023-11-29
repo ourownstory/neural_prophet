@@ -34,8 +34,8 @@ class GlobalTimeDataset(Dataset):
         self.index_mapping = []
 
         for df_name, df_i in self.id_groups:
-            #n_samples = len(df_i) - kwargs['n_lags'] + 1 - kwargs['n_forecasts']
-            n_samples = 190
+            n_samples = len(df_i) - kwargs['n_lags'] + 1 - kwargs['n_forecasts']
+            #n_samples = 190
             for local_idx in range(n_samples):
                 self.index_mapping.append((df_name, local_idx))
 
