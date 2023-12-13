@@ -63,10 +63,54 @@ class TimeDataset(Dataset):
             "events",
             "regressors",
         ]
-        inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
+
+        self.df = df
+        self.kwargs = kwargs
+        #inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
+        #self.init_after_tabularized(inputs, targets)
+        #self.filter_samples_after_init(kwargs["prediction_frequency"])
+        #self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
+
+    def __getitem__(self, index):
+        """Overrides parent class method to get an item at index.
+        Parameters
+        ----------
+            index : int
+                Sample location in dataset
+        Returns
+        -------
+        OrderedDict
+            Model inputs, each of len(df) but with varying dimensions
+            Note
+            ----
+            Contains the following data:
+            Model Inputs
+                * ``time`` (np.array, float), dims: (num_samples, 1)
+                * ``seasonalities`` (OrderedDict), named seasonalities
+                each with features (np.array, float) - dims: (num_samples, n_features[name])
+                * ``lags`` (np.array, float), dims: (num_samples, n_lags)
+                * ``covariates`` (OrderedDict), named covariates,
+                each with features (np.array, float) of dims: (num_samples, n_lags)
+                * ``events`` (OrderedDict), events,
+                each with features (np.array, float) of dims: (num_samples, n_lags)
+                * ``regressors`` (OrderedDict), regressors,
+                each with features (np.array, float) of dims: (num_samples, n_lags)
+        np.array, float
+            Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
+        """
+        inputs, targets, drop_missing = tabularize_univariate_datetime(self.df, **self.kwargs)
         self.init_after_tabularized(inputs, targets)
-        self.filter_samples_after_init(kwargs["prediction_frequency"])
-        self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
+        self.filter_samples_after_init(self.kwargs["prediction_frequency"])
+        self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], drop_missing)
+
+        sample = self.samples[index]
+        targets = self.targets[index]
+        meta = self.meta
+        return sample, targets, meta
+
+    def __len__(self):
+        """Overrides Parent class method to get data length."""
+        return self.length
 
     def drop_nan_after_init(self, df, predict_steps, drop_missing):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
@@ -222,42 +266,6 @@ class TimeDataset(Dataset):
         for sample in self.samples:
             sample.pop("timestamps")
         self.length = len(self.samples)
-
-    def __getitem__(self, index):
-        """Overrides parent class method to get an item at index.
-        Parameters
-        ----------
-            index : int
-                Sample location in dataset
-        Returns
-        -------
-        OrderedDict
-            Model inputs, each of len(df) but with varying dimensions
-            Note
-            ----
-            Contains the following data:
-            Model Inputs
-                * ``time`` (np.array, float), dims: (num_samples, 1)
-                * ``seasonalities`` (OrderedDict), named seasonalities
-                each with features (np.array, float) - dims: (num_samples, n_features[name])
-                * ``lags`` (np.array, float), dims: (num_samples, n_lags)
-                * ``covariates`` (OrderedDict), named covariates,
-                each with features (np.array, float) of dims: (num_samples, n_lags)
-                * ``events`` (OrderedDict), events,
-                each with features (np.array, float) of dims: (num_samples, n_lags)
-                * ``regressors`` (OrderedDict), regressors,
-                each with features (np.array, float) of dims: (num_samples, n_lags)
-        np.array, float
-            Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
-        """
-        sample = self.samples[index]
-        targets = self.targets[index]
-        meta = self.meta
-        return sample, targets, meta
-
-    def __len__(self):
-        """Overrides Parent class method to get data length."""
-        return self.length
 
 
 def tabularize_univariate_datetime(
