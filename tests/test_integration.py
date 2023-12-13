@@ -1705,3 +1705,14 @@ def test_unused_future_regressors():
     m.add_future_regressor("price")
     m.add_lagged_regressor("cost")
     m.fit(df, freq="D")
+
+def test_on_the_fly_sampling():
+    start_date = "2019-01-01"
+    end_date = "2019-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="H")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+
+    m = NeuralProphet(epochs=1)
+    m.fit(df, freq='H')
+    m.predict(df)
