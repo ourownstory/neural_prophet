@@ -1708,7 +1708,7 @@ def test_unused_future_regressors():
 
 def test_on_the_fly_sampling():
     start_date = "2019-01-01"
-    end_date = "2019-03-01"
+    end_date = "2019-01-04"
     date_range = pd.date_range(start=start_date, end=end_date, freq="H")
     y = np.random.randint(0, 1000, size=(len(date_range),))
     df = pd.DataFrame({"ds": date_range, "y": y})
