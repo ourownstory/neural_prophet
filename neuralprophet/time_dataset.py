@@ -98,10 +98,13 @@ class TimeDataset(Dataset):
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
-        start_idx = index
-        #end_idx = start_idx + self.kwargs.get('n_lags') + self.kwargs.get('n_forecasts') - 1 #correct?
-        end_idx = start_idx + 1
-        df_slice = self.df.iloc[start_idx:end_idx]
+        if self.kwargs['predict_mode']:
+            df_slice = self.df
+        else:
+            start_idx = index
+            #end_idx = start_idx + self.kwargs.get('n_lags') + self.kwargs.get('n_forecasts') - 1 #correct?
+            end_idx = start_idx + 1
+            df_slice = self.df.iloc[start_idx:end_idx]
 
         # Functions
         inputs, targets, drop_missing = tabularize_univariate_datetime(df_slice, **self.kwargs)
