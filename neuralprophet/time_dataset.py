@@ -106,6 +106,8 @@ class TimeDataset(Dataset):
             end_idx = start_idx + 1
             df_slice = self.df.iloc[start_idx:end_idx]
 
+        #df_slice = self.df
+
         # Functions
         inputs, targets, drop_missing = tabularize_univariate_datetime(df_slice, **self.kwargs)
         self.init_after_tabularized(inputs, targets)

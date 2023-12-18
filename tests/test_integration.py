@@ -1710,9 +1710,14 @@ def test_on_the_fly_sampling():
     start_date = "2019-01-01"
     end_date = "2019-01-04"
     date_range = pd.date_range(start=start_date, end=end_date, freq="H")
-    y = np.random.randint(0, 1000, size=(len(date_range),))
-    df = pd.DataFrame({"ds": date_range, "y": y})
-
-    m = NeuralProphet(epochs=1, learning_rate=0.01)
+    #y = np.random.randint(0, 1000, size=(len(date_range),))
+    #df = pd.DataFrame({"ds": date_range, "y": y})
+    df = pd.DataFrame(
+        {
+            "ds": {0: "2022-10-16 00:00:00", 1: "2022-10-17 00:00:00", 2: "2022-10-18 00:00:00", 3: "2022-10-19 00:00:00", 4: "2022-10-20 00:00:00",},
+            "y": {0: 17, 1: 18, 2: 10, 3: 8, 4: 5},
+        }
+    )
+    m = NeuralProphet(epochs=1) #, learning_rate=0.01)
     m.fit(df, freq='H')
-    m.predict(df)
+    metrics = m.predict(df)
