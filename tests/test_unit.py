@@ -82,7 +82,7 @@ def test_time_dataset():
     local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
     df = df.drop("ID", axis=1)
     df = df_utils.normalize(df, global_data_params)
-    inputs, targets, _ = time_dataset.tabularize_univariate_datetime(
+    inputs, targets = time_dataset.tabularize_univariate_datetime(
         df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing
     )
     log.debug(
@@ -806,6 +806,13 @@ def test_too_many_NaN():
     config_missing = configure.MissingDataHandling(
         impute_missing=True, impute_linear=5, impute_rolling=5, drop_missing=False
     )
+    config_train = configure.Train(
+        learning_rate=LR,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        loss_func="SmoothL1Loss",
+        optimizer="AdamW",
+    )
     length = 100
     days = pd.date_range(start="2017-01-01", periods=length)
     y = np.ones(length)
@@ -825,7 +832,7 @@ def test_too_many_NaN():
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
-        time_dataset.TimeDataset(df, "name", config_missing=config_missing, predict_steps=1, prediction_frequency=None)
+        time_dataset.TimeDataset(df, "name", predict_mode=False, config_missing=config_missing, config_train=config_train, predict_steps=1, prediction_frequency=None)
 
 
 def test_future_df_with_nan():
