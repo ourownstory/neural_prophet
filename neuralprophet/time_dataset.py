@@ -63,13 +63,16 @@ class TimeDataset(Dataset):
             "events",
             "regressors",
         ]
-
-        self.df = df
         self.kwargs = kwargs
-        #inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
-        #self.init_after_tabularized(inputs, targets)
-        #self.filter_samples_after_init(kwargs["prediction_frequency"])
-        #self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
+
+        learning_rate = kwargs['config_train'].learning_rate
+        if kwargs['predict_mode'] or (learning_rate is None):
+            inputs, targets = tabularize_univariate_datetime(df, **kwargs)
+            self.init_after_tabularized(inputs, targets)
+            self.filter_samples_after_init(kwargs["prediction_frequency"])
+            self.drop_nan_after_init(df, kwargs["predict_steps"], kwargs["config_missing"].drop_missing)
+        else:
+            self.df = df
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -98,30 +101,43 @@ class TimeDataset(Dataset):
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
-        learning_rate = self.kwargs['config_train'].learning_rate
         # TODO: Drop config_train from self!
-
+        learning_rate = self.kwargs['config_train'].learning_rate
         if self.kwargs['predict_mode'] or (learning_rate is None):
-            df_slice = self.df
+            sample = self.samples[index]
+            targets = self.targets[index]
+            meta = self.meta
+            return sample, targets, meta
         else:
             start_idx = index
             end_idx = start_idx + self.kwargs.get('n_lags') + self.kwargs.get('n_forecasts')
             df_slice = self.df.iloc[start_idx:end_idx]
 
-        # Functions
-        inputs, targets = tabularize_univariate_datetime(df_slice, **self.kwargs)
-        self.init_after_tabularized(inputs, targets)
-        self.filter_samples_after_init(self.kwargs["prediction_frequency"])
-        self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
+            # Functions
+            inputs, targets = tabularize_univariate_datetime(df_slice, **self.kwargs)
+            self.init_after_tabularized(inputs, targets)
+            self.filter_samples_after_init(self.kwargs["prediction_frequency"])
+            self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
 
-        sample = self.samples[index]
-        targets = self.targets[index]
-        meta = self.meta
-        return sample, targets, meta
+            sample = self.samples[index]
+            targets = self.targets[index]
+            meta = self.meta
+            return sample, targets, meta
 
     def __len__(self):
         """Overrides Parent class method to get data length."""
         return self.length
+
+    def drop_nan_init(self, drop_missing):
+        """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
+        Parameters
+        ----------
+            drop_missing : bool
+                whether to automatically drop missing samples from the data
+            predict_steps : int
+                number of steps to predict
+        """
+
 
     def drop_nan_after_init(self, df, predict_steps, drop_missing):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.

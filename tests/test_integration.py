@@ -1712,6 +1712,7 @@ def test_on_the_fly_sampling():
     date_range = pd.date_range(start=start_date, end=end_date, freq="D")
     y = np.random.randint(0, 20, size=(len(date_range),))
     df = pd.DataFrame({"ds": date_range, "y": y})
+    df.loc[3, "y"] = np.nan
 
     m = NeuralProphet(epochs=1, learning_rate=0.01)
     m.fit(df, freq='H')
