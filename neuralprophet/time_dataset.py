@@ -98,15 +98,16 @@ class TimeDataset(Dataset):
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
-        if self.kwargs['predict_mode']:
+        learning_rate = self.kwargs['config_train'].learning_rate
+        # TODO: Drop config_train from self!
+
+        if self.kwargs['predict_mode'] or (learning_rate is None):
             df_slice = self.df
         else:
             start_idx = index
-            #end_idx = start_idx + self.kwargs.get('n_lags') + self.kwargs.get('n_forecasts') - 1 #correct?
-            end_idx = start_idx + 1
+            end_idx = start_idx + self.kwargs.get('n_lags') + self.kwargs.get('n_forecasts')
+            #end_idx = start_idx + 1
             df_slice = self.df.iloc[start_idx:end_idx]
-
-        #df_slice = self.df
 
         # Functions
         inputs, targets, drop_missing = tabularize_univariate_datetime(df_slice, **self.kwargs)
@@ -291,6 +292,7 @@ def tabularize_univariate_datetime(
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     config_missing=None,
+    config_train=None,
     prediction_frequency=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
