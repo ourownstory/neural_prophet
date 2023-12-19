@@ -106,14 +106,13 @@ class TimeDataset(Dataset):
         else:
             start_idx = index
             end_idx = start_idx + self.kwargs.get('n_lags') + self.kwargs.get('n_forecasts')
-            #end_idx = start_idx + 1
             df_slice = self.df.iloc[start_idx:end_idx]
 
         # Functions
-        inputs, targets, drop_missing = tabularize_univariate_datetime(df_slice, **self.kwargs)
+        inputs, targets = tabularize_univariate_datetime(df_slice, **self.kwargs)
         self.init_after_tabularized(inputs, targets)
         self.filter_samples_after_init(self.kwargs["prediction_frequency"])
-        self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], drop_missing)
+        self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
 
         sample = self.samples[index]
         targets = self.targets[index]
@@ -502,7 +501,7 @@ def tabularize_univariate_datetime(
             tabularized_input_shapes_str += f"    {key} {value.shape} \n"
     log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
 
-    return inputs, targets, config_missing.drop_missing
+    return inputs, targets
 
 
 def fourier_series(dates, period, series_order):
