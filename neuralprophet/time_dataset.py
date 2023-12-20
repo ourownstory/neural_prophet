@@ -361,6 +361,11 @@ def tabularize_univariate_datetime(
     """
     max_lags = get_max_num_lags(config_lagged_regressors, n_lags)
     n_samples = len(df) - max_lags + 1 - n_forecasts
+    #TODO
+    #n_samples = max_lags + n_forecasts
+    #if n_samples < 0:
+    #    n_samples = max_lags + n_forecasts
+
     # data is stored in OrderedDict
     inputs = OrderedDict({})
 
