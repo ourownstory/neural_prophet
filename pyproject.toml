@@ -23,7 +23,7 @@ captum = ">=0.6.0,<1.0"
 holidays = ">=0.33,<1.0"
 matplotlib = "^3.5.3"
 numpy = "^1.22.0"
-pandas = "^1.3.5"
+pandas = ">=1.3.5"
 plotly = "^5.13.1"
 plotly-resampler = ">=0.8.3.1,<1.0"
 pytorch-lightning = "^1.9.4" # TODO: move to ^2.0
