@@ -66,7 +66,7 @@ class TimeDataset(Dataset):
         self.kwargs = kwargs
 
         learning_rate = kwargs['config_train'].learning_rate
-        if kwargs['predict_mode'] or (learning_rate is None):
+        if kwargs['predict_mode'] or (learning_rate is None) or self.kwargs['config_lagged_regressors']:
             inputs, targets = tabularize_univariate_datetime(df, **kwargs)
             self.init_after_tabularized(inputs, targets)
             self.filter_samples_after_init(kwargs["prediction_frequency"])
@@ -103,7 +103,7 @@ class TimeDataset(Dataset):
         """
         # TODO: Drop config_train from self!
         learning_rate = self.kwargs['config_train'].learning_rate
-        if self.kwargs['predict_mode'] or (learning_rate is None):
+        if self.kwargs['predict_mode'] or (learning_rate is None) or self.kwargs['config_lagged_regressors']:
             sample = self.samples[index]
             targets = self.targets[index]
             meta = self.meta
@@ -111,6 +111,7 @@ class TimeDataset(Dataset):
         else:
             start_idx = index
             end_idx = start_idx + self.kwargs.get('n_lags') + self.kwargs.get('n_forecasts')
+
             df_slice = self.df.iloc[start_idx:end_idx]
 
             # Functions
@@ -360,11 +361,13 @@ def tabularize_univariate_datetime(
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
     """
     max_lags = get_max_num_lags(config_lagged_regressors, n_lags)
-    n_samples = len(df) - max_lags + 1 - n_forecasts
+    #n_samples = len(df) - max_lags + 1 - n_forecasts
     #TODO
-    #n_samples = max_lags + n_forecasts
-    #if n_samples < 0:
-    #    n_samples = max_lags + n_forecasts
+    learning_rate = config_train.learning_rate
+    if predict_mode or (learning_rate is None):
+        n_samples = len(df) - max_lags + 1 - n_forecasts
+    else:
+        n_samples=1
 
     # data is stored in OrderedDict
     inputs = OrderedDict({})
