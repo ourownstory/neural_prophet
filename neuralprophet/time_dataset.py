@@ -66,7 +66,7 @@ class TimeDataset(Dataset):
         self.kwargs = kwargs
 
         learning_rate = kwargs['config_train'].learning_rate
-        if kwargs['predict_mode'] or (learning_rate is None) or self.kwargs['config_lagged_regressors']:
+        if kwargs['predict_mode'] or (learning_rate is None) or kwargs['config_lagged_regressors'] or kwargs['config_country_holidays'] or kwargs['config_events']:
             inputs, targets = tabularize_univariate_datetime(df, **kwargs)
             self.init_after_tabularized(inputs, targets)
             self.filter_samples_after_init(kwargs["prediction_frequency"])
@@ -103,7 +103,7 @@ class TimeDataset(Dataset):
         """
         # TODO: Drop config_train from self!
         learning_rate = self.kwargs['config_train'].learning_rate
-        if self.kwargs['predict_mode'] or (learning_rate is None) or self.kwargs['config_lagged_regressors']:
+        if self.kwargs['predict_mode'] or (learning_rate is None) or self.kwargs['config_lagged_regressors'] or self.kwargs['config_country_holidays'] or self.kwargs['config_events']:
             sample = self.samples[index]
             targets = self.targets[index]
             meta = self.meta
@@ -364,7 +364,7 @@ def tabularize_univariate_datetime(
     #n_samples = len(df) - max_lags + 1 - n_forecasts
     #TODO
     learning_rate = config_train.learning_rate
-    if predict_mode or (learning_rate is None):
+    if predict_mode or (learning_rate is None) or config_lagged_regressors or config_country_holidays or config_events:
         n_samples = len(df) - max_lags + 1 - n_forecasts
     else:
         n_samples=1
