@@ -76,6 +76,13 @@ def test_time_dataset():
     n_forecasts = 1
     valid_p = 0.2
     config_missing = configure.MissingDataHandling()
+    config_train = configure.Train(
+        learning_rate=LR,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        loss_func="SmoothL1Loss",
+        optimizer="AdamW",
+    )
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
     # create a tabularized dataset from time series
     df, _, _ = df_utils.check_dataframe(df_train)
@@ -83,7 +90,7 @@ def test_time_dataset():
     df = df.drop("ID", axis=1)
     df = df_utils.normalize(df, global_data_params)
     inputs, targets = time_dataset.tabularize_univariate_datetime(
-        df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing
+        df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing, config_train=config_train
     )
     log.debug(
         "tabularized inputs: {}".format(
