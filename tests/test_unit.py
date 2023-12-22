@@ -814,7 +814,7 @@ def test_too_many_NaN():
         impute_missing=True, impute_linear=5, impute_rolling=5, drop_missing=False
     )
     config_train = configure.Train(
-        learning_rate=LR,
+        learning_rate=None,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         loss_func="SmoothL1Loss",
@@ -839,7 +839,7 @@ def test_too_many_NaN():
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
-        time_dataset.TimeDataset(df, "name", predict_mode=False, config_missing=config_missing, config_train=config_train, predict_steps=1, prediction_frequency=None)
+        time_dataset.TimeDataset(df, "name", predict_mode=False, config_missing=config_missing, config_lagged_regressors=None, config_country_holidays=None, config_events=None, config_train=config_train, predict_steps=1, prediction_frequency=None)
 
 
 def test_future_df_with_nan():
