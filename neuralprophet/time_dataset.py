@@ -65,8 +65,15 @@ class TimeDataset(Dataset):
         ]
         self.kwargs = kwargs
 
-        learning_rate = kwargs['config_train'].learning_rate
-        if kwargs['predict_mode'] or (learning_rate is None) or kwargs['config_lagged_regressors'] or kwargs['config_country_holidays'] or kwargs['config_events'] or kwargs['prediction_frequency']:
+        learning_rate = kwargs["config_train"].learning_rate
+        if (
+            kwargs["predict_mode"]
+            or (learning_rate is None)
+            or kwargs["config_lagged_regressors"]
+            or kwargs["config_country_holidays"]
+            or kwargs["config_events"]
+            or kwargs["prediction_frequency"]
+        ):
             inputs, targets = tabularize_univariate_datetime(df, **kwargs)
             self.init_after_tabularized(inputs, targets)
             self.filter_samples_after_init(kwargs["prediction_frequency"])
@@ -102,15 +109,22 @@ class TimeDataset(Dataset):
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
         # TODO: Drop config_train from self!
-        learning_rate = self.kwargs['config_train'].learning_rate
-        if self.kwargs['predict_mode'] or (learning_rate is None) or self.kwargs['config_lagged_regressors'] or self.kwargs['config_country_holidays'] or self.kwargs['config_events'] or self.kwargs['prediction_frequency']:
+        learning_rate = self.kwargs["config_train"].learning_rate
+        if (
+            self.kwargs["predict_mode"]
+            or (learning_rate is None)
+            or self.kwargs["config_lagged_regressors"]
+            or self.kwargs["config_country_holidays"]
+            or self.kwargs["config_events"]
+            or self.kwargs["prediction_frequency"]
+        ):
             sample = self.samples[index]
             targets = self.targets[index]
             meta = self.meta
             return sample, targets, meta
         else:
             start_idx = index
-            end_idx = start_idx + self.kwargs.get('n_lags') + self.kwargs.get('n_forecasts')
+            end_idx = start_idx + self.kwargs.get("n_lags") + self.kwargs.get("n_forecasts")
 
             df_slice = self.df.iloc[start_idx:end_idx]
 
@@ -138,7 +152,6 @@ class TimeDataset(Dataset):
             predict_steps : int
                 number of steps to predict
         """
-
 
     def drop_nan_after_init(self, df, predict_steps, drop_missing):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
@@ -361,13 +374,20 @@ def tabularize_univariate_datetime(
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
     """
     max_lags = get_max_num_lags(config_lagged_regressors, n_lags)
-    #n_samples = len(df) - max_lags + 1 - n_forecasts
-    #TODO
+    # n_samples = len(df) - max_lags + 1 - n_forecasts
+    # TODO
     learning_rate = config_train.learning_rate
-    if predict_mode or (learning_rate is None) or config_lagged_regressors or config_country_holidays or config_events or prediction_frequency:
+    if (
+        predict_mode
+        or (learning_rate is None)
+        or config_lagged_regressors
+        or config_country_holidays
+        or config_events
+        or prediction_frequency
+    ):
         n_samples = len(df) - max_lags + 1 - n_forecasts
     else:
-        n_samples=1
+        n_samples = 1
 
     # data is stored in OrderedDict
     inputs = OrderedDict({})

@@ -623,5 +623,5 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
         config_regressors=model.config_regressors,
         config_missing=model.config_missing,
         prediction_frequency=prediction_frequency,
-        config_train=model.config_train
+        config_train=model.config_train,
     )

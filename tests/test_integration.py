@@ -1706,6 +1706,7 @@ def test_unused_future_regressors():
     m.add_lagged_regressor("cost")
     m.fit(df, freq="D")
 
+
 def test_on_the_fly_sampling():
     start_date = "2022-10-16 00:00:00"
     end_date = "2022-12-30 00:00:00"
@@ -1715,5 +1716,5 @@ def test_on_the_fly_sampling():
     df.loc[3, "y"] = np.nan
 
     m = NeuralProphet(epochs=1, learning_rate=0.01)
-    m.fit(df, freq='H')
+    m.fit(df, freq="H")
     metrics = m.predict(df)
