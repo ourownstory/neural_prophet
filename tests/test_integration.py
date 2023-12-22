@@ -1717,4 +1717,4 @@ def test_on_the_fly_sampling():
 
     m = NeuralProphet(epochs=1, learning_rate=0.01)
     m.fit(df, freq="H")
-    metrics = m.predict(df)
+    _ = m.predict(df)
