@@ -124,7 +124,19 @@ class TimeDataset(Dataset):
             return sample, targets, meta
         else:
             start_idx = index
-            end_idx = start_idx + self.kwargs.get("n_lags") + self.kwargs.get("n_forecasts")
+
+            # Lagged Regressors
+            if self.kwargs["config_lagged_regressors"]:
+                n_lagged_regressor_list = []
+                for dict_name, nested_dict in self.kwargs["config_lagged_regressors"].items():
+                    name_of_nested_dict = dict_name
+                    n_lagged_regressor = self.kwargs["config_lagged_regressors"][name_of_nested_dict].n_lags
+                    n_lagged_regressor_list.append(n_lagged_regressor)
+                max_lag = max(self.kwargs["n_lags"], *n_lagged_regressor_list)
+                end_idx = start_idx + max_lag + self.kwargs.get("n_forecasts")
+
+            else:
+                end_idx = start_idx + self.kwargs.get("n_lags") + self.kwargs.get("n_forecasts")
 
             df_slice = self.df.iloc[start_idx:end_idx]
 
