@@ -502,7 +502,7 @@ def plot_yearly(m, quantile, comp_name="yearly", yearly_start=0, quick=True, mul
         )
 
     padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
-    xaxis = go.layout.XAxis(title="Day of year", range=padded_range)
+    xaxis = go.layout.XAxis(title="Day of year", range=padded_range, tickformat="%B %e",)
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
