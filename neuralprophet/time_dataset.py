@@ -52,7 +52,34 @@ class TimeDataset(Dataset):
             **kwargs : dict
                 Identical to :meth:`tabularize_univariate_datetime`
         """
+        self.df_original = df
         self.name = name
+
+        # Currently done to df before it arrives here:
+        # - fit calls prep_or_copy_df, _check_dataframe, and _handle_missing_data, passes to _train
+        # - _train calls prep_or_copy_df, then passes to init_train_loader, which returns the train_loader
+        # - init_train_loader calls prep_or_copy_df, _normalize, _create_dataset (returns TimeDataset), returns dataset wrapped in DataLoader
+        # _create_dataset calls prep_or_copy_df, then returns GlobalTimeDataset
+
+        # Filter missing samples and prediction frequency (does not actually drop, but index)
+        # filter samples
+        # drop nan
+
+        # Create index mapping of sample index to df index
+
+        # Preprocessing of features (added to df_original)
+        # events and holidays
+
+        # TBD
+        # meta
+
+        # Outcome after a call to init:
+        #
+
+        # Things that will not be done in init, but on the fly:
+        # tabularize all features for each sample, return as input, targets
+
+        #### OLD
         self.length = None
         self.inputs = OrderedDict({})
         self.targets = None
