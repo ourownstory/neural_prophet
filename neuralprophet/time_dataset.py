@@ -52,38 +52,46 @@ class TimeDataset(Dataset):
             **kwargs : dict
                 Identical to :meth:`tabularize_univariate_datetime`
         """
-        self.df_original = df
+        self.df = df
         self.name = name
+        self.meta = OrderedDict({})
+        self.meta["df_name"] = self.name
 
         # Currently done to df before it arrives here:
-        # - fit calls prep_or_copy_df, _check_dataframe, and _handle_missing_data, passes to _train
-        # - _train calls prep_or_copy_df, then passes to init_train_loader, which returns the train_loader
-        # - init_train_loader calls prep_or_copy_df, _normalize, _create_dataset (returns TimeDataset), returns dataset wrapped in DataLoader
-        # _create_dataset calls prep_or_copy_df, then returns GlobalTimeDataset
-
-        # Filter missing samples and prediction frequency (does not actually drop, but index)
-        # filter samples
-        # drop nan
+        # -> fit calls prep_or_copy_df, _check_dataframe, and _handle_missing_data, passes to _train
+        # -> _train calls prep_or_copy_df, then passes to init_train_loader, which returns the train_loader
+        # -> init_train_loader calls prep_or_copy_df, _normalize, _create_dataset (returns TimeDataset), returns dataset wrapped in DataLoader
+        # ->_create_dataset calls prep_or_copy_df, then returns GlobalTimeDataset
 
         # Create index mapping of sample index to df index
+        # - Filter missing samples and prediction frequency (does not actually drop, but index)
+        # -- filter samples
+        # -- drop nan
+        # - Indexing:
+        # -- Note, outer indexing connected to self.length
 
-        # Preprocessing of features (added to df_original)
-        # events and holidays
+        # Preprocessing of features (added to df)
+        # - events and holidays
 
-        # TBD
-        # meta
+        # TODO:
+        # - init_after_tabularized: What must happen here, others in __getitem__?
+        # - define what happens in __getitem__
 
-        # Outcome after a call to init:
-        #
+        # Future TBD
+        # - integration of preprocessing steps happening outside?
 
-        # Things that will not be done in init, but on the fly:
+        # Outcome after a call to init (summary):
+        # - add events and holidays columns to df
+        # - calculated the number of usable samples (accounting for nan and filters)
+        # - creates mapping of sample index to df index
+
+        # Done later on the fly when calling __getitem__:
         # tabularize all features for each sample, return as input, targets
 
         #### OLD
         self.length = None
         self.inputs = OrderedDict({})
         self.targets = None
-        self.meta = OrderedDict({})
         self.two_level_inputs = [
             "seasonalities",
             "covariates",
@@ -300,7 +308,6 @@ class TimeDataset(Dataset):
                 else:
                     self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
-        self.meta["df_name"] = self.name
         self.samples = self._split_nested_dict(self.inputs)
 
     def filter_samples_after_init(
