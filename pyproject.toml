@@ -20,7 +20,7 @@ Homepage = "https://github.com/ourownstory/neural_prophet"
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
 captum = ">=0.6.0,<1.0"
-holidays = ">=0.33,<1.0"
+holidays = ">=0.41"
 matplotlib = "^3.5.3"
 numpy = "^1.22.0"
 pandas = ">=2.0.0"
