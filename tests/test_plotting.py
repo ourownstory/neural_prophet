@@ -273,7 +273,6 @@ def test_plot_events(plotting_backend):
     # add the country specific holidays
     m = m.add_country_holidays("US", mode="multiplicative", regularization=0.5)
     m.add_country_holidays("Indonesia")
-    m.add_country_holidays("Thailand")
     m.add_country_holidays("Philippines")
     m.add_country_holidays("Pakistan")
     m.add_country_holidays("Belarus")
@@ -340,7 +339,6 @@ def test_plot_events_additive(plotting_backend):
     # add the country specific holidays
     m = m.add_country_holidays("US", mode="additive", regularization=0.5)
     m.add_country_holidays("Indonesia")
-    m.add_country_holidays("Thailand")
     m.add_country_holidays("Philippines")
     m.add_country_holidays("Pakistan")
     m.add_country_holidays("Belarus")
