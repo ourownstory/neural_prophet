@@ -28,7 +28,7 @@ plotly = "^5.13.1"
 plotly-resampler = ">=0.8.3.1,<1.0"
 pytorch-lightning = "^1.9.4" # TODO: move to ^2.0
 tensorboard = "^2.11.2"
-torch = "2.0.0" # TODO: relax to ^2.0
+torch = ">=2.0.0"
 torchmetrics = ">=0.11.3,<1.0"
 typing-extensions = "^4.5.0"
 nbformat = ">=4.2.0"
