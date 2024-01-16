@@ -2734,7 +2734,7 @@ class NeuralProphet:
         metrics_df = pd.DataFrame(self.metrics_logger.history)
         return metrics_df
 
-    def restore_trainer(self, accelerator: str = None):
+    def restore_trainer(self, accelerator: Optional[str] = None):
         """
         If no accelerator was provided, use accelerator stored in model.
         """
