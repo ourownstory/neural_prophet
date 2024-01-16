@@ -2738,7 +2738,7 @@ class NeuralProphet:
         """
         If no accelerator was provided, use accelerator stored in model.
         """
-        if accelerator == None:
+        if accelerator is None:
             accelerator = self.accelerator
         """
         Restore the trainer based on the forecaster configuration.
