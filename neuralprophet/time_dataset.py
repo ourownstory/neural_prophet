@@ -52,69 +52,36 @@ class TimeDataset(Dataset):
             **kwargs : dict
                 Identical to :meth:`tabularize_univariate_datetime`
         """
-        self.df = df
-        self.name = name
-        self.meta = OrderedDict({})
-        self.meta["df_name"] = self.name
+        ## Outcome after a call to init (summary):
+        # - add events and holidays columns to df
+        # - calculated the number of usable samples (accounting for nan and filters)
+        # - creates mapping of sample index to df index
 
+        ## Context Notes
         # Currently done to df before it arrives here:
         # -> fit calls prep_or_copy_df, _check_dataframe, and _handle_missing_data, passes to _train
         # -> _train calls prep_or_copy_df, then passes to init_train_loader, which returns the train_loader
         # -> init_train_loader calls prep_or_copy_df, _normalize, _create_dataset (returns TimeDataset), returns dataset wrapped in DataLoader
         # ->_create_dataset calls prep_or_copy_df, then returns GlobalTimeDataset
+        # Future TODO: integrate these preprocessing steps happening outside?
 
-        # Create index mapping of sample index to df index
-        # - Filter missing samples and prediction frequency (does not actually drop, but index)
+        self.df = df
+        self.name = name
+        self.meta = OrderedDict({})
+        self.meta["df_name"] = self.name
+
+        # TODO: Preprocessing of features (added to self.df)
+        # - events and holidays: convert date-time occurence dictionary to a column of values in the self.df
+        # - These will then be later tabularized in __get_item___
+
+        ## TODO Create index mapping of sample index to df index
+        # - Filter missing samples and prediction frequency (does not actually drop, but creates indexmapping)
         # -- filter samples
+        # analogous to `self.filter_samples_after_init(self.kwargs["prediction_frequency"])`
         # -- drop nan
-        # - Indexing:
-        # -- Note, outer indexing connected to self.length
-
-        # Preprocessing of features (added to df)
-        # - events and holidays
-
-        # TODO:
-        # - init_after_tabularized: What must happen here, others in __getitem__?
-        # - define what happens in __getitem__
-
-        # Future TBD
-        # - integration of preprocessing steps happening outside?
-
-        # Outcome after a call to init (summary):
-        # - add events and holidays columns to df
-        # - calculated the number of usable samples (accounting for nan and filters)
-        # - creates mapping of sample index to df index
-
-        # Done later on the fly when calling __getitem__:
-        # tabularize all features for each sample, return as input, targets
-
-        #### OLD
-        self.length = None
-        self.inputs = OrderedDict({})
-        self.targets = None
-        self.two_level_inputs = [
-            "seasonalities",
-            "covariates",
-            "events",
-            "regressors",
-        ]
-        self.kwargs = kwargs
-
-        learning_rate = kwargs["config_train"].learning_rate
-        if (
-            kwargs["predict_mode"]
-            or (learning_rate is None)
-            or kwargs["config_lagged_regressors"]
-            or kwargs["config_country_holidays"]
-            or kwargs["config_events"]
-            or kwargs["prediction_frequency"]
-        ):
-            inputs, targets = tabularize_univariate_datetime(df, **kwargs)
-            self.init_after_tabularized(inputs, targets)
-            self.filter_samples_after_init(kwargs["prediction_frequency"])
-            self.drop_nan_after_init(df, kwargs["predict_steps"], kwargs["config_missing"].drop_missing)
-        else:
-            self.df = df
+        # analogous to `self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
+        # save the created mapping to self.sample2index_map (used by self.sample2index_map)
+        self.sample2index_map, self.length = self.create_sample2index_map(df)
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -142,53 +109,60 @@ class TimeDataset(Dataset):
                 each with features (np.array, float) of dims: (num_samples, n_lags)
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
+        OrderedDict
+            Meta information: static information about the local dataset
         """
-        # TODO: Drop config_train from self!
-        learning_rate = self.kwargs["config_train"].learning_rate
-        if (
-            self.kwargs["predict_mode"]
-            or (learning_rate is None)
-            or self.kwargs["config_lagged_regressors"]
-            or self.kwargs["config_country_holidays"]
-            or self.kwargs["config_events"]
-            or self.kwargs["prediction_frequency"]
-        ):
-            sample = self.samples[index]
-            targets = self.targets[index]
-            meta = self.meta
-            return sample, targets, meta
-        else:
-            start_idx = index
+        # Convert dataset sample index to valid dataframe positional index
+        # - sample index is any index up to len(dataset)
+        # - dataframe positional index is given by position of first target in dataframe for given sample index
+        df_index = self.sample_index_to_df_index(index)
 
-            # Lagged Regressors
-            if self.kwargs["config_lagged_regressors"]:
-                n_lagged_regressor_list = []
-                for dict_name, nested_dict in self.kwargs["config_lagged_regressors"].items():
-                    name_of_nested_dict = dict_name
-                    n_lagged_regressor = self.kwargs["config_lagged_regressors"][name_of_nested_dict].n_lags
-                    n_lagged_regressor_list.append(n_lagged_regressor)
-                max_lag = max(self.kwargs["n_lags"], *n_lagged_regressor_list)
-                end_idx = start_idx + max_lag + self.kwargs.get("n_forecasts")
-
-            else:
-                end_idx = start_idx + self.kwargs.get("n_lags") + self.kwargs.get("n_forecasts")
-
-            df_slice = self.df.iloc[start_idx:end_idx]
-
-            # Functions
-            inputs, targets = tabularize_univariate_datetime(df_slice, **self.kwargs)
-            self.init_after_tabularized(inputs, targets)
-            self.filter_samples_after_init(self.kwargs["prediction_frequency"])
-            self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
-
-            sample = self.samples[index]
-            targets = self.targets[index]
-            meta = self.meta
-            return sample, targets, meta
+        # Tabularize - extract features from dataframe at given target index position
+        inputs, target = tabularize_univariate_datetime_single_index(self.df, target_index=df_index, **self.kwargs)
+        sample, target = self.format_sample(inputs, target)
+        return sample, target, self.meta
 
     def __len__(self):
         """Overrides Parent class method to get data length."""
         return self.length
+
+    def create_sample2index_map(self, df):
+        """creates mapping of sample index to df index.
+        Create index mapping of sample index to df index
+        Filter missing samples and prediction frequency (does not actually drop, but creates indexmapping)
+        -- filter samples
+            analogous to `self.filter_samples_after_init(self.kwargs["prediction_frequency"])`
+        -- drop nan
+            analogous to `self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
+        save the created mapping to sample2index_map
+        """
+        # Prediction Frequency
+        prediction_frequency_mask = self.create_prediction_frequency_filter_mask(
+            self, self.kwargs["prediction_frequency"]
+        )
+
+        # TODO: limit start end range
+        # Pseudo code: concat[np.zeros(n_lags), np.ones(n_samples - n_lags -n_forecasts +1),np.zeros(n_forecasts-1)]
+        start_end_target_mask = np.ones(len(df))
+
+        # TODO Create index mapping of sample index to df index
+        # - Filter missing samples (does not actually drop, but creates indexmapping)
+        # -- drop nan analogous to `self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
+        nan_mask = self.create_nan_mask(df)  # vector of all ones, except nans are zeros
+
+        # TODO: Combine
+        # Psedocode: valid_sample = elementwise_and_operator(prediction_frequency_mask & start_end_target_mask & nan_mask)
+        # num_samples = sum(valid_sample)
+        # sample2index_map = convert valid_sample to list of the positinal index of all true/one entries
+        #   e.g. [0,0,1,1,0,1,0] -> [2,3,5]
+        sample2index_map = np.ones(len(df))
+
+        return sample2index_map, num_samples
+
+    def sample_index_to_df_index(self, sample_index):
+        """Translates a single outer sample to dataframe index"""
+        # Will need more sophisticated mapping for GlobalTimeDataset
+        return self.sample2index_map[sample_index]
 
     def drop_nan_init(self, drop_missing):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
@@ -200,7 +174,7 @@ class TimeDataset(Dataset):
                 number of steps to predict
         """
 
-    def drop_nan_after_init(self, df, predict_steps, drop_missing):
+    def create_nan_mask(self, df, predict_steps, drop_missing):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
         Parameters
         ----------
@@ -209,6 +183,8 @@ class TimeDataset(Dataset):
             predict_steps : int
                 number of steps to predict
         """
+        # TODO: rewrite to return mask instead of filtering df.
+
         nan_idx = []
         # NaNs in inputs
         for key, data in self.inputs.items():
@@ -266,8 +242,8 @@ class TimeDataset(Dataset):
         length = next(iter(inputs.values())).shape[0]
         return [split_dict(inputs, i) for i in range(length)]
 
-    def init_after_tabularized(self, inputs, targets=None):
-        """Create Timedataset with data.
+    def format_sample(self, inputs, targets=None):
+        """Convert tabularizes sample to correct formats.
         Parameters
         ----------
             inputs : ordered dict
@@ -275,6 +251,7 @@ class TimeDataset(Dataset):
             targets : np.array, float
                 Identical to returns from :meth:`tabularize_univariate_datetime`
         """
+        sample_input = OrderedDict({})
         inputs_dtype = {
             "time": torch.float,
             "timestamps": np.datetime64,
@@ -285,11 +262,12 @@ class TimeDataset(Dataset):
             "regressors": torch.float,
         }
         targets_dtype = torch.float
-        self.length = inputs["time"].shape[0]
+
+        sample_target = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
 
         for key, data in inputs.items():
             if key in self.two_level_inputs:
-                self.inputs[key] = OrderedDict({})
+                sample_input[key] = OrderedDict({})
                 for name, features in data.items():
                     if features.dtype != np.float32:
                         features = features.astype(np.float32, copy=False)
@@ -297,24 +275,29 @@ class TimeDataset(Dataset):
                     tensor = torch.from_numpy(features)
 
                     if tensor.dtype != inputs_dtype[key]:
-                        self.inputs[key][name] = tensor.to(
+                        sample_input[key][name] = tensor.to(
                             dtype=inputs_dtype[key]
                         )  # this can probably be removed, but was included in the previous code
                     else:
-                        self.inputs[key][name] = tensor
+                        sample_input[key][name] = tensor
             else:
                 if key == "timestamps":
-                    self.inputs[key] = data
+                    sample_input[key] = data
                 else:
-                    self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
-        self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
-        self.samples = self._split_nested_dict(self.inputs)
+                    sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
+        sample_input = self._split_nested_dict(sample_input)
 
-    def filter_samples_after_init(
+        ## Not sure if this needs be done here anymore?
+        # Exact timestamps are not needed anymore
+        sample_input.pop("timestamps")
+
+        return sample_input, sample_target
+
+    def create_prediction_frequency_filter_mask(
         self,
         prediction_frequency=None,
     ):
-        """Filters samples from the dataset based on the forecast frequency.
+        """Filters prediction target index from df based on the forecast frequency setting.
         Parameters
         ----------
             prediction_frequency : int
@@ -323,40 +306,37 @@ class TimeDataset(Dataset):
             ----
             E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily
             resolution).
+
+        Returns mask where prediction target start indexes to be included are ones, and the rest zeros.
         """
         if prediction_frequency is None or prediction_frequency == 1:
             return
         # Only the first target timestamp is of interest for filtering
-        timestamps = pd.to_datetime([sample["timestamps"][0] for sample in self.samples])
+        timestamps = pd.to_datetime([x["timestamps"][0] for x in self.df])  # This may need adjusting
         masks = []
         for key, value in prediction_frequency.items():
             if key == "daily-hour":
-                mask = timestamps.hour == value + 1  # because prediction starts one step after origin
+                mask = timestamps.hour == value
             elif key == "weekly-day":
-                mask = timestamps.dayofweek == value + 1
+                mask = timestamps.dayofweek == value
             elif key == "monthly-day":
-                mask = timestamps.day == value + 1
+                mask = timestamps.day == value
             elif key == "yearly-month":
-                mask = timestamps.month == value + 1
+                mask = timestamps.month == value
             elif key == "hourly-minute":
-                mask = timestamps.minute == value + 1
+                mask = timestamps.minute == value
             else:
                 raise ValueError(f"Invalid prediction frequency: {key}")
             masks.append(mask)
         mask = np.ones((len(timestamps),), dtype=bool)
         for m in masks:
             mask = mask & m
-        self.samples = [self.samples[i] for i in range(len(self.samples)) if mask[i]]
-
-        # Exact timestamps are not needed anymore
-        self.inputs.pop("timestamps")
-        for sample in self.samples:
-            sample.pop("timestamps")
-        self.length = len(self.samples)
+        return mask
 
 
-def tabularize_univariate_datetime(
+def tabularize_univariate_datetime_single_index(
     df,
+    target_index,
     predict_mode=False,
     n_lags=0,
     n_forecasts=1,
@@ -421,7 +401,9 @@ def tabularize_univariate_datetime(
     """
     max_lags = get_max_num_lags(config_lagged_regressors, n_lags)
     # n_samples = len(df) - max_lags + 1 - n_forecasts
-    # TODO
+
+    # TODO convert to single sample version
+
     learning_rate = config_train.learning_rate
     if (
         predict_mode
