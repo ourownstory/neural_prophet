@@ -69,6 +69,7 @@ class TimeDataset(Dataset):
         self.name = name
         self.meta = OrderedDict({})
         self.meta["df_name"] = self.name
+        self.config_args = kwargs
 
         # TODO: Preprocessing of features (added to self.df)
         # - events and holidays: convert date-time occurence dictionary to a column of values in the self.df
@@ -140,10 +141,8 @@ class TimeDataset(Dataset):
         prediction_frequency_mask = self.create_prediction_frequency_filter_mask(
             self, self.kwargs["prediction_frequency"]
         )
-
-        # TODO: limit start end range
-        # Pseudo code: concat[np.zeros(n_lags), np.ones(n_samples - n_lags -n_forecasts +1),np.zeros(n_forecasts-1)]
-        start_end_target_mask = np.ones(len(df))
+        # Limit target range due to input lags and number of forecasts
+        target_start_end_mask = self.create_target_start_end_mask()
 
         # TODO Create index mapping of sample index to df index
         # - Filter missing samples (does not actually drop, but creates indexmapping)
@@ -151,7 +150,7 @@ class TimeDataset(Dataset):
         nan_mask = self.create_nan_mask(df)  # vector of all ones, except nans are zeros
 
         # TODO: Combine
-        # Psedocode: valid_sample = elementwise_and_operator(prediction_frequency_mask & start_end_target_mask & nan_mask)
+        # Psedocode: valid_sample = elementwise_and_operator(prediction_frequency_mask & target_start_end_mask & nan_mask)
         # num_samples = sum(valid_sample)
         # sample2index_map = convert valid_sample to list of the positinal index of all true/one entries
         #   e.g. [0,0,1,1,0,1,0] -> [2,3,5]
@@ -173,6 +172,17 @@ class TimeDataset(Dataset):
             predict_steps : int
                 number of steps to predict
         """
+
+    def create_target_start_end_mask(self, df):
+        """Creates binary mask for valid targets based on limiting input lags and forecast targets."""
+        max_lags = get_max_num_lags(self.config_args["config_lagged_regressors"], self.config_args["n_lags"])
+        n_forecasts = self.config_args["n_forecasts"]
+        length = len(df)
+        start_pad = np.zeros(max_lags)
+        valid_targets = np.ones(length - max_lags - n_forecasts + 1)
+        end_pad = np.zeros(n_forecasts - 1)
+        target_start_end_mask = np.concatenate((start_pad, valid_targets, end_pad), axis=None)
+        return target_start_end_mask
 
     def create_nan_mask(self, df, predict_steps, drop_missing):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
