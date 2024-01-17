@@ -18,11 +18,8 @@ jobs:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.8", "3.10"]
-        exclude:
-          - os: windows-latest
-            python-version: "3.8"
+        os: [ubuntu-latest]
+        python-version: ["3.8", "3.11"]
     env:
       POETRY_VIRTUALENVS_CREATE: false
     steps:
@@ -54,7 +51,7 @@ jobs:
       - name: Install Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Install Poetry
         uses: abatilo/actions-poetry@v2
       - name: Setup Pandoc
