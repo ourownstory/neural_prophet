@@ -2515,7 +2515,8 @@ files = [
 [package.dependencies]
 numpy = [
     {version = ">=1.20.3", markers = "python_version < \"3.10\""},
-    {version = ">=1.21.0", markers = "python_version >= \"3.10\""},
+    {version = ">=1.21.0", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
+    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -2774,7 +2775,10 @@ files = [
 
 [package.dependencies]
 dash = ">=2.9.0"
-numpy = {version = ">=1.14", markers = "python_version < \"3.11\""}
+numpy = [
+    {version = ">=1.14", markers = "python_version < \"3.11\""},
+    {version = ">=1.24", markers = "python_version >= \"3.11\""},
+]
 orjson = ">=3.8.0,<4.0.0"
 pandas = ">=1"
 plotly = ">=5.5.0,<6.0.0"
@@ -4229,5 +4233,5 @@ live = ["livelossplot"]
 
 [metadata]
 lock-version = "2.0"
-python-versions = ">=3.8,<3.11"
-content-hash = "3a3cf44566d29d381d168883ef022ba8dd05fcf94057603d241a6d948c5bce0e"
+python-versions = ">=3.8,<3.12"
+content-hash = "40d2d621ec6ff4a2c630a23dfe7521b5f19b5aa4b6e22dab7c8c5dddbdef6336"
