@@ -141,6 +141,7 @@ class TimeDataset(Dataset):
         prediction_frequency_mask = self.create_prediction_frequency_filter_mask(
             self, self.config_args["prediction_frequency"]
         )
+
         # Limit target range due to input lags and number of forecasts
         df_length = len(df)
         max_lags = get_max_num_lags(self.config_args["config_lagged_regressors"], self.config_args["n_lags"])
@@ -152,7 +153,10 @@ class TimeDataset(Dataset):
         # TODO Create index mapping of sample index to df index
         # - Filter missing samples (does not actually drop, but creates indexmapping)
         # -- drop nan analogous to `self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
-        nan_mask = self.create_nan_mask(df)  # vector of all ones, except nans are zeros
+        # Note: needs to also account for NANs in lagged inputs or in n_forecasts, not just first target.
+        # Implement a convolutional filter for targets and each lagged regressor.
+        # Also account for future regressors and events.
+        nan_mask = self.create_nan_mask(df)  # boolean array where NAN are False
 
         # Combine masks
         mask = np.logical_and(prediction_frequency_mask, target_start_end_mask)
