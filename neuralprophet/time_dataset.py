@@ -139,22 +139,31 @@ class TimeDataset(Dataset):
         """
         # Prediction Frequency
         prediction_frequency_mask = self.create_prediction_frequency_filter_mask(
-            self, self.kwargs["prediction_frequency"]
+            self, self.config_args["prediction_frequency"]
         )
         # Limit target range due to input lags and number of forecasts
-        target_start_end_mask = self.create_target_start_end_mask()
+        df_length = len(df)
+        max_lags = get_max_num_lags(self.config_args["config_lagged_regressors"], self.config_args["n_lags"])
+        n_forecasts = self.config_args["n_forecasts"]
+        target_start_end_mask = self.create_target_start_end_mask(
+            df_length=df_length, max_lags=max_lags, n_forecasts=n_forecasts
+        )
 
         # TODO Create index mapping of sample index to df index
         # - Filter missing samples (does not actually drop, but creates indexmapping)
         # -- drop nan analogous to `self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
         nan_mask = self.create_nan_mask(df)  # vector of all ones, except nans are zeros
 
-        # TODO: Combine
-        # Psedocode: valid_sample = elementwise_and_operator(prediction_frequency_mask & target_start_end_mask & nan_mask)
-        # num_samples = sum(valid_sample)
-        # sample2index_map = convert valid_sample to list of the positinal index of all true/one entries
+        # Combine masks
+        mask = np.logical_and(prediction_frequency_mask, target_start_end_mask)
+        valid_sample_mask = np.logical_and(mask, nan_mask)
+        # Convert boolean valid_sample to list of the positinal index of all true/one entries
         #   e.g. [0,0,1,1,0,1,0] -> [2,3,5]
-        sample2index_map = np.ones(len(df))
+        index_range = np.arange(0, df_length)
+        sample2index_map = index_range[valid_sample_mask]
+
+        num_samples = np.sum(valid_sample_mask)
+        assert len(sample2index_map) == num_samples
 
         return sample2index_map, num_samples
 
@@ -173,13 +182,10 @@ class TimeDataset(Dataset):
                 number of steps to predict
         """
 
-    def create_target_start_end_mask(self, df):
+    def create_target_start_end_mask(self, df_length, max_lags, n_forecasts):
         """Creates a boolean mask for valid targets based on limiting input lags and forecast targets."""
-        max_lags = get_max_num_lags(self.config_args["config_lagged_regressors"], self.config_args["n_lags"])
-        n_forecasts = self.config_args["n_forecasts"]
-        length = len(df)
         start_pad = np.zeros(max_lags, dtype=bool)
-        valid_targets = np.ones(length - max_lags - n_forecasts + 1, dtype=bool)
+        valid_targets = np.ones(df_length - max_lags - n_forecasts + 1, dtype=bool)
         end_pad = np.zeros(n_forecasts - 1, dtype=bool)
         target_start_end_mask = np.concatenate((start_pad, valid_targets, end_pad), axis=None)
         return target_start_end_mask
@@ -317,7 +323,7 @@ class TimeDataset(Dataset):
             E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily
             resolution).
 
-        Returns mask where prediction target start indexes to be included are ones, and the rest zeros.
+        Returns boolean mask where prediction target start indexes to be included are True, and the rest False.
         """
         if prediction_frequency is None or prediction_frequency == 1:
             return
