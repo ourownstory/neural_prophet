@@ -174,13 +174,13 @@ class TimeDataset(Dataset):
         """
 
     def create_target_start_end_mask(self, df):
-        """Creates binary mask for valid targets based on limiting input lags and forecast targets."""
+        """Creates a boolean mask for valid targets based on limiting input lags and forecast targets."""
         max_lags = get_max_num_lags(self.config_args["config_lagged_regressors"], self.config_args["n_lags"])
         n_forecasts = self.config_args["n_forecasts"]
         length = len(df)
-        start_pad = np.zeros(max_lags)
-        valid_targets = np.ones(length - max_lags - n_forecasts + 1)
-        end_pad = np.zeros(n_forecasts - 1)
+        start_pad = np.zeros(max_lags, dtype=bool)
+        valid_targets = np.ones(length - max_lags - n_forecasts + 1, dtype=bool)
+        end_pad = np.zeros(n_forecasts - 1, dtype=bool)
         target_start_end_mask = np.concatenate((start_pad, valid_targets, end_pad), axis=None)
         return target_start_end_mask
 
