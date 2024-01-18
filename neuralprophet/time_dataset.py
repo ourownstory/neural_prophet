@@ -203,8 +203,10 @@ class TimeDataset(Dataset):
             predict_steps : int
                 number of steps to predict
         """
-        # TODO: rewrite to return mask instead of filtering df.
+        # TODO implement actual filtering
+        return np.ones(len(df), dtype=bool)
 
+        # TODO: rewrite to return mask instead of filtering df.
         nan_idx = []
         # NaNs in inputs
         for key, data in self.inputs.items():
