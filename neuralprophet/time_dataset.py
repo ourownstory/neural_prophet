@@ -112,7 +112,7 @@ class TimeDataset(Dataset):
         df_index = self.sample_index_to_df_index(index)
 
         # Tabularize - extract features from dataframe at given target index position
-        inputs, target = tabularize_univariate_datetime_single_index(self.df, target_index=df_index, **self.config_args)
+        inputs, target = tabularize_univariate_datetime_single_index(self.df, origin_index=df_index, **self.config_args)
         sample, target = self.format_sample(inputs, target)
         return sample, target, self.meta
 
@@ -210,8 +210,12 @@ class TimeDataset(Dataset):
         if prediction_frequency is None or prediction_frequency == 1:
             return mask
 
-        # originally: timestamps = pd.to_datetime([x["timestamps"][0] for x in df])
-        timestamps = df["timestamps"].apply(lambda x: pd.to_datetime(x[0]))
+        # OLD: timestamps were created from "ds" column in tabularization and then re-converted here
+        # timestamps = pd.to_datetime([x["timestamps"][0] for x in df])
+        # OR
+        # timestamps = df["timestamps"].apply(lambda x: pd.to_datetime(x[0]))
+
+        timestamps = pd.to_datetime(df.loc[:, "ds"].values)
         filter_masks = []
         for key, value in prediction_frequency.items():
             if key == "daily-hour":
@@ -303,7 +307,7 @@ class TimeDataset(Dataset):
         sample_input = OrderedDict({})
         inputs_dtype = {
             "time": torch.float,
-            "timestamps": np.datetime64,
+            # "timestamps": np.datetime64,
             "seasonalities": torch.float,
             "events": torch.float,
             "lags": torch.float,
@@ -330,10 +334,9 @@ class TimeDataset(Dataset):
                     else:
                         sample_input[key][name] = tensor
             else:
-                if key == "timestamps":
-                    sample_input[key] = data
-                else:
-                    sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
+                # if key == "timestamps": sample_input[key] = data
+                # else: sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
+                sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
         sample_input = self._split_nested_dict(sample_input)
 
         # TODO Can this be skipped for a single sample?
@@ -345,16 +348,15 @@ class TimeDataset(Dataset):
         length = next(iter(sample_input.values())).shape[0]
         sample_input = [split_dict(sample_input, i) for i in range(length)]
 
-        ## Not sure if this needs be done here anymore?
-        # Exact timestamps are not needed anymore
-        sample_input.pop("timestamps")
+        ## timestamps should no longer be present here?
+        # sample_input.pop("timestamps") # Exact timestamps are not needed anymore
 
         return sample_input, sample_target
 
 
 def tabularize_univariate_datetime_single_index(
     df: pd.DataFrame,
-    target_index: int,
+    origin_index: int,
     predict_mode: bool = False,
     n_lags: int = 0,
     n_forecasts: int = 1,
@@ -375,8 +377,8 @@ def tabularize_univariate_datetime_single_index(
     ----------
         df : pd.DataFrame
             Sequence of observations with original ``ds``, ``y`` and normalized ``t``, ``y_scaled`` columns
-        target_index: int:
-            dataframe index position of first prediction target.
+        origin_index: int:
+            dataframe index position of last observed lag before forecast starts.
         config_seasonality : configure.ConfigSeasonality
             Configuration for seasonalities
         n_lags : int
@@ -420,7 +422,7 @@ def tabularize_univariate_datetime_single_index(
     max_lags = get_max_num_lags(config_lagged_regressors, n_lags)
     n_samples = 1
 
-    # previous workaround
+    # OLD: previous workaround
     # learning_rate = config_train.learning_rate
     # if (
     #     predict_mode
@@ -432,10 +434,36 @@ def tabularize_univariate_datetime_single_index(
     # ):
     #     n_samples = len(df) - max_lags + 1 - n_forecasts
 
-    # TODO convert to single sample version
-
     # data is stored in OrderedDict
     inputs = OrderedDict({})
+
+    # time is the time at each sample's lags and forecasts
+    if max_lags == 0:
+        assert n_forecasts == 1
+        # OLD: time = np.expand_dims(df.loc[origin_index, "t"].values, 1)
+        inputs["time"] = df.loc[origin_index, "t"].values
+    else:
+        # extract time value of n_lags steps before origin_index and n_forecasts steps starting at origin_index
+        ## OLD: inputs["time"] = _stride_time_features_for_forecasts(df.loc[:, "t"].values)
+        inputs["time"] = df[origin_index - n_lags : origin_index + n_forecasts, "t"].values
+
+    if n_lags >= 1 and "y" in df.columns:
+        # OLD
+        # def _stride_lagged_features(df_col_name, feature_dims):
+        #     # only for case where max_lags > 0
+        #     assert feature_dims >= 1
+        #     series = df.loc[:, df_col_name].values
+        #     # Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
+        #     return np.array(
+        #         [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float32
+        #     )
+        # inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
+
+        # Extract n_lags steps up to and including origin_index
+        # inputs["lags"] = np.array(df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values, dtype=np.float32)
+        inputs["lags"] = df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values
+
+    # ----------- TODO convert to single sample version ----------------------
 
     def _stride_time_features_for_forecasts(x):
         window_size = n_lags + n_forecasts
@@ -462,45 +490,6 @@ def tabularize_univariate_datetime_single_index(
             [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float32
         )
 
-    def _stride_timestamps_for_forecasts(x):
-        # only for case where n_lags > 0
-        if x.dtype != np.float64:
-            dtype = np.datetime64
-        else:
-            dtype = np.float64
-        return np.array([x[i + max_lags : i + max_lags + n_forecasts] for i in range(n_samples)], dtype=dtype)
-
-    # time is the time at each forecast step
-    if max_lags == 0:
-        assert n_forecasts == 1
-        time = np.expand_dims(df.loc[target_index, "t"].values, 1)
-    else:
-        ## time = _stride_time_features_for_forecasts(df.loc[:, "t"].values)
-        x = df.loc[:, "t"].values
-        window_size = n_lags + n_forecasts
-
-        if x.ndim == 1:
-            shape = (n_samples, window_size)
-        else:
-            shape = (n_samples, window_size) + x.shape[1:]
-
-        stride = x.strides[0]
-        strides = (stride, stride) + x.strides[1:]
-        start_index = max_lags - n_lags
-        time = np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
-        t = df.loc[:, "t"].values
-        # extract timestamps of n_lags steps before target_index and n_forecasts steps starting at target_index
-        time = t[target_index - n_lags : target_index + n_forecasts]
-    inputs["time"] = time
-
-    if prediction_frequency is not None:
-        ds = df.loc[:, "ds"].values
-        if max_lags == 0:  # is it rather n_lags?
-            timestamps = np.expand_dims(ds, 1)
-        else:
-            timestamps = _stride_timestamps_for_forecasts(ds)
-        inputs["timestamps"] = timestamps
-
     if config_seasonality is not None:
         seasonalities = seasonal_features_from_dates(df, config_seasonality)
         for name, features in seasonalities.items():
@@ -510,9 +499,6 @@ def tabularize_univariate_datetime_single_index(
                 # stride into num_forecast at dim=1 for each sample, just like we did with time
                 seasonalities[name] = _stride_time_features_for_forecasts(features)
         inputs["seasonalities"] = seasonalities
-
-    if n_lags > 0 and "y" in df.columns:
-        inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
 
     if config_lagged_regressors is not None and max_lags > 0:
         covariates = OrderedDict({})
@@ -615,7 +601,7 @@ def fourier_series(dates, period, series_order):
     Parameters
     ----------
         dates : pd.Series
-            Containing timestamps
+            Containing time stamps
         period : float
             Number of days of the period
         series_order : int
