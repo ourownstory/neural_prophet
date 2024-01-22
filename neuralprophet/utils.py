@@ -92,10 +92,12 @@ def load(path: str, map_location=None):
         >>> from neuralprophet import load
         >>> model = load("test_save_model.np")
     """
+    torch_map_location = None
     if map_location is not None:
-        map_location = torch.device(map_location)
-    m = torch.load(path, map_location=map_location)
-    m.restore_trainer()
+        torch_map_location = torch.device(map_location)
+
+    m = torch.load(path, map_location=torch_map_location)
+    m.restore_trainer(accelerator=map_location)
     return m
 
 
