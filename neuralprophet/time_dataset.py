@@ -466,7 +466,7 @@ def tabularize_univariate_datetime_single_index(
     # COVARIATES / LAGGED REGRESSORS: Lagged regressor inputs: analogous to LAGS
     if config_lagged_regressors is not None and max_lags > 0:
         lagged_regressors = OrderedDict({})
-        # TODO: optimize this computation for many lagged_regressors
+        # Future TODO: optimize this computation for many lagged_regressors
         for lagged_reg in df.columns:
             if lagged_reg in config_lagged_regressors:
                 assert config_lagged_regressors[lagged_reg].n_lags > 0
@@ -492,6 +492,159 @@ def tabularize_univariate_datetime_single_index(
         #         covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
         # inputs["covariates"] = covariates
 
+    # SEASONALITIES
+    if config_seasonality is not None:
+        dates = df["ds"]
+        assert len(dates.shape) == 1
+        seasonalities = OrderedDict({})
+        # Seasonality features
+        for name, period in config_seasonality.periods.items():
+            if period.resolution > 0:
+                if config_seasonality.computation == "fourier":
+                    # convert to days since epoch
+                    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
+                    # Provides Fourier series components with the specified frequency and order.
+                    # features: Matrix with dims (2*resolution, length len(dates))
+                    features = np.column_stack(
+                        [
+                            fun((2.0 * (i + 1) * np.pi * t / period.period))
+                            for i in range(period.resolution)
+                            for fun in (np.sin, np.cos)
+                        ]
+                    )
+
+                else:
+                    raise NotImplementedError
+                if period.condition_name is not None:
+                    # multiply seasonality features with condition mask/values
+                    features = features * df[period.condition_name].values[:, np.newaxis]
+                seasonalities[name] = features
+        for name, features in seasonalities.items():
+            if max_lags == 0:
+                seasonalities[name] = np.expand_dims(features, axis=1)
+            else:
+
+                def _stride_time_features_for_seasonality(x):
+                    window_size = n_lags + n_forecasts
+
+                    if x.ndim == 1:
+                        shape = (n_samples, window_size)
+                    else:
+                        shape = (n_samples, window_size) + x.shape[1:]
+
+                    stride = x.strides[0]
+                    strides = (stride, stride) + x.strides[1:]
+                    start_index = max_lags - n_lags
+                    return np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
+
+                # stride into num_forecast at dim=1 for each sample, just like we did with time
+                seasonalities[name] = _stride_time_features_for_seasonality(features)
+        inputs["seasonalities"] = seasonalities
+
+        ## OLD
+        # def fourier_series_t(t, period, series_order):
+        #     """Provides Fourier series components with the specified frequency and order.
+        #     Note
+        #     ----
+        #     This function is identical to Meta AI's Prophet Library
+        #     Parameters
+        #     ----------
+        #         t : pd.Series, float
+        #             Containing time as floating point number of days
+        #         period : float
+        #             Number of days of the period
+        #         series_order : int
+        #             Number of fourier components
+        #     Returns
+        #     -------
+        #         np.array
+        #             Matrix with seasonality features
+        #     """
+        #     features = np.column_stack(
+        #         [fun((2.0 * (i + 1) * np.pi * t / period)) for i in range(series_order) for fun in (np.sin, np.cos)]
+        #     )
+        #     return features
+
+        # def fourier_series(dates, period, series_order):
+        #     """Provides Fourier series components with the specified frequency and order.
+        #     Note
+        #     ----
+        #     Identical to OG Prophet.
+        #     Parameters
+        #     ----------
+        #         dates : pd.Series
+        #             Containing time stamps
+        #         period : float
+        #             Number of days of the period
+        #         series_order : int
+        #             Number of fourier components
+        #     Returns
+        #     -------
+        #         np.array
+        #             Matrix with seasonality features
+        #     """
+        #     # convert to days since epoch
+        #     t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
+        #     return fourier_series_t(t, period, series_order)
+
+        # def seasonal_features_from_dates(df, config_seasonality: configure.ConfigSeasonality):
+        #     """Dataframe with seasonality features.
+        #     Includes seasonality features
+        #     Parameters
+        #     ----------
+        #         df : pd.DataFrame
+        #             Dataframe with all values
+        #         config_seasonality : configure.ConfigSeasonality
+        #             Configuration for seasonalities
+        #     Returns
+        #     -------
+        #         OrderedDict
+        #             Dictionary with keys for each period name containing an np.array
+        #             with the respective regression features. each with dims: (len(dates), 2*fourier_order)
+        #     """
+        #     dates = df["ds"]
+        #     assert len(dates.shape) == 1
+        #     seasonalities = OrderedDict({})
+        #     # Seasonality features
+        #     for name, period in config_seasonality.periods.items():
+        #         if period.resolution > 0:
+        #             if config_seasonality.computation == "fourier":
+        #                 # features: Matrix with dims (2*resolution, length len(dates))
+        #                 features = fourier_series(
+        #                     dates=dates,
+        #                     period=period.period,
+        #                     series_order=period.resolution,
+        #                 )
+        #             else:
+        #                 raise NotImplementedError
+        #             if period.condition_name is not None
+        #             # multiply seasonality features with condition mask/values:
+        #                 features = features * df[period.condition_name].values[:, np.newaxis]
+        #             seasonalities[name] = features
+        #     return seasonalities
+
+        # def _stride_time_features_for_seasonality(x):
+        #     window_size = n_lags + n_forecasts
+
+        #     if x.ndim == 1:
+        #         shape = (n_samples, window_size)
+        #     else:
+        #         shape = (n_samples, window_size) + x.shape[1:]
+
+        #     stride = x.strides[0]
+        #     strides = (stride, stride) + x.strides[1:]
+        #     start_index = max_lags - n_lags
+        #     return np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
+
+        # seasonalities = seasonal_features_from_dates(df, config_seasonality)
+        # for name, features in seasonalities.items():
+        #     if max_lags == 0:
+        #         seasonalities[name] = np.expand_dims(features, axis=1)
+        #     else:
+        #         # stride into num_forecast at dim=1 for each sample, just like we did with time
+        #         seasonalities[name] = _stride_time_features_for_seasonality(features)
+        # inputs["seasonalities"] = seasonalities
+
     # ----------- TODO convert to single sample version ----------------------
 
     def _stride_time_features_for_forecasts(x):
@@ -509,16 +662,6 @@ def tabularize_univariate_datetime_single_index(
 
     def _stride_future_time_features_for_forecasts(x):
         return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
-
-    if config_seasonality is not None:
-        seasonalities = seasonal_features_from_dates(df, config_seasonality)
-        for name, features in seasonalities.items():
-            if max_lags == 0:
-                seasonalities[name] = np.expand_dims(features, axis=1)
-            else:
-                # stride into num_forecast at dim=1 for each sample, just like we did with time
-                seasonalities[name] = _stride_time_features_for_forecasts(features)
-        inputs["seasonalities"] = seasonalities
 
     # get the regressors features
     if config_regressors is not None:
@@ -808,36 +951,36 @@ def make_regressors_features(df, config_regressors):
     return additive_regressors, multiplicative_regressors
 
 
-def seasonal_features_from_dates(df, config_seasonality: configure.ConfigSeasonality):
-    """Dataframe with seasonality features.
-    Includes seasonality features, holiday features, and added regressors.
-    Parameters
-    ----------
-        df : pd.DataFrame
-            Dataframe with all values
-        config_seasonality : configure.ConfigSeasonality
-            Configuration for seasonalities
-    Returns
-    -------
-        OrderedDict
-            Dictionary with keys for each period name containing an np.array
-            with the respective regression features. each with dims: (len(dates), 2*fourier_order)
-    """
-    dates = df["ds"]
-    assert len(dates.shape) == 1
-    seasonalities = OrderedDict({})
-    # Seasonality features
-    for name, period in config_seasonality.periods.items():
-        if period.resolution > 0:
-            if config_seasonality.computation == "fourier":
-                features = fourier_series(
-                    dates=dates,
-                    period=period.period,
-                    series_order=period.resolution,
-                )
-            else:
-                raise NotImplementedError
-            if period.condition_name is not None:
-                features = features * df[period.condition_name].values[:, np.newaxis]
-            seasonalities[name] = features
-    return seasonalities
+# def seasonal_features_from_dates(df, config_seasonality: configure.ConfigSeasonality):
+#     """Dataframe with seasonality features.
+#     Includes seasonality features
+#     Parameters
+#     ----------
+#         df : pd.DataFrame
+#             Dataframe with all values
+#         config_seasonality : configure.ConfigSeasonality
+#             Configuration for seasonalities
+#     Returns
+#     -------
+#         OrderedDict
+#             Dictionary with keys for each period name containing an np.array
+#             with the respective regression features. each with dims: (len(dates), 2*fourier_order)
+#     """
+#     dates = df["ds"]
+#     assert len(dates.shape) == 1
+#     seasonalities = OrderedDict({})
+#     # Seasonality features
+#     for name, period in config_seasonality.periods.items():
+#         if period.resolution > 0:
+#             if config_seasonality.computation == "fourier":
+#                 features = fourier_series(
+#                     dates=dates,
+#                     period=period.period,
+#                     series_order=period.resolution,
+#                 )
+#             else:
+#                 raise NotImplementedError
+#             if period.condition_name is not None:
+#                 features = features * df[period.condition_name].values[:, np.newaxis]
+#             seasonalities[name] = features
+#     return seasonalities
