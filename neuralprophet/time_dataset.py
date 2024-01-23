@@ -437,7 +437,7 @@ def tabularize_univariate_datetime_single_index(
     # data is stored in OrderedDict
     inputs = OrderedDict({})
 
-    # time is the time at each sample's lags and forecasts
+    # TIME: the time at each sample's lags and forecasts
     if max_lags == 0:
         assert n_forecasts == 1
         # OLD: time = np.expand_dims(df.loc[origin_index, "t"].values, 1)
@@ -447,7 +447,11 @@ def tabularize_univariate_datetime_single_index(
         ## OLD: inputs["time"] = _stride_time_features_for_forecasts(df.loc[:, "t"].values)
         inputs["time"] = df[origin_index - n_lags : origin_index + n_forecasts, "t"].values
 
+    # LAGS: From y-series, extract preceeding n_lags steps up to and including origin_index
     if n_lags >= 1 and "y" in df.columns:
+        # inputs["lags"] = np.array(df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values, dtype=np.float32)
+        inputs["lags"] = df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values
+
         # OLD
         # def _stride_lagged_features(df_col_name, feature_dims):
         #     # only for case where max_lags > 0
@@ -459,9 +463,34 @@ def tabularize_univariate_datetime_single_index(
         #     )
         # inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
 
-        # Extract n_lags steps up to and including origin_index
-        # inputs["lags"] = np.array(df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values, dtype=np.float32)
-        inputs["lags"] = df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values
+    # COVARIATES / LAGGED REGRESSORS: Lagged regressor inputs: analogous to LAGS
+    if config_lagged_regressors is not None and max_lags > 0:
+        lagged_regressors = OrderedDict({})
+        # TODO: optimize this computation for many lagged_regressors
+        for lagged_reg in df.columns:
+            if lagged_reg in config_lagged_regressors:
+                assert config_lagged_regressors[lagged_reg].n_lags > 0
+                covar_lags = config_lagged_regressors[lagged_reg].n_lags
+                lagged_regressors[lagged_reg] = df.loc[
+                    origin_index - covar_lags + 1 : origin_index + 1, lagged_reg
+                ].values
+        inputs["covariates"] = lagged_regressors
+
+        # OLD
+        # def _stride_lagged_features(df_col_name, feature_dims):
+        #     # only for case where max_lags > 0
+        #     assert feature_dims >= 1
+        #     series = df.loc[:, df_col_name].values
+        #     # Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
+        #     return np.array(
+        #         [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float32
+        #     )
+        # for covar in df.columns:
+        #     if covar in config_lagged_regressors:
+        #         assert config_lagged_regressors[covar].n_lags > 0
+        #         window = config_lagged_regressors[covar].n_lags
+        #         covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
+        # inputs["covariates"] = covariates
 
     # ----------- TODO convert to single sample version ----------------------
 
@@ -481,15 +510,6 @@ def tabularize_univariate_datetime_single_index(
     def _stride_future_time_features_for_forecasts(x):
         return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
 
-    def _stride_lagged_features(df_col_name, feature_dims):
-        # only for case where max_lags > 0
-        assert feature_dims >= 1
-        series = df.loc[:, df_col_name].values
-        # Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
-        return np.array(
-            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float32
-        )
-
     if config_seasonality is not None:
         seasonalities = seasonal_features_from_dates(df, config_seasonality)
         for name, features in seasonalities.items():
@@ -499,15 +519,6 @@ def tabularize_univariate_datetime_single_index(
                 # stride into num_forecast at dim=1 for each sample, just like we did with time
                 seasonalities[name] = _stride_time_features_for_forecasts(features)
         inputs["seasonalities"] = seasonalities
-
-    if config_lagged_regressors is not None and max_lags > 0:
-        covariates = OrderedDict({})
-        for covar in df.columns:
-            if covar in config_lagged_regressors:
-                assert config_lagged_regressors[covar].n_lags > 0
-                window = config_lagged_regressors[covar].n_lags
-                covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
-        inputs["covariates"] = covariates
 
     # get the regressors features
     if config_regressors is not None:
