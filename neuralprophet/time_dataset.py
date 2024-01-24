@@ -246,6 +246,7 @@ class TimeDataset(Dataset):
             predict_steps : int
                 number of steps to predict
         """
+        # IMPORTANT !!
         # TODO implement actual filtering
         return np.ones(len(df), dtype=bool)
 
@@ -296,7 +297,7 @@ class TimeDataset(Dataset):
             )
 
     def format_sample(self, inputs, targets=None):
-        """Convert tabularizes sample to correct formats.
+        """Convert tabularized sample to correct formats.
         Parameters
         ----------
             inputs : ordered dict
@@ -421,6 +422,8 @@ def tabularize_univariate_datetime_single_index(
     """
     max_lags = get_max_num_lags(config_lagged_regressors, n_lags)
     n_samples = 1
+    if max_lags == 0:
+        assert n_forecasts == 1
 
     # OLD: previous workaround
     # learning_rate = config_train.learning_rate
@@ -434,12 +437,41 @@ def tabularize_univariate_datetime_single_index(
     # ):
     #     n_samples = len(df) - max_lags + 1 - n_forecasts
 
+    if predict_mode:
+        targets = np.zeros((1, n_forecasts))
+        ## OLD
+        # # time is the time at each forecast step
+        # t = df.loc[:, "t"].values
+        # if max_lags == 0:
+        #     time = np.expand_dims(t, 1)
+        # else:
+        #     time = _stride_time_features_for_forecasts(t)
+        # inputs["time"] = time  # contains n_lags + n_forecasts
+        # targets = np.empty_like(time[:, n_lags:])
+        # targets = np.nan_to_num(targets)
+    else:
+        targets = df.loc[origin_index + 1 : origin_index + 1 + n_forecasts, "y_scaled"].values
+        targets = np.expand_dims(targets, axis=1)
+        ## Alternative
+        # x = df["y_scaled"].values
+        # targets = np.array([x[origin_index + 1 : origin_index + 1 + n_forecasts]], dtype=x.dtype)
+        ## OLD
+        # # time is the time at each forecast step
+        # t = df.loc[:, "t"].values
+        # if max_lags == 0:
+        #     time = np.expand_dims(t, 1)
+        # else:
+        #     time = _stride_time_features_for_forecasts(t)
+        # inputs["time"] = time  # contains n_lags + n_forecasts
+        # def _stride_future_time_features_for_forecasts(x):
+        # return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
+        # targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)
+
     # data is stored in OrderedDict
     inputs = OrderedDict({})
 
     # TIME: the time at each sample's lags and forecasts
     if max_lags == 0:
-        assert n_forecasts == 1
         inputs["time"] = df.loc[origin_index, "t"].values
         # TODO: Possibly need extra dim?
         # inputs["time"] = np.expand_dims(inputs["time"], 1)
@@ -508,7 +540,6 @@ def tabularize_univariate_datetime_single_index(
     if config_seasonality is not None:
         seasonalities = OrderedDict({})
         if max_lags == 0:
-            assert n_forecasts == 1
             dates = df.loc[origin_index, "ds"]
         else:
             dates = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "ds"]
@@ -648,57 +679,102 @@ def tabularize_univariate_datetime_single_index(
         #         seasonalities[name] = _stride_time_features_for_seasonality(features)
         # inputs["seasonalities"] = seasonalities
 
-    # ----------- TODO convert to single sample version ----------------------
-    # TODO: Targets
-    # TODO: Future Regressors
-    # TODO: Events
-    # TODO: Postprocessing
-
-    def _stride_time_features_for_forecasts(x):
-        window_size = n_lags + n_forecasts
-
-        if x.ndim == 1:
-            shape = (n_samples, window_size)
-        else:
-            shape = (n_samples, window_size) + x.shape[1:]
-
-        stride = x.strides[0]
-        strides = (stride, stride) + x.strides[1:]
-        start_index = max_lags - n_lags
-        return np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
-
-    def _stride_future_time_features_for_forecasts(x):
-        return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
-
-    # get the regressors features
+    # FUTURE REGRESSORS: get the future regressors features
     if config_regressors is not None:
-        additive_regressors, multiplicative_regressors = make_regressors_features(df, config_regressors)
+        # sort and divide regressors into multiplicative and additive
+        additive_regressors_names = []
+        multiplicative_regressors_names = []
+        for reg in sorted(df.columns.tolist()):
+            if reg in config_regressors:
+                mode = config_regressors[reg].mode
+                if mode == "additive":
+                    additive_regressors_names.append(reg)
+                else:
+                    multiplicative_regressors_names.append(reg)
 
+        # create numpy array of values of additive and multiplicative regressors, at correct indexes
+        # features dims: (n_samples/batch, n_forecasts, n_features/n_regressors)
         regressors = OrderedDict({})
+        regressors["additive"] = None
+        regressors["multiplicative"] = None
         if max_lags == 0:
-            if additive_regressors is not None:
-                regressors["additive"] = np.expand_dims(additive_regressors, axis=1)
-            if multiplicative_regressors is not None:
-                regressors["multiplicative"] = np.expand_dims(multiplicative_regressors, axis=1)
+            if len(additive_regressors_names) > 0:
+                regressors["additive"] = np.expand_dims(df.loc[origin_index, additive_regressors_names].values, axis=0)
+            if len(multiplicative_regressors_names) > 0:
+                regressors["multiplicative"] = np.expand_dims(
+                    df.loc[origin_index, multiplicative_regressors_names].values, axis=0
+                )
         else:
-            if additive_regressors is not None:
-                additive_regressor_feature_windows = []
-                # additive_regressor_feature_windows_lagged = []
-                for i in range(0, additive_regressors.shape[1]):
-                    # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    stride = _stride_time_features_for_forecasts(additive_regressors[:, i])
-                    additive_regressor_feature_windows.append(stride)
-                additive_regressors = np.dstack(additive_regressor_feature_windows)
-                regressors["additive"] = additive_regressors
+            if len(additive_regressors_names) > 0:
+                regressors_add_future_window = df.loc[
+                    origin_index + 1 : origin_index + 1 + n_forecasts, additive_regressors_names
+                ].values
+                regressors["additive"] = np.expand_dims(regressors_add_future_window, axis=0)
+                ## OLD
+                # additive_regressor_feature_windows = []
+                # # additive_regressor_feature_windows_lagged = []
+                # for i in range(0, len(additive_regressors_names)):
+                #     # stride into num_forecast at dim=1 for each sample, just like we did with time
+                #     x = additive_regressors[:, i]
+                #     window_size = n_lags + n_forecasts
 
-            if multiplicative_regressors is not None:
-                multiplicative_regressor_feature_windows = []
-                for i in range(0, multiplicative_regressors.shape[1]):
-                    stride = _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
-                    multiplicative_regressor_feature_windows.append(stride)
-                multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
-                regressors["multiplicative"] = multiplicative_regressors
+                #     if x.ndim == 1:
+                #         shape = (n_samples, window_size)
+                #     else:
+                #         shape = (n_samples, window_size) + x.shape[1:]
+
+                #     stride = x.strides[0]
+                #     strides = (stride, stride) + x.strides[1:]
+                #     start_index = max_lags - n_lags
+                #     stride = np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
+                #     additive_regressor_feature_windows.append(stride)
+                # additive_regressors = np.dstack(additive_regressor_feature_windows)
+                # regressors["additive"] = additive_regressors
+            if len(multiplicative_regressors_names) > 0:
+                regressors_mul_future_window = df.loc[
+                    origin_index + 1 : origin_index + 1 + n_forecasts, multiplicative_regressors_names
+                ].values
+                regressors["multiplicative"] = np.expand_dims(regressors_mul_future_window, axis=0)
         inputs["regressors"] = regressors
+
+        ## OLD Future regressors
+        # additive_regressors, multiplicative_regressors = make_regressors_features(df, config_regressors)
+        # for max_lags == 0, see code before merge
+        # if max_lags > 0:
+        # def _stride_time_features_for_forecasts(x):additive_regressors
+        #     window_size = n_lags + n_forecasts
+
+        #     if x.ndim == 1:
+        #         shape = (n_samples, window_size)
+        #     else:
+        #         shape = (n_samples, window_size) + x.shape[1:]
+
+        #     stride = x.strides[0]
+        #     strides = (stride, stride) + x.strides[1:]
+        #     start_index = max_lags - n_lags
+        #     return np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
+        # if additive_regressors is not None:
+        #     additive_regressor_feature_windows = []
+        #     # additive_regressor_feature_windows_lagged = []
+        #     for i in range(0, additive_regressors.shape[1]):
+        #         # stride into num_forecast at dim=1 for each sample, just like we did with time
+        #         stride = _stride_time_features_for_forecasts(additive_regressors[:, i])
+        #         additive_regressor_feature_windows.append(stride)
+        #     additive_regressors = np.dstack(additive_regressor_feature_windows)
+        #     regressors["additive"] = additive_regressors
+
+        # if multiplicative_regressors is not None:
+        #     multiplicative_regressor_feature_windows = []
+        #     for i in range(0, multiplicative_regressors.shape[1]):
+        #         stride = _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
+        #         multiplicative_regressor_feature_windows.append(stride)
+        #     multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
+        #     regressors["multiplicative"] = multiplicative_regressors
+        # inputs["regressors"] = regressors
+
+    # ----------- TODO convert to single sample version ----------------------
+    # TODO: Events
+    # TODO: Postprocessing & Formatting
 
     # get the events features
     if config_events is not None or config_country_holidays is not None:
@@ -730,12 +806,6 @@ def tabularize_univariate_datetime_single_index(
                 multiplicative_events = np.dstack(multiplicative_event_feature_windows)
                 events["multiplicative"] = multiplicative_events
         inputs["events"] = events
-
-    if predict_mode:
-        targets = np.empty_like(time[:, n_lags:])
-        targets = np.nan_to_num(targets)
-    else:
-        targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)
 
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
@@ -918,44 +988,44 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
     return additive_events, multiplicative_events
 
 
-def make_regressors_features(df, config_regressors):
-    """Construct arrays of all scalar regressor features
-    Parameters
-    ----------
-        df : pd.DataFrame
-            Dataframe with all values including the user specified regressors
-        config_regressors : configure.ConfigFutureRegressors
-            User specified regressors config
-    Returns
-    -------
-        np.array
-            All additive regressor features
-        np.array
-            All multiplicative regressor features
-    """
-    additive_regressors = pd.DataFrame()
-    multiplicative_regressors = pd.DataFrame()
+# def make_regressors_features(df, config_regressors):
+#     """Construct arrays of all scalar regressor features
+#     Parameters
+#     ----------
+#         df : pd.DataFrame
+#             Dataframe with all values including the user specified regressors
+#         config_regressors : configure.ConfigFutureRegressors
+#             User specified regressors config
+#     Returns
+#     -------
+#         np.array
+#             All additive regressor features
+#         np.array
+#             All multiplicative regressor features
+#     """
+#     additive_regressors = pd.DataFrame()
+#     multiplicative_regressors = pd.DataFrame()
 
-    for reg in df.columns:
-        if reg in config_regressors:
-            mode = config_regressors[reg].mode
-            if mode == "additive":
-                additive_regressors[reg] = df[reg]
-            else:
-                multiplicative_regressors[reg] = df[reg]
+#     for reg in df.columns:
+#         if reg in config_regressors:
+#             mode = config_regressors[reg].mode
+#             if mode == "additive":
+#                 additive_regressors[reg] = df[reg]
+#             else:
+#                 multiplicative_regressors[reg] = df[reg]
 
-    if not additive_regressors.empty:
-        additive_regressors = additive_regressors[sorted(additive_regressors.columns.tolist())]
-        additive_regressors = additive_regressors.values
-    else:
-        additive_regressors = None
-    if not multiplicative_regressors.empty:
-        multiplicative_regressors = multiplicative_regressors[sorted(multiplicative_regressors.columns.tolist())]
-        multiplicative_regressors = multiplicative_regressors.values
-    else:
-        multiplicative_regressors = None
+#     if not additive_regressors.empty:
+#         additive_regressors = additive_regressors[sorted(additive_regressors.columns.tolist())]
+#         additive_regressors = additive_regressors.values
+#     else:
+#         additive_regressors = None
+#     if not multiplicative_regressors.empty:
+#         multiplicative_regressors = multiplicative_regressors[sorted(multiplicative_regressors.columns.tolist())]
+#         multiplicative_regressors = multiplicative_regressors.values
+#     else:
+#         multiplicative_regressors = None
 
-    return additive_regressors, multiplicative_regressors
+#     return additive_regressors, multiplicative_regressors
 
 
 # def seasonal_features_from_dates(df, config_seasonality: configure.ConfigSeasonality):
