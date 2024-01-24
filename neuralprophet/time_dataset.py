@@ -440,19 +440,32 @@ def tabularize_univariate_datetime_single_index(
     # TIME: the time at each sample's lags and forecasts
     if max_lags == 0:
         assert n_forecasts == 1
-        # OLD: time = np.expand_dims(df.loc[origin_index, "t"].values, 1)
         inputs["time"] = df.loc[origin_index, "t"].values
+        # TODO: Possibly need extra dim?
+        # inputs["time"] = np.expand_dims(inputs["time"], 1)
     else:
-        # extract time value of n_lags steps before origin_index and n_forecasts steps starting at origin_index
-        ## OLD: inputs["time"] = _stride_time_features_for_forecasts(df.loc[:, "t"].values)
-        inputs["time"] = df[origin_index - n_lags : origin_index + n_forecasts, "t"].values
+        # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
+        inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "t"].values
+        ## OLD: Time
+        # def _stride_time_features_for_forecasts(x):
+        #     window_size = n_lags + n_forecasts
+
+        #     if x.ndim == 1:
+        #         shape = (n_samples, window_size)
+        #     else:
+        #         shape = (n_samples, window_size) + x.shape[1:]
+
+        #     stride = x.strides[0]
+        #     strides = (stride, stride) + x.strides[1:]
+        #     start_index = max_lags - n_lags
+        #     return np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
+        # inputs["time"] = _stride_time_features_for_forecasts(df.loc[:, "t"].values)
 
     # LAGS: From y-series, extract preceeding n_lags steps up to and including origin_index
     if n_lags >= 1 and "y" in df.columns:
         # inputs["lags"] = np.array(df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values, dtype=np.float32)
         inputs["lags"] = df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values
-
-        # OLD
+        # OLD Lags
         # def _stride_lagged_features(df_col_name, feature_dims):
         #     # only for case where max_lags > 0
         #     assert feature_dims >= 1
@@ -475,8 +488,7 @@ def tabularize_univariate_datetime_single_index(
                     origin_index - covar_lags + 1 : origin_index + 1, lagged_reg
                 ].values
         inputs["covariates"] = lagged_regressors
-
-        # OLD
+        # OLD Covariates
         # def _stride_lagged_features(df_col_name, feature_dims):
         #     # only for case where max_lags > 0
         #     assert feature_dims >= 1
@@ -494,54 +506,45 @@ def tabularize_univariate_datetime_single_index(
 
     # SEASONALITIES
     if config_seasonality is not None:
-        dates = df["ds"]
-        assert len(dates.shape) == 1
         seasonalities = OrderedDict({})
+        if max_lags == 0:
+            assert n_forecasts == 1
+            dates = df.loc[origin_index, "ds"]
+        else:
+            dates = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "ds"]
+        assert len(dates.shape) == 1
         # Seasonality features
         for name, period in config_seasonality.periods.items():
             if period.resolution > 0:
                 if config_seasonality.computation == "fourier":
+                    # Compute Fourier series components with the specified frequency and order.
                     # convert to days since epoch
                     t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
-                    # Provides Fourier series components with the specified frequency and order.
-                    # features: Matrix with dims (2*resolution, length len(dates))
+                    # features: Matrix with dims (length len(dates), 2*resolution)
                     features = np.column_stack(
-                        [
-                            fun((2.0 * (i + 1) * np.pi * t / period.period))
-                            for i in range(period.resolution)
-                            for fun in (np.sin, np.cos)
-                        ]
+                        [np.sin((2.0 * (i + 1) * np.pi * t / period.period)) for i in range(period.resolution)]
+                        + [np.cos((2.0 * (i + 1) * np.pi * t / period.period)) for i in range(period.resolution)]
                     )
-
+                    # Single nested loop version:
+                    # features = np.column_stack(
+                    #     [
+                    #         fun((2.0 * (i + 1) * np.pi * t / period.period))
+                    #         for i in range(period.resolution)
+                    #         for fun in (np.sin, np.cos)
+                    #     ]
+                    # )
                 else:
                     raise NotImplementedError
                 if period.condition_name is not None:
                     # multiply seasonality features with condition mask/values
                     features = features * df[period.condition_name].values[:, np.newaxis]
+
                 seasonalities[name] = features
-        for name, features in seasonalities.items():
-            if max_lags == 0:
-                seasonalities[name] = np.expand_dims(features, axis=1)
-            else:
-
-                def _stride_time_features_for_seasonality(x):
-                    window_size = n_lags + n_forecasts
-
-                    if x.ndim == 1:
-                        shape = (n_samples, window_size)
-                    else:
-                        shape = (n_samples, window_size) + x.shape[1:]
-
-                    stride = x.strides[0]
-                    strides = (stride, stride) + x.strides[1:]
-                    start_index = max_lags - n_lags
-                    return np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
-
-                # stride into num_forecast at dim=1 for each sample, just like we did with time
-                seasonalities[name] = _stride_time_features_for_seasonality(features)
+                # TODO: Possibly need extra dim?
+                # seasonalities[name] = np.expand_dims(seasonalities[name], 1)
         inputs["seasonalities"] = seasonalities
 
-        ## OLD
+        ## OLD Seasonality
         # def fourier_series_t(t, period, series_order):
         #     """Provides Fourier series components with the specified frequency and order.
         #     Note
@@ -609,7 +612,7 @@ def tabularize_univariate_datetime_single_index(
         #     for name, period in config_seasonality.periods.items():
         #         if period.resolution > 0:
         #             if config_seasonality.computation == "fourier":
-        #                 # features: Matrix with dims (2*resolution, length len(dates))
+        #                 # features: Matrix with dims (length len(dates), 2*resolution)
         #                 features = fourier_series(
         #                     dates=dates,
         #                     period=period.period,
@@ -646,6 +649,9 @@ def tabularize_univariate_datetime_single_index(
         # inputs["seasonalities"] = seasonalities
 
     # ----------- TODO convert to single sample version ----------------------
+    # TODO: Future Regressors
+    # TODO: Events
+    # TODO: Postprocessing
 
     def _stride_time_features_for_forecasts(x):
         window_size = n_lags + n_forecasts
