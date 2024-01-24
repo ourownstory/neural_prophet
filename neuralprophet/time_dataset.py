@@ -66,21 +66,24 @@ class TimeDataset(Dataset):
         # Future TODO: integrate some of these preprocessing steps happening outside?
 
         self.df = df
+        self.df = self.df.reset_index(drop=True)  # Future TODO: Is this still necessary post restructuring?
         self.name = name
         self.meta = OrderedDict({})
         self.meta["df_name"] = self.name
         self.config_args = kwargs
 
-        # TODO: Preprocessing of features (added to self.df)
-        # - events and holidays: convert date-time occurence dictionary to a column of values in the self.df
-        # - These will then be later tabularized in __get_item___
-        # add events based on configuration to df
-        self.df = self.df.reset_index(drop=True)
+        # Preprocessing of events and holidays features (added to self.df)
         (
             self.df,
             self.additive_event_and_holiday_names,
             self.multiplicative_event_and_holiday_names,
         ) = add_event_features_to_df(self.df, self.config_args.config_events, self.config_args.config_country_holidays)
+        # pre-sort additive/multiplicative regressors
+        self.additive_regressors_names, self.multiplicative_regressors_names = sort_regressor_names(
+            self.config_args.config_regressors
+        )
+
+        # Construct index map
         self.sample2index_map, self.length = self.create_sample2index_map(df)
 
     def __getitem__(self, index):
@@ -118,8 +121,13 @@ class TimeDataset(Dataset):
         df_index = self.sample_index_to_df_index(index)
 
         # Tabularize - extract features from dataframe at given target index position
-        inputs, target = tabularize_univariate_datetime_single_index(self.df, origin_index=df_index, **self.config_args)
+        inputs, target = self.tabularize_univariate_datetime_single_index(
+            self, self.df, origin_index=df_index, **self.config_args
+        )
+        # ------------------
+        # Important! TODO: integrate format_sample into tabularize_univariate_datetime_single_index
         sample, target = self.format_sample(inputs, target)
+        # --------------------------
         return sample, target, self.meta
 
     def __len__(self):
@@ -557,23 +565,14 @@ class TimeDataset(Dataset):
             # inputs["seasonalities"] = seasonalities
 
         # FUTURE REGRESSORS: get the future regressors features
+        # create numpy array of values of additive and multiplicative regressors, at correct indexes
+        # features dims: (n_samples/batch, n_forecasts, n_features/n_regressors)
         if config_regressors is not None:
-            # sort and divide regressors into multiplicative and additive
-            additive_regressors_names = []
-            multiplicative_regressors_names = []
-            for reg in sorted(df.columns.tolist()):
-                if reg in config_regressors:
-                    mode = config_regressors[reg].mode
-                    if mode == "additive":
-                        additive_regressors_names.append(reg)
-                    else:
-                        multiplicative_regressors_names.append(reg)
-
-            # create numpy array of values of additive and multiplicative regressors, at correct indexes
-            # features dims: (n_samples/batch, n_forecasts, n_features/n_regressors)
             regressors = OrderedDict({})
             regressors["additive"] = None
             regressors["multiplicative"] = None
+            additive_regressors_names = self.additive_regressors_names
+            multiplicative_regressors_names = self.multiplicative_regressors_names
             if max_lags == 0:
                 if len(additive_regressors_names) > 0:
                     regressors["additive"] = np.expand_dims(
@@ -711,22 +710,20 @@ class TimeDataset(Dataset):
         #             events["multiplicative"] = multiplicative_events
         #     inputs["events"] = events
 
-        # ----------- TODO convert to single sample version ----------------------
-        # TODO: Postprocessing & Formatting
-
-        tabularized_input_shapes_str = ""
-        for key, value in inputs.items():
-            if key in [
-                "seasonalities",
-                "covariates",
-                "events",
-                "regressors",
-            ]:
-                for name, period_features in value.items():
-                    tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
-            else:
-                tabularized_input_shapes_str += f"    {key} {value.shape} \n"
-        log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
+        # ONLY FOR DEBUGGING
+        # tabularized_input_shapes_str = ""
+        # for key, value in inputs.items():
+        #     if key in [
+        #         "seasonalities",
+        #         "covariates",
+        #         "events",
+        #         "regressors",
+        #     ]:
+        #         for name, period_features in value.items():
+        #             tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
+        #     else:
+        #         tabularized_input_shapes_str += f"    {key} {value.shape} \n"
+        # log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
 
         return inputs, targets
 
@@ -1191,3 +1188,19 @@ def create_nan_mask(df, predict_steps, drop_missing):
             "Inputs/targets with missing values detected. "
             "Please either adjust imputation parameters, or set 'drop_missing' to True to drop those samples."
         )
+
+
+def sort_regressor_names(config):
+    additive_regressors_names = []
+    multiplicative_regressors_names = []
+    if config is not None:
+        # sort and divide regressors into multiplicative and additive
+        additive_regressors_names = []
+        multiplicative_regressors_names = []
+        for reg in sorted(list(config.keys())):
+            mode = config[reg].mode
+            if mode == "additive":
+                additive_regressors_names.append(reg)
+            else:
+                multiplicative_regressors_names.append(reg)
+    return additive_regressors_names, multiplicative_regressors_names
