@@ -649,6 +649,7 @@ def tabularize_univariate_datetime_single_index(
         # inputs["seasonalities"] = seasonalities
 
     # ----------- TODO convert to single sample version ----------------------
+    # TODO: Targets
     # TODO: Future Regressors
     # TODO: Events
     # TODO: Postprocessing
