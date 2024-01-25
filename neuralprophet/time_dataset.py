@@ -77,10 +77,12 @@ class TimeDataset(Dataset):
             self.df,
             self.additive_event_and_holiday_names,
             self.multiplicative_event_and_holiday_names,
-        ) = add_event_features_to_df(self.df, self.config_args.config_events, self.config_args.config_country_holidays)
+        ) = add_event_features_to_df(
+            self.df, self.config_args["config_events"], self.config_args["config_country_holidays"]
+        )
         # pre-sort additive/multiplicative regressors
         self.additive_regressors_names, self.multiplicative_regressors_names = sort_regressor_names(
-            self.config_args.config_regressors
+            self.config_args["config_regressors"]
         )
 
         # Construct index map
@@ -122,7 +124,7 @@ class TimeDataset(Dataset):
 
         # Tabularize - extract features from dataframe at given target index position
         inputs, target = self.tabularize_univariate_datetime_single_index(
-            self, self.df, origin_index=df_index, **self.config_args
+            df=self.df, origin_index=df_index, **self.config_args
         )
         # ------------------
         # Important! TODO: integrate format_sample into tabularize_univariate_datetime_single_index
@@ -164,7 +166,9 @@ class TimeDataset(Dataset):
         # TODO Create NAN-free index mapping of sample index to df index
         # analogous to `self.drop_nan_after_init(
         # self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
-        nan_mask = create_nan_mask(df)  # boolean array where NAN are False
+        nan_mask = create_nan_mask(
+            df, self.config_args["predict_steps"], self.config_args["config_missing"].drop_missing
+        )  # boolean array where NAN are False
 
         # Combine masks
         mask = np.logical_and(prediction_frequency_mask, origin_start_end_mask)
