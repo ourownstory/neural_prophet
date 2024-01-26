@@ -1215,3 +1215,33 @@ def sort_regressor_names(config):
             else:
                 multiplicative_regressors_names.append(reg)
     return additive_regressors_names, multiplicative_regressors_names
+
+
+## TODO: move - used elsewhere, not in this file.
+def make_country_specific_holidays_df(year_list, country):
+    """
+    Make dataframe of country specific holidays for given years and countries
+    Parameters
+    ----------
+        year_list : list
+            List of years
+        country : str, list
+            List of country names
+    Returns
+    -------
+        pd.DataFrame
+            Containing country specific holidays df with columns 'ds' and 'holiday'
+    """
+    # iterate over countries and get holidays for each country
+    # convert to list if not already
+    if isinstance(country, str):
+        country = [country]
+    country_specific_holidays = {}
+    for single_country in country:
+        single_country_specific_holidays = get_country_holidays(single_country, year_list)
+        # only add holiday if it is not already in the dict
+        country_specific_holidays.update(single_country_specific_holidays)
+    country_specific_holidays_dict = defaultdict(list)
+    for date, holiday in country_specific_holidays.items():
+        country_specific_holidays_dict[holiday].append(pd.to_datetime(date))
+    return country_specific_holidays_dict
