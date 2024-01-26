@@ -344,7 +344,7 @@ class TimeDataset(Dataset):
             # targets = np.empty_like(time[:, n_lags:])
             # targets = np.nan_to_num(targets)
         else:
-            targets = df.loc[origin_index + 1 : origin_index + 1 + n_forecasts, "y_scaled"]
+            targets = df.loc[origin_index + 1 : origin_index + 1 + n_forecasts, "y_scaled"].values
             targets = np.expand_dims(targets, axis=1)
             ## Alternative
             # x = df["y_scaled"].values
