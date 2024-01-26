@@ -72,6 +72,13 @@ class TimeDataset(Dataset):
         self.meta["df_name"] = self.name
         self.config_args = kwargs
 
+        self.two_level_inputs = [
+            "seasonalities",
+            "covariates",
+            "events",
+            "regressors",
+        ]
+
         # Preprocessing of events and holidays features (added to self.df)
         (
             self.df,
