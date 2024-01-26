@@ -344,7 +344,7 @@ class TimeDataset(Dataset):
             # targets = np.empty_like(time[:, n_lags:])
             # targets = np.nan_to_num(targets)
         else:
-            targets = df.loc[origin_index + 1 : origin_index + 1 + n_forecasts, "y_scaled"].values
+            targets = df.loc[origin_index + 1 : origin_index + 1 + n_forecasts, "y_scaled"]
             targets = np.expand_dims(targets, axis=1)
             ## Alternative
             # x = df["y_scaled"].values
@@ -366,12 +366,12 @@ class TimeDataset(Dataset):
 
         # TIME: the time at each sample's lags and forecasts
         if max_lags == 0:
-            inputs["time"] = df.loc[origin_index, "t"].values
+            inputs["time"] = df.loc[origin_index, "t"]
             # TODO: Possibly need extra dim?
             # inputs["time"] = np.expand_dims(inputs["time"], 1)
         else:
             # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
-            inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "t"].values
+            inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "t"]
             ## OLD: Time
             # def _stride_time_features_for_forecasts(x):
             #     window_size = n_lags + n_forecasts
@@ -390,7 +390,7 @@ class TimeDataset(Dataset):
         # LAGS: From y-series, extract preceeding n_lags steps up to and including origin_index
         if n_lags >= 1 and "y" in df.columns:
             # inputs["lags"] = np.array(df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values, dtype=np.float32)
-            inputs["lags"] = df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values
+            inputs["lags"] = df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"]
             # OLD Lags
             # def _stride_lagged_features(df_col_name, feature_dims):
             #     # only for case where max_lags > 0
@@ -410,9 +410,7 @@ class TimeDataset(Dataset):
                 if lagged_reg in config_lagged_regressors:
                     assert config_lagged_regressors[lagged_reg].n_lags > 0
                     covar_lags = config_lagged_regressors[lagged_reg].n_lags
-                    lagged_regressors[lagged_reg] = df.loc[
-                        origin_index - covar_lags + 1 : origin_index + 1, lagged_reg
-                    ].values
+                    lagged_regressors[lagged_reg] = df.loc[origin_index - covar_lags + 1 : origin_index + 1, lagged_reg]
             inputs["covariates"] = lagged_regressors
             # OLD Covariates
             # def _stride_lagged_features(df_col_name, feature_dims):
@@ -586,18 +584,16 @@ class TimeDataset(Dataset):
             multiplicative_regressors_names = self.multiplicative_regressors_names
             if max_lags == 0:
                 if len(additive_regressors_names) > 0:
-                    regressors["additive"] = np.expand_dims(
-                        df.loc[origin_index, additive_regressors_names].values, axis=0
-                    )
+                    regressors["additive"] = np.expand_dims(df.loc[origin_index, additive_regressors_names], axis=0)
                 if len(multiplicative_regressors_names) > 0:
                     regressors["multiplicative"] = np.expand_dims(
-                        df.loc[origin_index, multiplicative_regressors_names].values, axis=0
+                        df.loc[origin_index, multiplicative_regressors_names], axis=0
                     )
             else:
                 if len(additive_regressors_names) > 0:
                     regressors_add_future_window = df.loc[
                         origin_index + 1 : origin_index + 1 + n_forecasts, additive_regressors_names
-                    ].values
+                    ]
                     regressors["additive"] = np.expand_dims(regressors_add_future_window, axis=0)
                     ## OLD
                     # additive_regressor_feature_windows = []
@@ -622,7 +618,7 @@ class TimeDataset(Dataset):
                 if len(multiplicative_regressors_names) > 0:
                     regressors_mul_future_window = df.loc[
                         origin_index + 1 : origin_index + 1 + n_forecasts, multiplicative_regressors_names
-                    ].values
+                    ]
                     regressors["multiplicative"] = np.expand_dims(regressors_mul_future_window, axis=0)
             inputs["regressors"] = regressors
 
@@ -669,23 +665,21 @@ class TimeDataset(Dataset):
         events["multiplicative"] = None
         if max_lags == 0:
             if len(self.additive_event_and_holiday_names) > 0:
-                events["additive"] = np.expand_dims(
-                    df.loc[origin_index, self.additive_event_and_holiday_names].values, axis=0
-                )
+                events["additive"] = np.expand_dims(df.loc[origin_index, self.additive_event_and_holiday_names], axis=0)
             if len(self.multiplicative_event_and_holiday_names) > 0:
                 events["multiplicative"] = np.expand_dims(
-                    df.loc[origin_index, self.multiplicative_event_and_holiday_names].values, axis=0
+                    df.loc[origin_index, self.multiplicative_event_and_holiday_names], axis=0
                 )
         else:
             if len(self.additive_event_and_holiday_names) > 0:
                 events_add_future_window = df.loc[
                     origin_index + 1 : origin_index + 1 + n_forecasts, self.additive_event_and_holiday_names
-                ].values
+                ]
                 events["additive"] = np.expand_dims(events_add_future_window, axis=0)
             if len(self.multiplicative_event_and_holiday_names) > 0:
                 events_mul_future_window = df.loc[
                     origin_index + 1 : origin_index + 1 + n_forecasts, self.multiplicative_event_and_holiday_names
-                ].values
+                ]
                 events["multiplicative"] = np.expand_dims(events_mul_future_window, axis=0)
         inputs["events"] = events
 
@@ -1118,7 +1112,7 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
     # OR
     # timestamps = df["timestamps"].apply(lambda x: pd.to_datetime(x[0]))
 
-    timestamps = pd.to_datetime(df.loc[:, "ds"].values)
+    timestamps = pd.to_datetime(df.loc[:, "ds"])
     filter_masks = []
     for key, value in prediction_frequency.items():
         if key == "daily-hour":
@@ -1217,31 +1211,6 @@ def sort_regressor_names(config):
     return additive_regressors_names, multiplicative_regressors_names
 
 
-## TODO: move - used elsewhere, not in this file.
+## TODO: rename - used elsewhere, not in this file.
 def make_country_specific_holidays_df(year_list, country):
-    """
-    Make dataframe of country specific holidays for given years and countries
-    Parameters
-    ----------
-        year_list : list
-            List of years
-        country : str, list
-            List of country names
-    Returns
-    -------
-        pd.DataFrame
-            Containing country specific holidays df with columns 'ds' and 'holiday'
-    """
-    # iterate over countries and get holidays for each country
-    # convert to list if not already
-    if isinstance(country, str):
-        country = [country]
-    country_specific_holidays = {}
-    for single_country in country:
-        single_country_specific_holidays = get_country_holidays(single_country, year_list)
-        # only add holiday if it is not already in the dict
-        country_specific_holidays.update(single_country_specific_holidays)
-    country_specific_holidays_dict = defaultdict(list)
-    for date, holiday in country_specific_holidays.items():
-        country_specific_holidays_dict[holiday].append(pd.to_datetime(date))
-    return country_specific_holidays_dict
+    return make_country_specific_holidays_dict(year_list, country)
