@@ -15,29 +15,6 @@ from neuralprophet.hdays_utils import get_country_holidays
 log = logging.getLogger("NP.time_dataset")
 
 
-class GlobalTimeDataset(Dataset):
-    def __init__(self, df, **kwargs):
-        """Initialize Timedataset from time-series df.
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
-                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
-            **kwargs : dict
-                Identical to :meth:`tabularize_univariate_datetime`
-        """
-        # # TODO (future): vectorize
-        timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
-        self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
-        self.length = sum(timedataset.length for timedataset in timedatasets)
-
-    def __len__(self):
-        return self.length
-
-    def __getitem__(self, idx):
-        return self.combined_timedataset[idx]
-
-
 class TimeDataset(Dataset):
     """Create a PyTorch dataset of a tabularized time-series"""
 
@@ -65,11 +42,11 @@ class TimeDataset(Dataset):
         # ->_create_dataset calls prep_or_copy_df, then returns GlobalTimeDataset
         # Future TODO: integrate some of these preprocessing steps happening outside?
 
-        self.df = df
-        self.df = self.df.reset_index(drop=True)  # Needed for index based operations in __get_item__
-        self.name = name
+        self.df = df.reset_index(drop=True)  # Needed for index based operations in __get_item__
+        if "index" in list(self.df.columns):  # should not be the case
+            self.df = self.df.drop("index", axis=1)
         self.meta = OrderedDict({})
-        self.meta["df_name"] = self.name
+        self.meta["df_name"] = name
         self.config_args = kwargs
 
         self.two_level_inputs = [
@@ -211,7 +188,7 @@ class TimeDataset(Dataset):
         }
         targets_dtype = torch.float
 
-        sample_target = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
+        sample_target = torch.from_numpy(targets).type(targets_dtype)
 
         for key, data in inputs.items():
             if key in self.two_level_inputs:
@@ -330,7 +307,9 @@ class TimeDataset(Dataset):
         #     n_samples = len(df) - max_lags + 1 - n_forecasts
 
         if predict_mode:
-            targets = np.zeros((1, n_forecasts), dtype=np.float32)
+            # targets = np.zeros((1, n_forecasts), dtype=np.float32)
+            targets = np.zeros(n_forecasts, dtype=np.float32)
+
             ## OLD
             # # time is the time at each forecast step
             # t = df.loc[:, "t"].values
@@ -342,42 +321,52 @@ class TimeDataset(Dataset):
             # targets = np.empty_like(time[:, n_lags:])
             # targets = np.nan_to_num(targets)
         else:
-            targets = df.loc[origin_index + 1 : origin_index + 1 + n_forecasts, "y_scaled"].values
-            targets = np.expand_dims(np.array(targets, dtype=np.float32), axis=0)
-            ## Alternative
-            # x = df["y_scaled"].values
-            # targets = np.array([x[origin_index + 1 : origin_index + 1 + n_forecasts]], dtype=x.dtype)
-            ## OLD
-            # # time is the time at each forecast step
-            # t = df.loc[:, "t"].values
-            # if max_lags == 0:
-            #     time = np.expand_dims(t, 1)
-            # else:
-            #     time = _stride_time_features_for_forecasts(t)
-            # inputs["time"] = time  # contains n_lags + n_forecasts
-            # def _stride_future_time_features_for_forecasts(x):
-            # return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
-            # targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)
+            if n_forecasts == 1:
+                if max_lags == 0:
+                    targets = df.at[origin_index, "y_scaled"]
+                if max_lags > 0:
+                    targets = df.at[origin_index + 1, "y_scaled"]
+            else:
+                # Note: df.loc is inclusive of slice end, while df.iloc is not.
+                targets = df.loc[origin_index + 1 : origin_index + n_forecasts, "y_scaled"].values
+                # targets = np.array(targets, dtype=np.float32) # optional
+
+                ## Alternative 1
+                # targets = df.loc[:, "y_scaled"].iloc[origin_index + 1 : origin_index + 1 + n_forecasts].values
+                # targets = np.expand_dims(np.array(targets, dtype=np.float32), axis=0)
+                ## Alternative 2
+                # x = df["y_scaled"].values
+                # targets = np.array([x[origin_index + 1 : origin_index + 1 + n_forecasts]], dtype=x.dtype)
+                ## OLD
+                # # time is the time at each forecast step
+                # t = df.loc[:, "t"].values
+                # if max_lags == 0:
+                #     time = np.expand_dims(t, 1)
+                # else:
+                #     time = _stride_time_features_for_forecasts(t)
+                # inputs["time"] = time  # contains n_lags + n_forecasts
+                # def _stride_future_time_features_for_forecasts(x):
+                # return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
+                # targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)
 
         # data is stored in OrderedDict
         inputs = OrderedDict({})
 
         # TIME: the time at each sample's lags and forecasts
         if max_lags == 0:
-            # inputs["time"] = df.loc[origin_index, "t"]
-            inputs["time"] = np.expand_dims(df.loc[origin_index, "t"], 0)
+            # inputs["time"] = np.expand_dims(df.at[origin_index, "t"], 0)
+            inputs["time"] = df.at[origin_index, "t"]
         else:
             # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
-            inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "t"].values
+            # Note: df.loc is inclusive of slice end, while df.iloc is not.
+            inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
             ## OLD: Time
             # def _stride_time_features_for_forecasts(x):
             #     window_size = n_lags + n_forecasts
-
             #     if x.ndim == 1:
             #         shape = (n_samples, window_size)
             #     else:
             #         shape = (n_samples, window_size) + x.shape[1:]
-
             #     stride = x.strides[0]
             #     strides = (stride, stride) + x.strides[1:]
             #     start_index = max_lags - n_lags
@@ -385,11 +374,10 @@ class TimeDataset(Dataset):
             # inputs["time"] = _stride_time_features_for_forecasts(df.loc[:, "t"].values)
 
         # LAGS: From y-series, extract preceeding n_lags steps up to and including origin_index
-        if n_lags >= 1 and "y" in df.columns:
-            # inputs["lags"] = np.array(df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values, dtype=np.float32)
-            inputs["lags"] = np.array(
-                df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values, dtype=np.float32
-            )
+        if n_lags >= 1 and "y_scaled" in df.columns:
+            # Note: df.loc is inclusive of slice end, while df.iloc is not.
+            # inputs["lags"] = np.array(df.loc[origin_index - n_lags + 1 : origin_index, "y_scaled"].values, dtype=np.float32)
+            inputs["lags"] = df.loc[origin_index - n_lags + 1 : origin_index, "y_scaled"].values
             # OLD Lags
             # def _stride_lagged_features(df_col_name, feature_dims):
             #     # only for case where max_lags > 0
@@ -407,10 +395,11 @@ class TimeDataset(Dataset):
             # Future TODO: optimize this computation for many lagged_regressors
             for lagged_reg in df.columns:
                 if lagged_reg in config_lagged_regressors:
-                    assert config_lagged_regressors[lagged_reg].n_lags > 0
                     covar_lags = config_lagged_regressors[lagged_reg].n_lags
+                    assert covar_lags > 0
+                    # Note: df.loc is inclusive of slice end, while df.iloc is not.
                     lagged_regressors[lagged_reg] = df.loc[
-                        origin_index - covar_lags + 1 : origin_index + 1, lagged_reg
+                        origin_index - covar_lags + 1 : origin_index, lagged_reg
                     ].values
             inputs["covariates"] = lagged_regressors
             # OLD Covariates
@@ -433,9 +422,10 @@ class TimeDataset(Dataset):
         if config_seasonality is not None:
             seasonalities = OrderedDict({})
             if max_lags == 0:
-                dates = pd.Series(df.loc[origin_index, "ds"])
+                dates = pd.Series(df.at[origin_index, "ds"])
             else:
-                dates = pd.Series(df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "ds"])
+                # Note: df.loc is inclusive of slice end, while df.iloc is not.
+                dates = pd.Series(df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "ds"].values)
             # Seasonality features
             for name, period in config_seasonality.periods.items():
                 if period.resolution > 0:
@@ -463,10 +453,9 @@ class TimeDataset(Dataset):
                     if period.condition_name is not None:
                         # multiply seasonality features with condition mask/values
                         features = features * df[period.condition_name].values[:, np.newaxis]
-
                     seasonalities[name] = features
                     # TODO: Possibly need extra dim?
-                    # seasonalities[name] = np.expand_dims(seasonalities[name], 1)
+                    # seasonalities[name] = np.expand_dims(seasonalities[name], 0)
             inputs["seasonalities"] = seasonalities
 
             ## OLD Seasonality
@@ -593,7 +582,7 @@ class TimeDataset(Dataset):
             else:
                 if len(self.additive_regressors_names) > 0:
                     regressors_add_future_window = df.loc[
-                        origin_index + 1 : origin_index + 1 + n_forecasts, self.additive_regressors_names
+                        origin_index + 1 : origin_index + n_forecasts, self.additive_regressors_names
                     ]
                     regressors["additive"] = np.expand_dims(regressors_add_future_window, axis=0)
                     ## OLD
@@ -618,7 +607,7 @@ class TimeDataset(Dataset):
                     # regressors["additive"] = additive_regressors
                 if len(self.multiplicative_regressors_names) > 0:
                     regressors_mul_future_window = df.loc[
-                        origin_index + 1 : origin_index + 1 + n_forecasts, self.multiplicative_regressors_names
+                        origin_index + 1 : origin_index + n_forecasts, self.multiplicative_regressors_names
                     ]
                     regressors["multiplicative"] = np.expand_dims(regressors_mul_future_window, axis=0)
             inputs["regressors"] = regressors
@@ -678,12 +667,12 @@ class TimeDataset(Dataset):
             else:
                 if len(self.additive_event_and_holiday_names) > 0:
                     events_add_future_window = df.loc[
-                        origin_index + 1 : origin_index + 1 + n_forecasts, self.additive_event_and_holiday_names
+                        origin_index + 1 : origin_index + n_forecasts, self.additive_event_and_holiday_names
                     ]
                     events["additive"] = np.expand_dims(events_add_future_window, axis=0)
                 if len(self.multiplicative_event_and_holiday_names) > 0:
                     events_mul_future_window = df.loc[
-                        origin_index + 1 : origin_index + 1 + n_forecasts, self.multiplicative_event_and_holiday_names
+                        origin_index + 1 : origin_index + n_forecasts, self.multiplicative_event_and_holiday_names
                     ]
                     events["multiplicative"] = np.expand_dims(events_mul_future_window, axis=0)
             inputs["events"] = events
@@ -736,6 +725,35 @@ class TimeDataset(Dataset):
         # log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
 
         return inputs, targets
+
+
+class GlobalTimeDataset(TimeDataset):
+    def __init__(self, df, **kwargs):
+        """Initialize Timedataset from time-series df.
+        Parameters
+        ----------
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
+                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
+            **kwargs : dict
+                Identical to :meth:`tabularize_univariate_datetime`
+        """
+        df_names = list(np.unique(df.loc[:, "ID"].values))
+        if len(df_names) == 1:
+            super().__init__(df, df_names[0], **kwargs)
+        else:
+            raise NotImplementedError
+            # TODO: re-implement with JIT sample computation in TimeDatase
+            # # TODO (future): vectorize
+            # timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
+            # self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
+            # self.length = sum(timedataset.length for timedataset in timedatasets)
+
+    # def __len__(self):
+    #     return self.length
+
+    # def __getitem__(self, idx):
+    #     return self.combined_timedataset[idx]
 
 
 def fourier_series(dates, period, series_order):

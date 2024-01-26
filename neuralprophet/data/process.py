@@ -345,6 +345,11 @@ def _validate_column_name(
         "extra_regressors_multiplicative",
         "multiplicative_terms",
         "ID",
+        "y_scaled",
+        "ds",
+        "t",
+        "y",
+        "index",
     ]
     rn_l = [n + "_lower" for n in reserved_names]
     rn_u = [n + "_upper" for n in reserved_names]
@@ -495,7 +500,7 @@ def _handle_missing_data(
         df_grouped = df.groupby("ID").apply(lambda x: x.set_index("ds").resample(freq).asfreq()).drop(columns=["ID"])
         n_missing_dates = len(df_grouped) - len(df)
         if n_missing_dates > 0:
-            df = df_grouped.reset_index()
+            df = df_grouped.reset_index(drop=True)
             log.info(f"Added {n_missing_dates} missing dates.")
 
     if config_regressors is not None:

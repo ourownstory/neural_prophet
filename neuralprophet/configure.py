@@ -41,10 +41,9 @@ class Normalization:
         config_events: Optional[ConfigEvents] = None,
         config_seasonality: Optional[ConfigSeasonality] = None,
     ):
-        if len(df["ID"].unique()) == 1:
-            if not self.global_normalization:
-                log.info("Setting normalization to global as only one dataframe provided for training.")
-                self.global_normalization = True
+        if len(df["ID"].unique()) == 1 and not self.global_normalization:
+            log.info("Setting normalization to global as only one dataframe provided for training.")
+            self.global_normalization = True
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df=df,
             normalize=self.normalize,

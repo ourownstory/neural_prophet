@@ -801,7 +801,7 @@ class TimeNet(pl.LightningModule):
         # Metrics
         if self.metrics_enabled:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
-            target_denorm = self.denormalize(targets.squeeze(dim=2))
+            target_denorm = self.denormalize(targets)
             self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss", loss, **self.log_args)
             self.log("RegLoss", reg_loss, **self.log_args)
