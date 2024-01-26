@@ -366,9 +366,8 @@ class TimeDataset(Dataset):
 
         # TIME: the time at each sample's lags and forecasts
         if max_lags == 0:
-            inputs["time"] = df.loc[origin_index, "t"]
-            # TODO: Possibly need extra dim?
-            # inputs["time"] = np.expand_dims(inputs["time"], 1)
+            # inputs["time"] = df.loc[origin_index, "t"]
+            inputs["time"] = np.expand_dims(df.loc[origin_index, "t"], 0)
         else:
             # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
             inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "t"]
@@ -441,9 +440,7 @@ class TimeDataset(Dataset):
                     if config_seasonality.computation == "fourier":
                         # Compute Fourier series components with the specified frequency and order.
                         # convert to days since epoch
-                        t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float32)) / (
-                            3600 * 24.0
-                        )
+                        t = np.array((dates - datetime(1900, 1, 1)).total_seconds()) / (3600 * 24.0)
                         # features: Matrix with dims (length len(dates), 2*resolution)
                         features = np.column_stack(
                             [np.sin((2.0 * (i + 1) * np.pi * t / period.period)) for i in range(period.resolution)]
@@ -659,28 +656,32 @@ class TimeDataset(Dataset):
         # FUTURE EVENTS: get the events features
         # create numpy array of values of additive and multiplicative events, at correct indexes
         # features dims: (n_samples/batch, n_forecasts, n_features/n_events)
-        events = OrderedDict({})
-        events["additive"] = None
-        events["multiplicative"] = None
-        if max_lags == 0:
-            if len(self.additive_event_and_holiday_names) > 0:
-                events["additive"] = np.expand_dims(df.loc[origin_index, self.additive_event_and_holiday_names], axis=0)
-            if len(self.multiplicative_event_and_holiday_names) > 0:
-                events["multiplicative"] = np.expand_dims(
-                    df.loc[origin_index, self.multiplicative_event_and_holiday_names], axis=0
-                )
-        else:
-            if len(self.additive_event_and_holiday_names) > 0:
-                events_add_future_window = df.loc[
-                    origin_index + 1 : origin_index + 1 + n_forecasts, self.additive_event_and_holiday_names
-                ]
-                events["additive"] = np.expand_dims(events_add_future_window, axis=0)
-            if len(self.multiplicative_event_and_holiday_names) > 0:
-                events_mul_future_window = df.loc[
-                    origin_index + 1 : origin_index + 1 + n_forecasts, self.multiplicative_event_and_holiday_names
-                ]
-                events["multiplicative"] = np.expand_dims(events_mul_future_window, axis=0)
-        inputs["events"] = events
+        any_events = 0 < len(self.additive_event_and_holiday_names + self.multiplicative_event_and_holiday_names)
+        if any_events:
+            events = OrderedDict({})
+            events["additive"] = None
+            events["multiplicative"] = None
+            if max_lags == 0:
+                if len(self.additive_event_and_holiday_names) > 0:
+                    events["additive"] = np.expand_dims(
+                        df.loc[origin_index, self.additive_event_and_holiday_names], axis=0
+                    )
+                if len(self.multiplicative_event_and_holiday_names) > 0:
+                    events["multiplicative"] = np.expand_dims(
+                        df.loc[origin_index, self.multiplicative_event_and_holiday_names], axis=0
+                    )
+            else:
+                if len(self.additive_event_and_holiday_names) > 0:
+                    events_add_future_window = df.loc[
+                        origin_index + 1 : origin_index + 1 + n_forecasts, self.additive_event_and_holiday_names
+                    ]
+                    events["additive"] = np.expand_dims(events_add_future_window, axis=0)
+                if len(self.multiplicative_event_and_holiday_names) > 0:
+                    events_mul_future_window = df.loc[
+                        origin_index + 1 : origin_index + 1 + n_forecasts, self.multiplicative_event_and_holiday_names
+                    ]
+                    events["multiplicative"] = np.expand_dims(events_mul_future_window, axis=0)
+            inputs["events"] = events
 
         ## OLD
         # # get the events features
