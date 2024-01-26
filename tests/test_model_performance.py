@@ -146,6 +146,7 @@ def test_PeytonManning():
 def test_YosemiteTemps():
     df = pd.read_csv(YOS_FILE)
     m = NeuralProphet(
+        learning_rate=0.01,
         n_lags=36,
         n_forecasts=12,
         changepoints_range=0.9,
@@ -171,7 +172,10 @@ def test_YosemiteTemps():
 
 def test_AirPassengers():
     df = pd.read_csv(AIR_FILE)
-    m = NeuralProphet(seasonality_mode="multiplicative")
+    m = NeuralProphet(
+        learning_rate=0.01,
+        seasonality_mode="multiplicative",
+    )
     df_train, df_test = m.split_df(df=df, freq="MS", valid_p=0.1)
 
     system_speed, std = get_system_speed()
@@ -194,6 +198,7 @@ def test_EnergyPriceDaily():
     df["temp"] = df["temperature"]
 
     m = NeuralProphet(
+        learning_rate=0.01,
         n_forecasts=7,
         n_changepoints=0,
         yearly_seasonality=True,

@@ -232,16 +232,14 @@ class TimeDataset(Dataset):
                 # if key == "timestamps": sample_input[key] = data
                 # else: sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
                 sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
-        sample_input = self._split_nested_dict(sample_input)
 
         # TODO Can this be skipped for a single sample?
-        # TODO Can this be optimized?
+        # Alternatively, Can this be optimized?
         # Split nested dict into list of dicts with same keys as sample_input.
-        def split_dict(sample_input, index):
-            return {k: v[index] if not isinstance(v, dict) else split_dict(v, index) for k, v in sample_input.items()}
-
-        length = next(iter(sample_input.values())).shape[0]
-        sample_input = [split_dict(sample_input, i) for i in range(length)]
+        # def split_dict(sample_input, index):
+        # return {k: v[index] if not isinstance(v, dict) else split_dict(v, index) for k, v in sample_input.items()}
+        # length = next(iter(sample_input.values())).shape[0]
+        # sample_input = [split_dict(sample_input, i) for i in range(length)]
 
         ## timestamps should no longer be present here?
         # sample_input.pop("timestamps") # Exact timestamps are not needed anymore
@@ -332,7 +330,7 @@ class TimeDataset(Dataset):
         #     n_samples = len(df) - max_lags + 1 - n_forecasts
 
         if predict_mode:
-            targets = np.zeros((1, n_forecasts))
+            targets = np.zeros((1, n_forecasts), dtype=np.float32)
             ## OLD
             # # time is the time at each forecast step
             # t = df.loc[:, "t"].values
@@ -345,7 +343,7 @@ class TimeDataset(Dataset):
             # targets = np.nan_to_num(targets)
         else:
             targets = df.loc[origin_index + 1 : origin_index + 1 + n_forecasts, "y_scaled"].values
-            targets = np.expand_dims(targets, axis=1)
+            targets = np.expand_dims(np.array(targets, dtype=np.float32), axis=0)
             ## Alternative
             # x = df["y_scaled"].values
             # targets = np.array([x[origin_index + 1 : origin_index + 1 + n_forecasts]], dtype=x.dtype)
@@ -370,7 +368,7 @@ class TimeDataset(Dataset):
             inputs["time"] = np.expand_dims(df.loc[origin_index, "t"], 0)
         else:
             # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
-            inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "t"]
+            inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "t"].values
             ## OLD: Time
             # def _stride_time_features_for_forecasts(x):
             #     window_size = n_lags + n_forecasts
@@ -389,7 +387,9 @@ class TimeDataset(Dataset):
         # LAGS: From y-series, extract preceeding n_lags steps up to and including origin_index
         if n_lags >= 1 and "y" in df.columns:
             # inputs["lags"] = np.array(df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values, dtype=np.float32)
-            inputs["lags"] = df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"]
+            inputs["lags"] = np.array(
+                df.loc[origin_index - n_lags + 1 : origin_index + 1, "y_scaled"].values, dtype=np.float32
+            )
             # OLD Lags
             # def _stride_lagged_features(df_col_name, feature_dims):
             #     # only for case where max_lags > 0
@@ -409,7 +409,9 @@ class TimeDataset(Dataset):
                 if lagged_reg in config_lagged_regressors:
                     assert config_lagged_regressors[lagged_reg].n_lags > 0
                     covar_lags = config_lagged_regressors[lagged_reg].n_lags
-                    lagged_regressors[lagged_reg] = df.loc[origin_index - covar_lags + 1 : origin_index + 1, lagged_reg]
+                    lagged_regressors[lagged_reg] = df.loc[
+                        origin_index - covar_lags + 1 : origin_index + 1, lagged_reg
+                    ].values
             inputs["covariates"] = lagged_regressors
             # OLD Covariates
             # def _stride_lagged_features(df_col_name, feature_dims):
@@ -431,16 +433,18 @@ class TimeDataset(Dataset):
         if config_seasonality is not None:
             seasonalities = OrderedDict({})
             if max_lags == 0:
-                dates = df.loc[origin_index, "ds"]
+                dates = pd.Series(df.loc[origin_index, "ds"])
             else:
-                dates = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "ds"]
+                dates = pd.Series(df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "ds"])
             # Seasonality features
             for name, period in config_seasonality.periods.items():
                 if period.resolution > 0:
                     if config_seasonality.computation == "fourier":
                         # Compute Fourier series components with the specified frequency and order.
                         # convert to days since epoch
-                        t = np.array((dates - datetime(1900, 1, 1)).total_seconds()) / (3600 * 24.0)
+                        t = np.array((dates - datetime(1900, 1, 1)).dt.total_seconds().astype(np.float32)) / (
+                            3600 * 24.0
+                        )
                         # features: Matrix with dims (length len(dates), 2*resolution)
                         features = np.column_stack(
                             [np.sin((2.0 * (i + 1) * np.pi * t / period.period)) for i in range(period.resolution)]
@@ -572,23 +576,24 @@ class TimeDataset(Dataset):
         # FUTURE REGRESSORS: get the future regressors features
         # create numpy array of values of additive and multiplicative regressors, at correct indexes
         # features dims: (n_samples/batch, n_forecasts, n_features/n_regressors)
-        if config_regressors is not None:
+        any_future_regressors = 0 < len(self.additive_regressors_names + self.multiplicative_regressors_names)
+        if any_future_regressors:  # if config_regressors is not None:
             regressors = OrderedDict({})
-            regressors["additive"] = None
-            regressors["multiplicative"] = None
-            additive_regressors_names = self.additive_regressors_names
-            multiplicative_regressors_names = self.multiplicative_regressors_names
+            # regressors["additive"] = None
+            # regressors["multiplicative"] = None
             if max_lags == 0:
-                if len(additive_regressors_names) > 0:
-                    regressors["additive"] = np.expand_dims(df.loc[origin_index, additive_regressors_names], axis=0)
-                if len(multiplicative_regressors_names) > 0:
+                if len(self.additive_regressors_names) > 0:
+                    regressors["additive"] = np.expand_dims(
+                        df.loc[origin_index, self.additive_regressors_names], axis=0
+                    )
+                if len(self.multiplicative_regressors_names) > 0:
                     regressors["multiplicative"] = np.expand_dims(
-                        df.loc[origin_index, multiplicative_regressors_names], axis=0
+                        df.loc[origin_index, self.multiplicative_regressors_names], axis=0
                     )
             else:
-                if len(additive_regressors_names) > 0:
+                if len(self.additive_regressors_names) > 0:
                     regressors_add_future_window = df.loc[
-                        origin_index + 1 : origin_index + 1 + n_forecasts, additive_regressors_names
+                        origin_index + 1 : origin_index + 1 + n_forecasts, self.additive_regressors_names
                     ]
                     regressors["additive"] = np.expand_dims(regressors_add_future_window, axis=0)
                     ## OLD
@@ -611,9 +616,9 @@ class TimeDataset(Dataset):
                     #     additive_regressor_feature_windows.append(stride)
                     # additive_regressors = np.dstack(additive_regressor_feature_windows)
                     # regressors["additive"] = additive_regressors
-                if len(multiplicative_regressors_names) > 0:
+                if len(self.multiplicative_regressors_names) > 0:
                     regressors_mul_future_window = df.loc[
-                        origin_index + 1 : origin_index + 1 + n_forecasts, multiplicative_regressors_names
+                        origin_index + 1 : origin_index + 1 + n_forecasts, self.multiplicative_regressors_names
                     ]
                     regressors["multiplicative"] = np.expand_dims(regressors_mul_future_window, axis=0)
             inputs["regressors"] = regressors
@@ -659,8 +664,8 @@ class TimeDataset(Dataset):
         any_events = 0 < len(self.additive_event_and_holiday_names + self.multiplicative_event_and_holiday_names)
         if any_events:
             events = OrderedDict({})
-            events["additive"] = None
-            events["multiplicative"] = None
+            # events["additive"] = None
+            # events["multiplicative"] = None
             if max_lags == 0:
                 if len(self.additive_event_and_holiday_names) > 0:
                     events["additive"] = np.expand_dims(
@@ -1211,6 +1216,25 @@ def sort_regressor_names(config):
     return additive_regressors_names, multiplicative_regressors_names
 
 
-## TODO: rename - used elsewhere, not in this file.
-def make_country_specific_holidays_df(year_list, country):
-    return make_country_specific_holidays_dict(year_list, country)
+# ## TODO: rename - used elsewhere, not in this file.
+# def make_country_specific_holidays_df(year_list, country):
+#     return make_country_specific_holidays_dict(year_list, country)
+
+
+# def split_nested_dict(inputs):
+#     """Split nested dict into list of dicts.
+#     Parameters
+#     ----------
+#         inputs : ordered dict
+#             Nested dict to be split.
+#     Returns
+#     -------
+#         list of dicts
+#             List of dicts with same keys as inputs.
+#     """
+
+#     def split_dict(inputs, index):
+#         return {k: v[index] if not isinstance(v, dict) else split_dict(v, index) for k, v in inputs.items()}
+
+#     length = next(iter(inputs.values())).shape[0]
+#     return [split_dict(inputs, i) for i in range(length)]
