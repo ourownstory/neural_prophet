@@ -66,7 +66,7 @@ class TimeDataset(Dataset):
         # Future TODO: integrate some of these preprocessing steps happening outside?
 
         self.df = df
-        self.df = self.df.reset_index(drop=True)  # Future TODO: Is this still necessary post restructuring?
+        self.df = self.df.reset_index(drop=True)  # Needed for index based operations in __get_item__
         self.name = name
         self.meta = OrderedDict({})
         self.meta["df_name"] = self.name
@@ -435,7 +435,6 @@ class TimeDataset(Dataset):
                 dates = df.loc[origin_index, "ds"]
             else:
                 dates = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts + 1, "ds"]
-            assert len(dates.shape) == 1
             # Seasonality features
             for name, period in config_seasonality.periods.items():
                 if period.resolution > 0:
