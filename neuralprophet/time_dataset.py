@@ -572,19 +572,18 @@ class TimeDataset(Dataset):
             # regressors["multiplicative"] = None
             if max_lags == 0:
                 if len(self.additive_regressors_names) > 0:
-                    regressors["additive"] = np.expand_dims(
-                        df.loc[origin_index, self.additive_regressors_names], axis=0
-                    )
+                    regressors["additive"] = df.loc[origin_index, self.additive_regressors_names].values
+                    # regressors["additive"] = np.expand_dims(regressors["additive"], axis=0)
                 if len(self.multiplicative_regressors_names) > 0:
-                    regressors["multiplicative"] = np.expand_dims(
-                        df.loc[origin_index, self.multiplicative_regressors_names], axis=0
-                    )
+                    regressors["multiplicative"] = df.loc[origin_index, self.multiplicative_regressors_names].values
+                    # regressors["multiplicative"] = np.expand_dims(regressors["multiplicative"], axis=0)
             else:
                 if len(self.additive_regressors_names) > 0:
-                    regressors_add_future_window = df.loc[
+                    regressors["additive"] = df.loc[
                         origin_index + 1 : origin_index + n_forecasts, self.additive_regressors_names
-                    ]
-                    regressors["additive"] = np.expand_dims(regressors_add_future_window, axis=0)
+                    ].values
+                    # regressors["additive"] = np.expand_dims(regressors["additive"], axis=0)
+
                     ## OLD
                     # additive_regressor_feature_windows = []
                     # # additive_regressor_feature_windows_lagged = []
@@ -605,11 +604,13 @@ class TimeDataset(Dataset):
                     #     additive_regressor_feature_windows.append(stride)
                     # additive_regressors = np.dstack(additive_regressor_feature_windows)
                     # regressors["additive"] = additive_regressors
+
                 if len(self.multiplicative_regressors_names) > 0:
-                    regressors_mul_future_window = df.loc[
+                    regressors["multiplicative"] = df.loc[
                         origin_index + 1 : origin_index + n_forecasts, self.multiplicative_regressors_names
-                    ]
-                    regressors["multiplicative"] = np.expand_dims(regressors_mul_future_window, axis=0)
+                    ].values
+                    # regressors["multiplicative"] = np.expand_dims(regressors["multiplicative"], axis=0)
+
             inputs["regressors"] = regressors
 
             ## OLD Future regressors
@@ -657,24 +658,22 @@ class TimeDataset(Dataset):
             # events["multiplicative"] = None
             if max_lags == 0:
                 if len(self.additive_event_and_holiday_names) > 0:
-                    events["additive"] = np.expand_dims(
-                        df.loc[origin_index, self.additive_event_and_holiday_names], axis=0
-                    )
+                    events["additive"] = df.loc[origin_index, self.additive_event_and_holiday_names].values
+                    # events["additive"] = np.expand_dims( events["additive"], axis=0)
                 if len(self.multiplicative_event_and_holiday_names) > 0:
-                    events["multiplicative"] = np.expand_dims(
-                        df.loc[origin_index, self.multiplicative_event_and_holiday_names], axis=0
-                    )
+                    events["multiplicative"] = df.loc[origin_index, self.multiplicative_event_and_holiday_names].values
+                    # events["multiplicative"] = np.expand_dims(events["multiplicative"], axis=0)
             else:
                 if len(self.additive_event_and_holiday_names) > 0:
-                    events_add_future_window = df.loc[
+                    events["additive"] = df.loc[
                         origin_index + 1 : origin_index + n_forecasts, self.additive_event_and_holiday_names
-                    ]
-                    events["additive"] = np.expand_dims(events_add_future_window, axis=0)
+                    ].values
+                    # events["additive"] = np.expand_dims(events["additive"], axis=0)
                 if len(self.multiplicative_event_and_holiday_names) > 0:
-                    events_mul_future_window = df.loc[
+                    events["multiplicative"] = df.loc[
                         origin_index + 1 : origin_index + n_forecasts, self.multiplicative_event_and_holiday_names
-                    ]
-                    events["multiplicative"] = np.expand_dims(events_mul_future_window, axis=0)
+                    ].values
+                    # events["multiplicative"] = np.expand_dims(events["multiplicative"], axis=0)
             inputs["events"] = events
 
         ## OLD
