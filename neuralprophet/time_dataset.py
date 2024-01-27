@@ -313,9 +313,8 @@ class TimeDataset(Dataset):
         #     n_samples = len(df) - max_lags + 1 - n_forecasts
 
         if predict_mode:
-            # targets = np.zeros((1, n_forecasts), dtype=np.float32)
-            # targets = np.zeros(n_forecasts, dtype=np.float32)
-            targets = torch.zeros(n_forecasts, dtype=torch.float32)
+            targets = torch.zeros((1, 1, n_forecasts), dtype=torch.float32)
+            # targets = torch.zeros(n_forecasts, dtype=torch.float32)
 
             ## OLD
             # # time is the time at each forecast step
@@ -333,40 +332,42 @@ class TimeDataset(Dataset):
                     targets = df.at[origin_index, "y_scaled"]
                 if max_lags > 0:
                     targets = df.at[origin_index + 1, "y_scaled"]
-                targets = torch.tensor(targets, dtype=torch.float32)
             else:
                 # Note: df.loc is inclusive of slice end, while df.iloc is not.
                 targets = df.loc[origin_index + 1 : origin_index + n_forecasts, "y_scaled"].values
-                # targets = np.array(targets, dtype=np.float32) # optional
-                targets = torch.as_tensor(targets, dtype=torch.float32)
+            targets = np.expand_dims(np.expand_dims(targets, 0), 0)
+            targets = torch.as_tensor(targets, dtype=torch.float32)
 
-                ## Alternative 1
-                # targets = df.loc[:, "y_scaled"].iloc[origin_index + 1 : origin_index + 1 + n_forecasts].values
-                # targets = np.expand_dims(np.array(targets, dtype=np.float32), axis=0)
-                ## Alternative 2
-                # x = df["y_scaled"].values
-                # targets = np.array([x[origin_index + 1 : origin_index + 1 + n_forecasts]], dtype=x.dtype)
-                ## OLD
-                # # time is the time at each forecast step
-                # t = df.loc[:, "t"].values
-                # if max_lags == 0:
-                #     time = np.expand_dims(t, 1)
-                # else:
-                #     time = _stride_time_features_for_forecasts(t)
-                # inputs["time"] = time  # contains n_lags + n_forecasts
-                # def _stride_future_time_features_for_forecasts(x):
-                # return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
-                # targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)
+            ## Alternative 1
+            # targets = df.loc[:, "y_scaled"].iloc[origin_index + 1 : origin_index + 1 + n_forecasts].values
+            # targets = np.expand_dims(np.array(targets, dtype=np.float32), axis=0)
+            ## Alternative 2
+            # x = df["y_scaled"].values
+            # targets = np.array([x[origin_index + 1 : origin_index + 1 + n_forecasts]], dtype=x.dtype)
+            ## OLD
+            # # time is the time at each forecast step
+            # t = df.loc[:, "t"].values
+            # if max_lags == 0:
+            #     time = np.expand_dims(t, 1)
+            # else:
+            #     time = _stride_time_features_for_forecasts(t)
+            # inputs["time"] = time  # contains n_lags + n_forecasts
+            # def _stride_future_time_features_for_forecasts(x):
+            # return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
+            # targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)
 
         # TIME: the time at each sample's lags and forecasts
         if max_lags == 0:
-            # inputs["time"] = np.expand_dims(df.at[origin_index, "t"], 0)
             inputs["time"] = df.at[origin_index, "t"]
+            inputs["time"] = np.expand_dims(inputs["time"], 0)
             inputs["time"] = torch.tensor(inputs["time"], dtype=torch.float32)
+
         else:
             # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
             # Note: df.loc is inclusive of slice end, while df.iloc is not.
             inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
+            if n_forecasts == 1:
+                inputs["time"] = np.expand_dims(inputs["time"], 0)
             inputs["time"] = torch.as_tensor(inputs["time"], dtype=torch.float32)
             ## OLD: Time
             # def _stride_time_features_for_forecasts(x):
