@@ -111,10 +111,10 @@ class TimeDataset(Dataset):
             df=self.df, origin_index=df_index, **self.config_args
         )
         # ------------------
-        # Important! TODO: integrate format_sample into tabularize_univariate_datetime_single_index
-        sample, target = self.format_sample(inputs, target)
+        # DONE: integrate format_sample into tabularize_univariate_datetime_single_index
+        # sample, target = self.format_sample(inputs, target)
         # --------------------------
-        return sample, target, self.meta
+        return inputs, target, self.meta
 
     def __len__(self):
         """Overrides Parent class method to get data length."""
@@ -167,61 +167,64 @@ class TimeDataset(Dataset):
 
         return sample_index_2_df_origin_index, num_samples
 
-    def format_sample(self, inputs, targets=None):
-        """Convert tabularized sample to correct formats.
-        Parameters
-        ----------
-            inputs : ordered dict
-                Identical to returns from :meth:`tabularize_univariate_datetime`
-            targets : np.array, float
-                Identical to returns from :meth:`tabularize_univariate_datetime`
-        """
-        sample_input = OrderedDict({})
-        inputs_dtype = {
-            "time": torch.float,
-            # "timestamps": np.datetime64,
-            "seasonalities": torch.float,
-            "events": torch.float,
-            "lags": torch.float,
-            "covariates": torch.float,
-            "regressors": torch.float,
-        }
-        targets_dtype = torch.float
+    # def format_sample(self, inputs, targets=None):
+    #     """Convert tabularized sample to correct formats.
+    #     Parameters
+    #     ----------
+    #         inputs : ordered dict
+    #             Identical to returns from :meth:`tabularize_univariate_datetime`
+    #         targets : np.array, float
+    #             Identical to returns from :meth:`tabularize_univariate_datetime`
+    #     """
+    #     sample_input = OrderedDict({})
+    #     sample_input["time"] = inputs["time"]
+    #     if "lags" in inputs.keys():
+    #         sample_input["lags"] = inputs["lags"]
+    #     inputs_dtype = {
+    #         # "time": torch.float,
+    #         # "timestamps": np.datetime64,
+    #         # "lags": torch.float,
+    #         "seasonalities": torch.float,
+    #         "events": torch.float,
+    #         "covariates": torch.float,
+    #         "regressors": torch.float,
+    #     }
 
-        sample_target = torch.from_numpy(targets).type(targets_dtype)
+    #     for key, data in inputs.items():
+    #         if key in self.two_level_inputs:
+    #             sample_input[key] = OrderedDict({})
+    #             for name, features in data.items():
+    #                 if features.dtype != np.float32:
+    #                     features = features.astype(np.float32, copy=False)
 
-        for key, data in inputs.items():
-            if key in self.two_level_inputs:
-                sample_input[key] = OrderedDict({})
-                for name, features in data.items():
-                    if features.dtype != np.float32:
-                        features = features.astype(np.float32, copy=False)
+    #                 tensor = torch.from_numpy(features)
 
-                    tensor = torch.from_numpy(features)
+    #                 if tensor.dtype != inputs_dtype[key]:
+    #                     sample_input[key][name] = tensor.to(
+    #                         dtype=inputs_dtype[key]
+    #                     )  # this can probably be removed, but was included in the previous code
+    #                 else:
+    #                     sample_input[key][name] = tensor
 
-                    if tensor.dtype != inputs_dtype[key]:
-                        sample_input[key][name] = tensor.to(
-                            dtype=inputs_dtype[key]
-                        )  # this can probably be removed, but was included in the previous code
-                    else:
-                        sample_input[key][name] = tensor
-            else:
-                # if key == "timestamps": sample_input[key] = data
-                # else: sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
-                sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
+    #         # No longer needed as - now directly casting to torch in tabularize
+    #         # else: # single_level items
+    #         #     sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
+    #         #     ## OLD
+    #         #     # if key == "timestamps": sample_input[key] = data
+    #         #     # else: sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
 
-        # TODO Can this be skipped for a single sample?
-        # Alternatively, Can this be optimized?
-        # Split nested dict into list of dicts with same keys as sample_input.
-        # def split_dict(sample_input, index):
-        # return {k: v[index] if not isinstance(v, dict) else split_dict(v, index) for k, v in sample_input.items()}
-        # length = next(iter(sample_input.values())).shape[0]
-        # sample_input = [split_dict(sample_input, i) for i in range(length)]
+    #     # TODO Can this be skipped for a single sample?
+    #     # Alternatively, Can this be optimized?
+    #     # Split nested dict into list of dicts with same keys as sample_input.
+    #     # def split_dict(sample_input, index):
+    #     # return {k: v[index] if not isinstance(v, dict) else split_dict(v, index) for k, v in sample_input.items()}
+    #     # length = next(iter(sample_input.values())).shape[0]
+    #     # sample_input = [split_dict(sample_input, i) for i in range(length)]
 
-        ## timestamps should no longer be present here?
-        # sample_input.pop("timestamps") # Exact timestamps are not needed anymore
+    #     ## timestamps should no longer be present here?
+    #     # sample_input.pop("timestamps") # Exact timestamps are not needed anymore
 
-        return sample_input, sample_target
+    #     return sample_input, targets
 
     def tabularize_univariate_datetime_single_index(
         self,
@@ -289,6 +292,9 @@ class TimeDataset(Dataset):
             np.array, float
                 Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
+        # data is stored in OrderedDict
+        inputs = OrderedDict({})
+
         max_lags = get_max_num_lags(config_lagged_regressors, n_lags)
         n_samples = 1
         if max_lags == 0:
@@ -308,7 +314,8 @@ class TimeDataset(Dataset):
 
         if predict_mode:
             # targets = np.zeros((1, n_forecasts), dtype=np.float32)
-            targets = np.zeros(n_forecasts, dtype=np.float32)
+            # targets = np.zeros(n_forecasts, dtype=np.float32)
+            targets = torch.zeros(n_forecasts, dtype=torch.float32)
 
             ## OLD
             # # time is the time at each forecast step
@@ -326,10 +333,12 @@ class TimeDataset(Dataset):
                     targets = df.at[origin_index, "y_scaled"]
                 if max_lags > 0:
                     targets = df.at[origin_index + 1, "y_scaled"]
+                targets = torch.tensor(targets, dtype=torch.float32)
             else:
                 # Note: df.loc is inclusive of slice end, while df.iloc is not.
                 targets = df.loc[origin_index + 1 : origin_index + n_forecasts, "y_scaled"].values
                 # targets = np.array(targets, dtype=np.float32) # optional
+                targets = torch.as_tensor(targets, dtype=torch.float32)
 
                 ## Alternative 1
                 # targets = df.loc[:, "y_scaled"].iloc[origin_index + 1 : origin_index + 1 + n_forecasts].values
@@ -349,17 +358,16 @@ class TimeDataset(Dataset):
                 # return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
                 # targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)
 
-        # data is stored in OrderedDict
-        inputs = OrderedDict({})
-
         # TIME: the time at each sample's lags and forecasts
         if max_lags == 0:
             # inputs["time"] = np.expand_dims(df.at[origin_index, "t"], 0)
             inputs["time"] = df.at[origin_index, "t"]
+            inputs["time"] = torch.tensor(inputs["time"], dtype=torch.float32)
         else:
             # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
             # Note: df.loc is inclusive of slice end, while df.iloc is not.
             inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
+            inputs["time"] = torch.as_tensor(inputs["time"], dtype=torch.float32)
             ## OLD: Time
             # def _stride_time_features_for_forecasts(x):
             #     window_size = n_lags + n_forecasts
@@ -378,6 +386,7 @@ class TimeDataset(Dataset):
             # Note: df.loc is inclusive of slice end, while df.iloc is not.
             # inputs["lags"] = np.array(df.loc[origin_index - n_lags + 1 : origin_index, "y_scaled"].values, dtype=np.float32)
             inputs["lags"] = df.loc[origin_index - n_lags + 1 : origin_index, "y_scaled"].values
+            inputs["lags"] = torch.as_tensor(inputs["lags"], dtype=torch.float32)
             # OLD Lags
             # def _stride_lagged_features(df_col_name, feature_dims):
             #     # only for case where max_lags > 0
@@ -401,6 +410,7 @@ class TimeDataset(Dataset):
                     lagged_regressors[lagged_reg] = df.loc[
                         origin_index - covar_lags + 1 : origin_index, lagged_reg
                     ].values
+                    lagged_regressors[lagged_reg] = torch.as_tensor(lagged_regressors[lagged_reg], dtype=torch.float32)
             inputs["covariates"] = lagged_regressors
             # OLD Covariates
             # def _stride_lagged_features(df_col_name, feature_dims):
@@ -453,7 +463,7 @@ class TimeDataset(Dataset):
                     if period.condition_name is not None:
                         # multiply seasonality features with condition mask/values
                         features = features * df[period.condition_name].values[:, np.newaxis]
-                    seasonalities[name] = features
+                    seasonalities[name] = torch.as_tensor(features, dtype=torch.float32)
                     # TODO: Possibly need extra dim?
                     # seasonalities[name] = np.expand_dims(seasonalities[name], 0)
             inputs["seasonalities"] = seasonalities
@@ -574,15 +584,18 @@ class TimeDataset(Dataset):
                 if len(self.additive_regressors_names) > 0:
                     regressors["additive"] = df.loc[origin_index, self.additive_regressors_names].values
                     # regressors["additive"] = np.expand_dims(regressors["additive"], axis=0)
+                    regressors["additive"] = torch.as_tensor(regressors["additive"], dtype=torch.float32)
                 if len(self.multiplicative_regressors_names) > 0:
                     regressors["multiplicative"] = df.loc[origin_index, self.multiplicative_regressors_names].values
                     # regressors["multiplicative"] = np.expand_dims(regressors["multiplicative"], axis=0)
+                    regressors["multiplicative"] = torch.as_tensor(regressors["multiplicative"], dtype=torch.float32)
             else:
                 if len(self.additive_regressors_names) > 0:
                     regressors["additive"] = df.loc[
                         origin_index + 1 : origin_index + n_forecasts, self.additive_regressors_names
                     ].values
                     # regressors["additive"] = np.expand_dims(regressors["additive"], axis=0)
+                    regressors["additive"] = torch.as_tensor(regressors["additive"], dtype=torch.float32)
 
                     ## OLD
                     # additive_regressor_feature_windows = []
@@ -610,6 +623,7 @@ class TimeDataset(Dataset):
                         origin_index + 1 : origin_index + n_forecasts, self.multiplicative_regressors_names
                     ].values
                     # regressors["multiplicative"] = np.expand_dims(regressors["multiplicative"], axis=0)
+                    regressors["multiplicative"] = torch.as_tensor(regressors["multiplicative"], dtype=torch.float32)
 
             inputs["regressors"] = regressors
 
@@ -660,20 +674,25 @@ class TimeDataset(Dataset):
                 if len(self.additive_event_and_holiday_names) > 0:
                     events["additive"] = df.loc[origin_index, self.additive_event_and_holiday_names].values
                     # events["additive"] = np.expand_dims( events["additive"], axis=0)
+                    events["additive"] = torch.as_tensor(events["additive"], dtype=torch.float32)
                 if len(self.multiplicative_event_and_holiday_names) > 0:
                     events["multiplicative"] = df.loc[origin_index, self.multiplicative_event_and_holiday_names].values
                     # events["multiplicative"] = np.expand_dims(events["multiplicative"], axis=0)
+                    events["multiplicative"] = torch.as_tensor(events["multiplicative"], dtype=torch.float32)
             else:
                 if len(self.additive_event_and_holiday_names) > 0:
                     events["additive"] = df.loc[
                         origin_index + 1 : origin_index + n_forecasts, self.additive_event_and_holiday_names
                     ].values
                     # events["additive"] = np.expand_dims(events["additive"], axis=0)
+                    events["additive"] = torch.as_tensor(events["additive"], dtype=torch.float32)
+
                 if len(self.multiplicative_event_and_holiday_names) > 0:
                     events["multiplicative"] = df.loc[
                         origin_index + 1 : origin_index + n_forecasts, self.multiplicative_event_and_holiday_names
                     ].values
                     # events["multiplicative"] = np.expand_dims(events["multiplicative"], axis=0)
+                    events["multiplicative"] = torch.as_tensor(events["multiplicative"], dtype=torch.float32)
             inputs["events"] = events
 
         ## OLD
