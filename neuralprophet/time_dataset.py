@@ -42,7 +42,7 @@ class TimeDataset(Dataset):
         # ->_create_dataset calls prep_or_copy_df, then returns GlobalTimeDataset
         # Future TODO: integrate some of these preprocessing steps happening outside?
 
-        self.df = df.reset_index(drop=True)  # Needed for index based operations in __get_item__
+        self.df = df.reset_index(drop=True)  # Needed for index based operations in __getitem__
         if "index" in list(self.df.columns):  # should not be the case
             self.df = self.df.drop("index", axis=1)
         self.meta = OrderedDict({})
