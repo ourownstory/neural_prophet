@@ -86,7 +86,7 @@ class TimeDataset(Dataset):
         Parameters
         ----------
             index : int
-                Sample location in dataset
+                Sample location in dataset, starting at 0, maximum at length-1
         Returns
         -------
         OrderedDict
@@ -471,22 +471,45 @@ class GlobalTimeDataset(TimeDataset):
             **kwargs : dict
                 Identical to :meth:`tabularize_univariate_datetime`
         """
-        df_names = list(np.unique(df.loc[:, "ID"].values))
-        if len(df_names) == 1:
-            super().__init__(df, df_names[0], **kwargs)
+        self.df_names = sorted(list(np.unique(df.loc[:, "ID"].values)))
+        if len(self.df_names) == 1:
+            super().__init__(df, self.df_names[0], **kwargs)
         else:
-            raise NotImplementedError
+            self.datasets = OrderedDict({})
+            for df_name in self.df_names:
+                self.datasets[df_name] = TimeDataset(df[df["ID"] == df_name], df_name, **kwargs)
+            self.length = sum(dataset.length for (name, dataset) in self.datasets.items())
+            self.global_sample_to_local_ID = np.full(shape=self.length, fill_value="__df__", dtype=str)
+            self.global_sample_to_local_sample = np.full(shape=self.length, fill_value=0, dtype=int)
+            global_position = 0
+            for name, dataset in self.datasets.items():
+                local_length = dataset.length
+                self.global_sample_to_local_ID[global_position : global_position + local_length] = name
+                self.global_sample_to_local_sample[global_position : global_position + local_length] = np.arange(
+                    local_length, dtype=int
+                )
+                global_position += local_length
+
+            # raise NotImplementedError
             # TODO: re-implement with JIT sample computation in TimeDatase
             # # TODO (future): vectorize
             # timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
             # self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
             # self.length = sum(timedataset.length for timedataset in timedatasets)
 
-    # def __len__(self):
-    #     return self.length
+    def __len__(self):
+        return self.length
 
-    # def __getitem__(self, idx):
-    #     return self.combined_timedataset[idx]
+    def __getitem__(self, idx):
+        """Overrides parent class method to get an item at index.
+        Parameters
+        ----------
+            index : int
+                Sample location in dataset, starting at 0
+        """
+        df_name = self.global_sample_to_local_ID[idx]
+        local_pos = self.global_sample_to_local_sample[idx]
+        return self.datasets[df_name].__getitem__(local_pos)
 
 
 def fourier_series(dates, period, series_order):

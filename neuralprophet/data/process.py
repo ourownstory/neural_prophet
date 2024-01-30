@@ -500,7 +500,7 @@ def _handle_missing_data(
         df_grouped = df.groupby("ID").apply(lambda x: x.set_index("ds").resample(freq).asfreq()).drop(columns=["ID"])
         n_missing_dates = len(df_grouped) - len(df)
         if n_missing_dates > 0:
-            df = df_grouped.reset_index(drop=True)
+            df = df_grouped.reset_index()
             log.info(f"Added {n_missing_dates} missing dates.")
 
     if config_regressors is not None:
