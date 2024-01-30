@@ -594,7 +594,7 @@ class TimeDataset(Dataset):
             else:
                 if len(self.additive_regressors_names) > 0:
                     regressors["additive"] = df.loc[
-                        origin_index + 1 : origin_index + n_forecasts, self.additive_regressors_names
+                        origin_index + 1 - n_lags : origin_index + n_forecasts, self.additive_regressors_names
                     ].values
                     # regressors["additive"] = np.expand_dims(regressors["additive"], axis=0)
                     regressors["additive"] = torch.as_tensor(regressors["additive"], dtype=torch.float32)
@@ -622,7 +622,7 @@ class TimeDataset(Dataset):
 
                 if len(self.multiplicative_regressors_names) > 0:
                     regressors["multiplicative"] = df.loc[
-                        origin_index + 1 : origin_index + n_forecasts, self.multiplicative_regressors_names
+                        origin_index + 1 - n_lags : origin_index + n_forecasts, self.multiplicative_regressors_names
                     ].values
                     # regressors["multiplicative"] = np.expand_dims(regressors["multiplicative"], axis=0)
                     regressors["multiplicative"] = torch.as_tensor(regressors["multiplicative"], dtype=torch.float32)
