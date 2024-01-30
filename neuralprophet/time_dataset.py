@@ -18,7 +18,22 @@ log = logging.getLogger("NP.time_dataset")
 class TimeDataset(Dataset):
     """Create a PyTorch dataset of a tabularized time-series"""
 
-    def __init__(self, df, name, **kwargs):
+    def __init__(
+        self,
+        df,
+        name,
+        predict_mode,
+        n_lags,
+        n_forecasts,
+        prediction_frequency,
+        predict_steps,
+        config_seasonality,
+        config_events,
+        config_country_holidays,
+        config_regressors,
+        config_lagged_regressors,
+        config_missing,
+    ):
         """Initialize Timedataset from time-series df.
         Parameters
         ----------
@@ -48,13 +63,27 @@ class TimeDataset(Dataset):
         self.meta = OrderedDict({})
         self.meta["df_name"] = name
 
-        self.predict_mode = kwargs["predict_mode"]
-        self.n_lags = kwargs["n_lags"]
-        self.n_forecasts = kwargs["n_forecasts"]
-        self.max_lags = get_max_num_lags(
-            n_lags=self.n_lags, config_lagged_regressors=kwargs["config_lagged_regressors"]
-        )
-        self.config_args = kwargs
+        self.predict_mode = predict_mode
+        self.n_lags = n_lags
+        self.n_forecasts = n_forecasts
+        self.prediction_frequency = prediction_frequency
+        self.predict_steps = predict_steps
+        self.config_seasonality = config_seasonality
+        self.config_events = config_events
+        self.config_country_holidays = config_country_holidays
+        self.config_regressors = config_regressors
+        self.config_lagged_regressors = config_lagged_regressors
+        self.config_missing = config_missing
+
+        # self.config_args = kwargs
+        # self.predict_mode = kwargs["predict_mode"]
+        # self.n_lags = kwargs["n_lags"]
+        # self.n_forecasts = kwargs["n_forecasts"]
+        # self.config_events = kwargs["config_events"]
+        # self.config_country_holidays = kwargs["config_country_holidays"]
+        # self.config_lagged_regressors = kwargs["config_lagged_regressors"]
+
+        self.max_lags = get_max_num_lags(n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors)
 
         self.two_level_inputs = [
             "seasonalities",
@@ -70,12 +99,12 @@ class TimeDataset(Dataset):
             self.multiplicative_event_and_holiday_names,
         ) = add_event_features_to_df(
             self.df,
-            self.config_args["config_events"],
-            self.config_args["config_country_holidays"],
+            self.config_events,
+            self.config_country_holidays,
         )
         # pre-sort additive/multiplicative regressors
         self.additive_regressors_names, self.multiplicative_regressors_names = sort_regressor_names(
-            self.config_args["config_regressors"]
+            self.config_regressors
         )
 
         # Construct index map
@@ -123,8 +152,8 @@ class TimeDataset(Dataset):
             n_lags=self.n_lags,
             max_lags=self.max_lags,
             n_forecasts=self.n_forecasts,
-            config_seasonality=self.config_args["config_seasonality"],
-            config_lagged_regressors=self.config_args["config_lagged_regressors"],
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
             additive_event_and_holiday_names=self.additive_event_and_holiday_names,
             multiplicative_event_and_holiday_names=self.multiplicative_event_and_holiday_names,
             additive_regressors_names=self.additive_regressors_names,
@@ -149,7 +178,7 @@ class TimeDataset(Dataset):
 
         # Limit target range due to input lags and number of forecasts
         df_length = len(df)
-        n_forecasts = self.config_args["n_forecasts"]
+        n_forecasts = selfn_forecasts
         origin_start_end_mask = create_origin_start_end_mask(
             df_length=df_length, max_lags=self.max_lags, n_forecasts=n_forecasts
         )
@@ -157,15 +186,13 @@ class TimeDataset(Dataset):
         # Prediction Frequency
         # Filter missing samples and prediction frequency (does not actually drop, but creates indexmapping)
         # analogous to `self.filter_samples_after_init(self.kwargs["prediction_frequency"])`
-        prediction_frequency_mask = create_prediction_frequency_filter_mask(
-            df, self.config_args["prediction_frequency"]
-        )
+        prediction_frequency_mask = create_prediction_frequency_filter_mask(df, self.prediction_frequency)
 
         # TODO Create NAN-free index mapping of sample index to df index
         # analogous to `self.drop_nan_after_init(
         # self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
         nan_mask = create_nan_mask(
-            df, self.config_args["predict_steps"], self.config_args["config_missing"].drop_missing
+            df, self.predict_steps, self.config_missing.drop_missing
         )  # boolean array where NAN are False
 
         # Combine masks
@@ -181,64 +208,51 @@ class TimeDataset(Dataset):
 
         return sample_index_2_df_origin_index, num_samples
 
-    # def format_sample(self, inputs, targets=None):
-    #     """Convert tabularized sample to correct formats.
-    #     Parameters
-    #     ----------
-    #         inputs : ordered dict
-    #             Identical to returns from :meth:`tabularize_univariate_datetime`
-    #         targets : np.array, float
-    #             Identical to returns from :meth:`tabularize_univariate_datetime`
-    #     """
-    #     sample_input = OrderedDict({})
-    #     sample_input["time"] = inputs["time"]
-    #     if "lags" in inputs.keys():
-    #         sample_input["lags"] = inputs["lags"]
-    #     inputs_dtype = {
-    #         # "time": torch.float,
-    #         # "timestamps": np.datetime64,
-    #         # "lags": torch.float,
-    #         "seasonalities": torch.float,
-    #         "events": torch.float,
-    #         "covariates": torch.float,
-    #         "regressors": torch.float,
-    #     }
 
-    #     for key, data in inputs.items():
-    #         if key in self.two_level_inputs:
-    #             sample_input[key] = OrderedDict({})
-    #             for name, features in data.items():
-    #                 if features.dtype != np.float32:
-    #                     features = features.astype(np.float32, copy=False)
+class GlobalTimeDataset(TimeDataset):
+    def __init__(self, df, **kwargs):
+        """Initialize Timedataset from time-series df.
+        Parameters
+        ----------
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
+                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
+            **kwargs : dict
+                Identical to :meth:`tabularize_univariate_datetime`
+        """
+        self.df_names = sorted(list(np.unique(df.loc[:, "ID"].values)))
+        # if len(self.df_names) == 1:
+        #     super().__init__(df, self.df_names[0], **kwargs)
+        # else:
+        # raise NotImplementedError
+        # timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
+        # self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
+        # self.length = sum(timedataset.length for timedataset in timedatasets)
+        self.datasets = OrderedDict({})
+        for df_name in self.df_names:
+            self.datasets[df_name] = TimeDataset(df[df["ID"] == df_name], df_name, **kwargs)
+        self.length = sum(dataset.length for (name, dataset) in self.datasets.items())
+        global_sample_to_local_ID = []
+        global_sample_to_local_sample = []
+        for name, dataset in self.datasets.items():
+            global_sample_to_local_ID.append(np.full(shape=dataset.length, fill_value=name))
+            global_sample_to_local_sample.append(np.arange(dataset.length))
+        self.global_sample_to_local_ID = np.concatenate(global_sample_to_local_ID)
+        self.global_sample_to_local_sample = np.concatenate(global_sample_to_local_sample)
 
-    #                 tensor = torch.from_numpy(features)
+    def __len__(self):
+        return self.length
 
-    #                 if tensor.dtype != inputs_dtype[key]:
-    #                     sample_input[key][name] = tensor.to(
-    #                         dtype=inputs_dtype[key]
-    #                     )  # this can probably be removed, but was included in the previous code
-    #                 else:
-    #                     sample_input[key][name] = tensor
-
-    #         # No longer needed as - now directly casting to torch in tabularize
-    #         # else: # single_level items
-    #         #     sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
-    #         #     ## OLD
-    #         #     # if key == "timestamps": sample_input[key] = data
-    #         #     # else: sample_input[key] = torch.from_numpy(data).type(inputs_dtype[key])
-
-    #     # TODO Can this be skipped for a single sample?
-    #     # Alternatively, Can this be optimized?
-    #     # Split nested dict into list of dicts with same keys as sample_input.
-    #     # def split_dict(sample_input, index):
-    #     # return {k: v[index] if not isinstance(v, dict) else split_dict(v, index) for k, v in sample_input.items()}
-    #     # length = next(iter(sample_input.values())).shape[0]
-    #     # sample_input = [split_dict(sample_input, i) for i in range(length)]
-
-    #     ## timestamps should no longer be present here?
-    #     # sample_input.pop("timestamps") # Exact timestamps are not needed anymore
-
-    #     return sample_input, targets
+    def __getitem__(self, idx):
+        """Overrides parent class method to get an item at index.
+        Parameters
+        ----------
+            index : int
+                Sample location in dataset, starting at 0
+        """
+        df_name = self.global_sample_to_local_ID[idx]
+        local_pos = self.global_sample_to_local_sample[idx]
+        return self.datasets[df_name].__getitem__(local_pos)
 
 
 def tabularize_univariate_datetime_single_index(
@@ -458,58 +472,6 @@ def tabularize_univariate_datetime_single_index(
     #         tabularized_input_shapes_str += f"    {key} {value.shape} \n"
     # log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
     return inputs, targets
-
-
-class GlobalTimeDataset(TimeDataset):
-    def __init__(self, df, **kwargs):
-        """Initialize Timedataset from time-series df.
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
-                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
-            **kwargs : dict
-                Identical to :meth:`tabularize_univariate_datetime`
-        """
-        self.df_names = sorted(list(np.unique(df.loc[:, "ID"].values)))
-        if len(self.df_names) == 1:
-            super().__init__(df, self.df_names[0], **kwargs)
-        else:
-            self.datasets = OrderedDict({})
-            for df_name in self.df_names:
-                self.datasets[df_name] = TimeDataset(df[df["ID"] == df_name], df_name, **kwargs)
-            self.length = sum(dataset.length for (name, dataset) in self.datasets.items())
-            self.global_sample_to_local_ID = np.full(shape=self.length, fill_value="__df__", dtype=str)
-            self.global_sample_to_local_sample = np.full(shape=self.length, fill_value=0, dtype=int)
-            global_position = 0
-            for name, dataset in self.datasets.items():
-                local_length = dataset.length
-                self.global_sample_to_local_ID[global_position : global_position + local_length] = name
-                self.global_sample_to_local_sample[global_position : global_position + local_length] = np.arange(
-                    local_length, dtype=int
-                )
-                global_position += local_length
-
-            # raise NotImplementedError
-            # TODO: re-implement with JIT sample computation in TimeDatase
-            # # TODO (future): vectorize
-            # timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
-            # self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
-            # self.length = sum(timedataset.length for timedataset in timedatasets)
-
-    def __len__(self):
-        return self.length
-
-    def __getitem__(self, idx):
-        """Overrides parent class method to get an item at index.
-        Parameters
-        ----------
-            index : int
-                Sample location in dataset, starting at 0
-        """
-        df_name = self.global_sample_to_local_ID[idx]
-        local_pos = self.global_sample_to_local_sample[idx]
-        return self.datasets[df_name].__getitem__(local_pos)
 
 
 def fourier_series(dates, period, series_order):
