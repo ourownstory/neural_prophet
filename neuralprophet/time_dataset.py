@@ -290,7 +290,7 @@ class TimeDataset(Dataset):
                     * ``regressors`` (OrderedDict), regressors,
                     each with features (np.array, float) of dims: (num_samples, n_lags)
             np.array, float
-                Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
+                Targets to be predicted of same length as each of the model inputs, dims: (n_forecasts, 1)
         """
         # data is stored in OrderedDict
         inputs = OrderedDict({})
@@ -313,7 +313,7 @@ class TimeDataset(Dataset):
         #     n_samples = len(df) - max_lags + 1 - n_forecasts
 
         if predict_mode:
-            targets = torch.zeros((1, 1, n_forecasts), dtype=torch.float32)
+            targets = torch.zeros((n_forecasts, 1), dtype=torch.float32)
             # targets = torch.zeros(n_forecasts, dtype=torch.float32)
 
             ## OLD
@@ -332,10 +332,12 @@ class TimeDataset(Dataset):
                     targets = df.at[origin_index, "y_scaled"]
                 if max_lags > 0:
                     targets = df.at[origin_index + 1, "y_scaled"]
+                targets = np.expand_dims(targets, 0)
+                targets = np.expand_dims(targets, 1)  # extra dimension at end for quantiles:median
             else:
                 # Note: df.loc is inclusive of slice end, while df.iloc is not.
                 targets = df.loc[origin_index + 1 : origin_index + n_forecasts, "y_scaled"].values
-            targets = np.expand_dims(np.expand_dims(targets, 0), 0)
+                targets = np.expand_dims(targets, 1)  # extra dimension at end for quantiles:median
             targets = torch.as_tensor(targets, dtype=torch.float32)
 
             ## Alternative 1
@@ -366,8 +368,6 @@ class TimeDataset(Dataset):
             # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
             # Note: df.loc is inclusive of slice end, while df.iloc is not.
             inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
-            if n_forecasts == 1:
-                inputs["time"] = np.expand_dims(inputs["time"], 0)
             inputs["time"] = torch.as_tensor(inputs["time"], dtype=torch.float32)
             ## OLD: Time
             # def _stride_time_features_for_forecasts(x):
@@ -431,6 +431,7 @@ class TimeDataset(Dataset):
 
         # SEASONALITIES
         if config_seasonality is not None:
+            # TODO: precompute and save fourier features and only tabularize / slide windows when calling __getitem__
             seasonalities = OrderedDict({})
             if max_lags == 0:
                 dates = pd.Series(df.at[origin_index, "ds"])
