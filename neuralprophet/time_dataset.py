@@ -178,9 +178,8 @@ class TimeDataset(Dataset):
 
         # Limit target range due to input lags and number of forecasts
         df_length = len(df)
-        n_forecasts = selfn_forecasts
         origin_start_end_mask = create_origin_start_end_mask(
-            df_length=df_length, max_lags=self.max_lags, n_forecasts=n_forecasts
+            df_length=df_length, max_lags=self.max_lags, n_forecasts=self.n_forecasts
         )
 
         # Prediction Frequency

@@ -620,13 +620,13 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
         predict_mode=predict_mode,
         n_lags=model.n_lags,
         n_forecasts=model.n_forecasts,
+        prediction_frequency=prediction_frequency,
         predict_steps=model.predict_steps,
         config_seasonality=model.config_seasonality,
         config_events=model.config_events,
         config_country_holidays=model.config_country_holidays,
-        config_lagged_regressors=model.config_lagged_regressors,
         config_regressors=model.config_regressors,
+        config_lagged_regressors=model.config_lagged_regressors,
         config_missing=model.config_missing,
-        prediction_frequency=prediction_frequency,
-        config_train=model.config_train,
+        # config_train=model.config_train, # no longer needed since JIT tabularization.
     )

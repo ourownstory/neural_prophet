@@ -1767,16 +1767,20 @@ class NeuralProphet:
         df_seasonal = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dataset = time_dataset.TimeDataset(
-                df_i,
+                df=df_i,
                 name=df_name,
-                config_seasonality=self.config_seasonality,
+                predict_mode=True,
                 n_lags=0,
                 n_forecasts=1,
-                predict_steps=self.predict_steps,
-                predict_mode=True,
-                config_missing=self.config_missing,
                 prediction_frequency=self.prediction_frequency,
-                config_train=self.config_train,
+                predict_steps=self.predict_steps,
+                config_seasonality=self.config_seasonality,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_regressors=self.config_regressors,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_missing=self.config_missing,
+                # config_train=self.config_train, # no longer needed since JIT tabularization.
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
