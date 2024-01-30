@@ -88,15 +88,15 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
     return new_df
 
 
-def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors], n_lags: int) -> int:
+def get_max_num_lags(n_lags: int, config_lagged_regressors: Optional[ConfigLaggedRegressors]) -> int:
     """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
     ----------
-        config_lagged_regressors : configure.ConfigLaggedRegressors
-            Configurations for lagged regressors
         n_lags : int
             number of lagged values of series to include as model inputs
+        config_lagged_regressors : configure.ConfigLaggedRegressors
+            Configurations for lagged regressors
 
     Returns
     -------
@@ -104,12 +104,11 @@ def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors],
             Maximum number of lags between the autoregression lags and the covariates lags.
     """
     if config_lagged_regressors is not None:
-        log.debug("config_lagged_regressors exists")
-        max_n_lags = max([n_lags] + [val.n_lags for key, val in config_lagged_regressors.items()])
+        # log.debug("config_lagged_regressors exists")
+        return max([n_lags] + [val.n_lags for key, val in config_lagged_regressors.items()])
     else:
-        log.debug("config_lagged_regressors does not exist")
-        max_n_lags = n_lags
-    return max_n_lags
+        # log.debug("config_lagged_regressors does not exist")
+        return n_lags
 
 
 def merge_dataframes(df: pd.DataFrame) -> pd.DataFrame:

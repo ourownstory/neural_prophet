@@ -48,10 +48,12 @@ class TimeDataset(Dataset):
         self.meta = OrderedDict({})
         self.meta["df_name"] = name
 
-        self.predict_mode = (kwargs["predict_mode"],)
-        self.n_lags = (kwargs["n_lags"],)
-        self.n_forecasts = (kwargs["n_forecasts"],)
-        self.max_lags = get_max_num_lags(kwargs["config_lagged_regressors"], self.n_lags)
+        self.predict_mode = kwargs["predict_mode"]
+        self.n_lags = kwargs["n_lags"]
+        self.n_forecasts = kwargs["n_forecasts"]
+        self.max_lags = get_max_num_lags(
+            n_lags=self.n_lags, config_lagged_regressors=kwargs["config_lagged_regressors"]
+        )
         self.config_args = kwargs
 
         self.two_level_inputs = [

@@ -951,7 +951,9 @@ class NeuralProphet:
 
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
-        self.max_lags = df_utils.get_max_num_lags(self.config_lagged_regressors, self.n_lags)
+        self.max_lags = df_utils.get_max_num_lags(
+            n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors
+        )
         if self.max_lags == 0 and self.n_forecasts > 1:
             self.n_forecasts = 1
             self.predict_steps = 1
