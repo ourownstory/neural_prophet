@@ -393,14 +393,20 @@ def tabularize_univariate_datetime_single_index(
                     t = np.array((dates - datetime(1900, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
                     # features: Matrix with dims (length len(dates), 2*resolution)
                     features = np.column_stack(
-                        [np.sin((2.0 * (i + 1) * np.pi * t / period.period)) for i in range(period.resolution)]
-                        + [np.cos((2.0 * (i + 1) * np.pi * t / period.period)) for i in range(period.resolution)]
+                        [np.sin(2.0 * (i + 1) * np.pi * t / period.period) for i in range(period.resolution)]
+                        + [np.cos(2.0 * (i + 1) * np.pi * t / period.period) for i in range(period.resolution)]
                     )
                 else:
                     raise NotImplementedError
                 if period.condition_name is not None:
                     # multiply seasonality features with condition mask/values
-                    features = features * df[period.condition_name].values[:, np.newaxis]
+                    if max_lags == 0:
+                        condition_values = pd.Series(df.at[origin_index, period.condition_name]).values[:, np.newaxis]
+                    else:
+                        condition_values = df.loc[
+                            origin_index - n_lags + 1 : origin_index + n_forecasts, period.condition_name
+                        ].values[:, np.newaxis]
+                    features = features * condition_values
                 seasonalities[name] = torch.as_tensor(features, dtype=torch.float32)
         inputs["seasonalities"] = seasonalities
 
