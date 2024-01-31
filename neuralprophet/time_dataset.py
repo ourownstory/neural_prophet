@@ -320,6 +320,8 @@ def tabularize_univariate_datetime_single_index(
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (n_forecasts, 1)
     """
+    # TODO: pre-process al type conversions (e.g. torch.float32) in __init__
+
     # sample features are stored and returned in OrderedDict
     inputs = OrderedDict({})
 
@@ -411,22 +413,31 @@ def tabularize_univariate_datetime_single_index(
         if max_lags == 0:
             if len(additive_regressors_names) > 0:
                 regressors["additive"] = df.loc[origin_index, additive_regressors_names].values
-                regressors["additive"] = torch.as_tensor(regressors["additive"], dtype=torch.float32)
+                regressors["additive"] = torch.as_tensor(
+                    np.array(regressors["additive"], dtype=np.float32), dtype=torch.float32
+                )
             if len(multiplicative_regressors_names) > 0:
                 regressors["multiplicative"] = df.loc[origin_index, multiplicative_regressors_names].values
-                regressors["multiplicative"] = torch.as_tensor(regressors["multiplicative"], dtype=torch.float32)
+                regressors["multiplicative"] = torch.as_tensor(
+                    np.array(regressors["multiplicative"], dtype=np.float32), dtype=torch.float32
+                )
         else:
             if len(additive_regressors_names) > 0:
                 regressors["additive"] = df.loc[
                     origin_index + 1 - n_lags : origin_index + n_forecasts, additive_regressors_names
                 ].values
-                regressors["additive"] = torch.as_tensor(regressors["additive"], dtype=torch.float32)
-
+                # regressors["additive"] = torch.as_tensor(regressors["additive"], dtype=torch.float32)
+                regressors["additive"] = torch.as_tensor(
+                    np.array(regressors["additive"], dtype=np.float32), dtype=torch.float32
+                )
             if len(multiplicative_regressors_names) > 0:
                 regressors["multiplicative"] = df.loc[
                     origin_index + 1 - n_lags : origin_index + n_forecasts, multiplicative_regressors_names
                 ].values
-                regressors["multiplicative"] = torch.as_tensor(regressors["multiplicative"], dtype=torch.float32)
+                # regressors["multiplicative"] = torch.as_tensor(regressors["multiplicative"], dtype=torch.float32)
+                regressors["multiplicative"] = torch.as_tensor(
+                    np.array(regressors["multiplicative"], dtype=np.float32), dtype=torch.float32
+                )
         inputs["regressors"] = regressors
 
     # FUTURE EVENTS: get the events features
@@ -438,22 +449,29 @@ def tabularize_univariate_datetime_single_index(
         if max_lags == 0:
             if len(additive_event_and_holiday_names) > 0:
                 events["additive"] = df.loc[origin_index, additive_event_and_holiday_names].values
-                events["additive"] = torch.as_tensor(events["additive"], dtype=torch.float32)
+                events["additive"] = torch.as_tensor(
+                    np.array(events["additive"], dtype=np.float32), dtype=torch.float32
+                )
             if len(multiplicative_event_and_holiday_names) > 0:
                 events["multiplicative"] = df.loc[origin_index, multiplicative_event_and_holiday_names].values
-                events["multiplicative"] = torch.as_tensor(events["multiplicative"], dtype=torch.float32)
-        else:
+                events["multiplicative"] = torch.as_tensor(
+                    np.array(events["multiplicative"], dtype=np.float32), dtype=torch.float32
+                )
             if len(additive_event_and_holiday_names) > 0:
                 events["additive"] = df.loc[
                     origin_index + 1 : origin_index + n_forecasts, additive_event_and_holiday_names
                 ].values
-                events["additive"] = torch.as_tensor(events["additive"], dtype=torch.float32)
+                events["additive"] = torch.as_tensor(
+                    np.array(events["additive"], dtype=np.float32), dtype=torch.float32
+                )
 
             if len(multiplicative_event_and_holiday_names) > 0:
                 events["multiplicative"] = df.loc[
                     origin_index + 1 : origin_index + n_forecasts, multiplicative_event_and_holiday_names
                 ].values
-                events["multiplicative"] = torch.as_tensor(events["multiplicative"], dtype=torch.float32)
+                events["multiplicative"] = torch.as_tensor(
+                    np.array(events["multiplicative"], dtype=np.float32), dtype=torch.float32
+                )
         inputs["events"] = events
 
     # ONLY FOR DEBUGGING
