@@ -686,9 +686,9 @@ def add_event_features_to_df(
                 holiday_offset_name = utils.create_event_names_for_offsets(holiday, offset)
                 df[holiday_offset_name] = feature.shift(periods=offset, fill_value=0.0)
                 if mode == "additive":
-                    additive_holiday_names.append(event_offset_name)
+                    additive_holiday_names.append(holiday_offset_name)
                 else:
-                    multiplicative_holiday_names.append(event_offset_name)
+                    multiplicative_holiday_names.append(holiday_offset_name)
     # Future TODO: possibly undo merge of events and holidays.
     additive_event_and_holiday_names = sorted(additive_events_names + additive_holiday_names)
     multiplicative_event_and_holiday_names = sorted(multiplicative_events_names + multiplicative_holiday_names)
@@ -877,15 +877,15 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
     filter_masks = []
     for key, value in prediction_frequency.items():
         if key == "daily-hour":
-            mask = timestamps.hour == value
+            mask = timestamps.dt.hour == value
         elif key == "weekly-day":
-            mask = timestamps.dayofweek == value
+            mask = timestamps.dt.dayofweek == value
         elif key == "monthly-day":
-            mask = timestamps.day == value
+            mask = timestamps.dt.day == value
         elif key == "yearly-month":
-            mask = timestamps.month == value
+            mask = timestamps.dt.month == value
         elif key == "hourly-minute":
-            mask = timestamps.minute == value
+            mask = timestamps.dt.minute == value
         else:
             raise ValueError(f"Invalid prediction frequency: {key}")
         filter_masks.append(mask)
