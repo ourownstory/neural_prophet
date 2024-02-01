@@ -51,8 +51,10 @@ class LinearFutureRegressors(FutureRegressors):
         if indices is not None:
             features = features[:, :, indices]
             params = params[:, indices]
-
-        return torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
+        # features dims: (batch, n_forecasts, n_features)  -> (batch, n_forecasts, 1, n_features)
+        # params dims: (n_quantiles, n_features) -> (batch, 1, n_quantiles, n_features)
+        out = torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
+        return out  # dims (batch, n_forecasts, n_quantiles)
 
     def get_reg_weights(self, name):
         """
