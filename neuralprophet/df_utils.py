@@ -1052,7 +1052,7 @@ def add_missing_dates_nan(df, freq):
     df_resampled = df.resample(freq).asfreq()
     if "ID" in df.columns:
         df_resampled["ID"].fillna(df["ID"].iloc[0], inplace=True)
-    df_resampled.reset_index(drop=True, inplace=True)
+    df_resampled.reset_index(inplace=True)
 
     num_added = len(df_resampled) - len(df)
     return df_resampled, num_added

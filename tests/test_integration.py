@@ -1602,6 +1602,23 @@ def test_selective_forecasting():
     y = np.random.randint(0, 1000, size=(len(date_range),))
     df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
+        n_forecasts=24,
+        n_lags=48,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"daily-hour": 7},
+    )
+    m.fit(df, freq="H")
+    m.predict(df)
+
+    log.info("testing: selective forecasting with n_forecasts < prediction_frequency with lags")
+    start_date = "2019-01-01"
+    end_date = "2019-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="H")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
         n_forecasts=1,
         n_lags=14,
         epochs=1,
