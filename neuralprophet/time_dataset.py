@@ -75,22 +75,9 @@ class TimeDataset(Dataset):
         self.config_lagged_regressors = config_lagged_regressors
         self.config_missing = config_missing
 
-        # self.config_args = kwargs
-        # self.predict_mode = kwargs["predict_mode"]
-        # self.n_lags = kwargs["n_lags"]
-        # self.n_forecasts = kwargs["n_forecasts"]
-        # self.config_events = kwargs["config_events"]
-        # self.config_country_holidays = kwargs["config_country_holidays"]
-        # self.config_lagged_regressors = kwargs["config_lagged_regressors"]
-
         self.max_lags = get_max_num_lags(n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors)
 
-        self.two_level_inputs = [
-            "seasonalities",
-            "covariates",
-            "events",
-            "regressors",
-        ]
+        self.two_level_inputs = ["seasonalities", "covariates", "events", "regressors"]
 
         # Preprocessing of events and holidays features (added to self.df)
         (
@@ -220,13 +207,6 @@ class GlobalTimeDataset(TimeDataset):
                 Identical to :meth:`tabularize_univariate_datetime`
         """
         self.df_names = sorted(list(np.unique(df.loc[:, "ID"].values)))
-        # if len(self.df_names) == 1:
-        #     super().__init__(df, self.df_names[0], **kwargs)
-        # else:
-        # raise NotImplementedError
-        # timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
-        # self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
-        # self.length = sum(timedataset.length for timedataset in timedatasets)
         self.datasets = OrderedDict({})
         for df_name in self.df_names:
             self.datasets[df_name] = TimeDataset(df[df["ID"] == df_name], df_name, **kwargs)
@@ -263,11 +243,8 @@ def tabularize_univariate_datetime_single_index(
     n_forecasts: int = 1,
     config_seasonality: Optional[configure.ConfigSeasonality] = None,
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
-    # config_events: Optional[configure.ConfigEvents] = None,
-    # config_country_holidays=None,
     additive_event_and_holiday_names: list[str] = [],
     multiplicative_event_and_holiday_names: list[str] = [],
-    # config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     additive_regressors_names: list[str] = [],
     multiplicative_regressors_names: list[str] = [],
 ):
@@ -432,13 +409,11 @@ def tabularize_univariate_datetime_single_index(
                 features = df.loc[
                     origin_index + 1 - n_lags : origin_index + n_forecasts, additive_regressors_names
                 ].values
-                # regressors["additive"] = torch.as_tensor(features, dtype=torch.float32)
                 regressors["additive"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
             if len(multiplicative_regressors_names) > 0:
                 features = df.loc[
                     origin_index + 1 - n_lags : origin_index + n_forecasts, multiplicative_regressors_names
                 ].values
-                # regressors["multiplicative"] = torch.as_tensor(features, dtype=torch.float32)
                 regressors["multiplicative"] = torch.as_tensor(
                     np.array(features, dtype=np.float32), dtype=torch.float32
                 )
@@ -646,7 +621,6 @@ def add_event_features_to_df(
         config = config_country_holidays
         mode = config.mode
         for holiday in config_country_holidays.holiday_names:
-            # feature = pd.Series([0.0] * df.shape[0])
             feature = pd.Series(np.zeros(df.shape[0], dtype=np.float32))
             if holiday in country_holidays_dict.keys():
                 dates = country_holidays_dict[holiday]
@@ -664,137 +638,6 @@ def add_event_features_to_df(
     additive_event_and_holiday_names = sorted(additive_events_names + additive_holiday_names)
     multiplicative_event_and_holiday_names = sorted(multiplicative_events_names + multiplicative_holiday_names)
     return df, additive_event_and_holiday_names, multiplicative_event_and_holiday_names
-
-
-# def make_events_features(df, config_events: Optional[configure.ConfigEvents] = None, config_country_holidays=None):
-#     """
-#     Construct arrays of all event features
-#     Parameters
-#     ----------
-#         df : pd.DataFrame
-#             Dataframe with all values including the user specified events (provided by user)
-#         config_events : configure.ConfigEvents
-#             User specified events, each with their upper, lower windows (int), regularization
-#         config_country_holidays : configure.ConfigCountryHolidays
-#             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
-#     Returns
-#     -------
-#         np.array
-#             All additive event features (both user specified and country specific)
-#         np.array
-#             All multiplicative event features (both user specified and country specific)
-#     """
-#     df = df.reset_index(drop=True)
-#     additive_events = pd.DataFrame()
-#     multiplicative_events = pd.DataFrame()
-
-#     # create all user specified events
-#     if config_events is not None:
-#         for event, configs in config_events.items():
-#             feature = df[event]
-#             _create_event_offset_features(event, configs, feature, additive_events, multiplicative_events)
-
-#     # create all country specific holidays
-#     if config_country_holidays is not None:
-#         year_list = list({x.year for x in df.ds})
-#         country_holidays_dict = make_country_specific_holidays_dict(year_list, config_country_holidays.country)
-#         for holiday in config_country_holidays.holiday_names:
-#             feature = pd.Series([0.0] * df.shape[0])
-#             if holiday in country_holidays_dict.keys():
-#                 dates = country_holidays_dict[holiday]
-#                 feature[df.ds.isin(dates)] = 1.0
-#             _create_event_offset_features(
-#                 holiday, config_country_holidays, feature, additive_events, multiplicative_events
-#             )
-
-#     # Make sure column order is consistent
-#     if not additive_events.empty:
-#         additive_events = additive_events[sorted(additive_events.columns.tolist())]
-#         additive_events = additive_events.values
-#     else:
-#         additive_events = None
-#     if not multiplicative_events.empty:
-#         multiplicative_events = multiplicative_events[sorted(multiplicative_events.columns.tolist())]
-#         multiplicative_events = multiplicative_events.values
-#     else:
-#         multiplicative_events = None
-
-#     return additive_events, multiplicative_events
-
-
-# def make_regressors_features(df, config_regressors):
-#     """Construct arrays of all scalar regressor features
-#     Parameters
-#     ----------
-#         df : pd.DataFrame
-#             Dataframe with all values including the user specified regressors
-#         config_regressors : configure.ConfigFutureRegressors
-#             User specified regressors config
-#     Returns
-#     -------
-#         np.array
-#             All additive regressor features
-#         np.array
-#             All multiplicative regressor features
-#     """
-#     additive_regressors = pd.DataFrame()
-#     multiplicative_regressors = pd.DataFrame()
-
-#     for reg in df.columns:
-#         if reg in config_regressors:
-#             mode = config_regressors[reg].mode
-#             if mode == "additive":
-#                 additive_regressors[reg] = df[reg]
-#             else:
-#                 multiplicative_regressors[reg] = df[reg]
-
-#     if not additive_regressors.empty:
-#         additive_regressors = additive_regressors[sorted(additive_regressors.columns.tolist())]
-#         additive_regressors = additive_regressors.values
-#     else:
-#         additive_regressors = None
-#     if not multiplicative_regressors.empty:
-#         multiplicative_regressors = multiplicative_regressors[sorted(multiplicative_regressors.columns.tolist())]
-#         multiplicative_regressors = multiplicative_regressors.values
-#     else:
-#         multiplicative_regressors = None
-
-#     return additive_regressors, multiplicative_regressors
-
-
-# def seasonal_features_from_dates(df, config_seasonality: configure.ConfigSeasonality):
-#     """Dataframe with seasonality features.
-#     Includes seasonality features
-#     Parameters
-#     ----------
-#         df : pd.DataFrame
-#             Dataframe with all values
-#         config_seasonality : configure.ConfigSeasonality
-#             Configuration for seasonalities
-#     Returns
-#     -------
-#         OrderedDict
-#             Dictionary with keys for each period name containing an np.array
-#             with the respective regression features. each with dims: (len(dates), 2*fourier_order)
-#     """
-#     dates = df["ds"]
-#     assert len(dates.shape) == 1
-#     seasonalities = OrderedDict({})
-#     # Seasonality features
-#     for name, period in config_seasonality.periods.items():
-#         if period.resolution > 0:
-#             if config_seasonality.computation == "fourier":
-#                 features = fourier_series(
-#                     dates=dates,
-#                     period=period.period,
-#                     series_order=period.resolution,
-#                 )
-#             else:
-#                 raise NotImplementedError
-#             if period.condition_name is not None:
-#                 features = features * df[period.condition_name].values[:, np.newaxis]
-#             seasonalities[name] = features
-#     return seasonalities
 
 
 def create_origin_start_end_mask(df_length, max_lags, n_forecasts):
@@ -838,11 +681,6 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
     # Basic case: no filter
     if prediction_frequency is None or prediction_frequency == 1:
         return mask
-
-    # OLD: timestamps were created from "ds" column in tabularization and then re-converted here
-    # timestamps = pd.to_datetime([x["timestamps"][0] for x in df])
-    # OR
-    # timestamps = df["timestamps"].apply(lambda x: pd.to_datetime(x[0]))
 
     timestamps = pd.to_datetime(df.loc[:, "ds"])
     filter_masks = []
@@ -941,27 +779,3 @@ def sort_regressor_names(config):
             else:
                 multiplicative_regressors_names.append(reg)
     return additive_regressors_names, multiplicative_regressors_names
-
-
-# ## TODO: rename - used elsewhere, not in this file.
-# def make_country_specific_holidays_df(year_list, country):
-#     return make_country_specific_holidays_dict(year_list, country)
-
-
-# def split_nested_dict(inputs):
-#     """Split nested dict into list of dicts.
-#     Parameters
-#     ----------
-#         inputs : ordered dict
-#             Nested dict to be split.
-#     Returns
-#     -------
-#         list of dicts
-#             List of dicts with same keys as inputs.
-#     """
-
-#     def split_dict(inputs, index):
-#         return {k: v[index] if not isinstance(v, dict) else split_dict(v, index) for k, v in inputs.items()}
-
-#     length = next(iter(inputs.values())).shape[0]
-#     return [split_dict(inputs, i) for i in range(length)]
