@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from neuralprophet.time_dataset import make_country_specific_holidays_dict
+from neuralprophet.event_utils import get_all_holidays
 
 
 def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=100, y_holidays_override={}):
@@ -11,7 +11,7 @@ def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=
     dates = pd.date_range("%i-01-01" % (years[0]), periods=periods, freq="D")
     df = pd.DataFrame({"ds": dates, "y": y_default}, index=dates)
 
-    holidays = make_country_specific_holidays_dict(years, country)
+    holidays = get_all_holidays(years, country)
     for holiday_name, timestamps in holidays.items():
         df.loc[timestamps[0], "y"] = y_holidays_override.get(holiday_name, y_holiday)
 
