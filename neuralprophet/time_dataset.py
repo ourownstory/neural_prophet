@@ -10,7 +10,7 @@ from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure, utils
 from neuralprophet.df_utils import get_max_num_lags
-from neuralprophet.hdays_utils import get_country_holidays
+from neuralprophet.event_utils import get_all_holidays
 
 log = logging.getLogger("NP.time_dataset")
 
@@ -541,35 +541,6 @@ def fourier_series_t(t, period, series_order):
     return features
 
 
-def make_country_specific_holidays_dict(year_list, country):
-    """
-    Make dataframe of country specific holidays for given years and countries
-    Parameters
-    ----------
-        year_list : list
-            List of years
-        country : str, list
-            List of country names
-    Returns
-    -------
-        pd.DataFrame
-            Containing country specific holidays df with columns 'ds' and 'holiday'
-    """
-    # iterate over countries and get holidays for each country
-    # convert to list if not already
-    if isinstance(country, str):
-        country = [country]
-    country_specific_holidays = {}
-    for single_country in country:
-        single_country_specific_holidays = get_country_holidays(single_country, year_list)
-        # only add holiday if it is not already in the dict
-        country_specific_holidays.update(single_country_specific_holidays)
-    country_specific_holidays_dict = defaultdict(list)
-    for date, holiday in country_specific_holidays.items():
-        country_specific_holidays_dict[holiday].append(pd.to_datetime(date))
-    return country_specific_holidays_dict
-
-
 def get_event_offset_features(event, config, feature):
     """
     Create event offset features for the given event, config and feature
@@ -671,7 +642,7 @@ def add_event_features_to_df(
     multiplicative_holiday_names = []
     if config_country_holidays is not None:
         year_list = list({x.year for x in df.ds})
-        country_holidays_dict = make_country_specific_holidays_dict(year_list, config_country_holidays.country)
+        country_holidays_dict = get_all_holidays(year_list, config_country_holidays.country)
         config = config_country_holidays
         mode = config.mode
         for holiday in config_country_holidays.holiday_names:
@@ -681,7 +652,7 @@ def add_event_features_to_df(
                 dates = country_holidays_dict[holiday]
                 feature[df.ds.isin(dates)] = 1.0
             else:
-                raise ValueError(f"Holiday {holiday} not found in country holidays")
+                raise ValueError(f"Holiday {holiday} not found in {config_country_holidays.country} holidays")
             for offset in range(config.lower_window, config.upper_window + 1):
                 holiday_offset_name = utils.create_event_names_for_offsets(holiday, offset)
                 df[holiday_offset_name] = feature.shift(periods=offset, fill_value=0.0)
@@ -695,60 +666,60 @@ def add_event_features_to_df(
     return df, additive_event_and_holiday_names, multiplicative_event_and_holiday_names
 
 
-def make_events_features(df, config_events: Optional[configure.ConfigEvents] = None, config_country_holidays=None):
-    """
-    Construct arrays of all event features
-    Parameters
-    ----------
-        df : pd.DataFrame
-            Dataframe with all values including the user specified events (provided by user)
-        config_events : configure.ConfigEvents
-            User specified events, each with their upper, lower windows (int), regularization
-        config_country_holidays : configure.ConfigCountryHolidays
-            Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
-    Returns
-    -------
-        np.array
-            All additive event features (both user specified and country specific)
-        np.array
-            All multiplicative event features (both user specified and country specific)
-    """
-    df = df.reset_index(drop=True)
-    additive_events = pd.DataFrame()
-    multiplicative_events = pd.DataFrame()
+# def make_events_features(df, config_events: Optional[configure.ConfigEvents] = None, config_country_holidays=None):
+#     """
+#     Construct arrays of all event features
+#     Parameters
+#     ----------
+#         df : pd.DataFrame
+#             Dataframe with all values including the user specified events (provided by user)
+#         config_events : configure.ConfigEvents
+#             User specified events, each with their upper, lower windows (int), regularization
+#         config_country_holidays : configure.ConfigCountryHolidays
+#             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
+#     Returns
+#     -------
+#         np.array
+#             All additive event features (both user specified and country specific)
+#         np.array
+#             All multiplicative event features (both user specified and country specific)
+#     """
+#     df = df.reset_index(drop=True)
+#     additive_events = pd.DataFrame()
+#     multiplicative_events = pd.DataFrame()
 
-    # create all user specified events
-    if config_events is not None:
-        for event, configs in config_events.items():
-            feature = df[event]
-            _create_event_offset_features(event, configs, feature, additive_events, multiplicative_events)
+#     # create all user specified events
+#     if config_events is not None:
+#         for event, configs in config_events.items():
+#             feature = df[event]
+#             _create_event_offset_features(event, configs, feature, additive_events, multiplicative_events)
 
-    # create all country specific holidays
-    if config_country_holidays is not None:
-        year_list = list({x.year for x in df.ds})
-        country_holidays_dict = make_country_specific_holidays_dict(year_list, config_country_holidays.country)
-        for holiday in config_country_holidays.holiday_names:
-            feature = pd.Series([0.0] * df.shape[0])
-            if holiday in country_holidays_dict.keys():
-                dates = country_holidays_dict[holiday]
-                feature[df.ds.isin(dates)] = 1.0
-            _create_event_offset_features(
-                holiday, config_country_holidays, feature, additive_events, multiplicative_events
-            )
+#     # create all country specific holidays
+#     if config_country_holidays is not None:
+#         year_list = list({x.year for x in df.ds})
+#         country_holidays_dict = make_country_specific_holidays_dict(year_list, config_country_holidays.country)
+#         for holiday in config_country_holidays.holiday_names:
+#             feature = pd.Series([0.0] * df.shape[0])
+#             if holiday in country_holidays_dict.keys():
+#                 dates = country_holidays_dict[holiday]
+#                 feature[df.ds.isin(dates)] = 1.0
+#             _create_event_offset_features(
+#                 holiday, config_country_holidays, feature, additive_events, multiplicative_events
+#             )
 
-    # Make sure column order is consistent
-    if not additive_events.empty:
-        additive_events = additive_events[sorted(additive_events.columns.tolist())]
-        additive_events = additive_events.values
-    else:
-        additive_events = None
-    if not multiplicative_events.empty:
-        multiplicative_events = multiplicative_events[sorted(multiplicative_events.columns.tolist())]
-        multiplicative_events = multiplicative_events.values
-    else:
-        multiplicative_events = None
+#     # Make sure column order is consistent
+#     if not additive_events.empty:
+#         additive_events = additive_events[sorted(additive_events.columns.tolist())]
+#         additive_events = additive_events.values
+#     else:
+#         additive_events = None
+#     if not multiplicative_events.empty:
+#         multiplicative_events = multiplicative_events[sorted(multiplicative_events.columns.tolist())]
+#         multiplicative_events = multiplicative_events.values
+#     else:
+#         multiplicative_events = None
 
-    return additive_events, multiplicative_events
+#     return additive_events, multiplicative_events
 
 
 # def make_regressors_features(df, config_regressors):

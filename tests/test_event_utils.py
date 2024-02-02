@@ -3,16 +3,16 @@
 import holidays
 import pytest
 
-from neuralprophet import hdays_utils
+from neuralprophet import event_utils
 
 
 def test_get_country_holidays():
-    assert issubclass(hdays_utils.get_country_holidays("TU").__class__, holidays.countries.turkey.TR) is True
+    assert issubclass(event_utils.get_country_holidays("TU").__class__, holidays.countries.turkey.TR) is True
 
     for country in ("UnitedStates", "US", "USA"):
-        us_holidays = hdays_utils.get_country_holidays(country, years=2019)
+        us_holidays = event_utils.get_country_holidays(country, years=2019)
         assert issubclass(us_holidays.__class__, holidays.countries.united_states.UnitedStates) is True
         assert len(us_holidays) == 10
 
     with pytest.raises(AttributeError):
-        hdays_utils.get_country_holidays("NotSupportedCountry")
+        event_utils.get_country_holidays("NotSupportedCountry")

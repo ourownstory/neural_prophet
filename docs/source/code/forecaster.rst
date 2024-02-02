@@ -7,7 +7,7 @@ Core Module Documentation
 
    configure.py <configure>
    df_utils.py <df_utils>
-   hdays_utils.py <hdays_utils>
+   event_utils.py <event_utils>
    plot_forecast_plotly.py <plot_forecast_plotly>
    plot_forecast_matplotlib.py <plot_forecast_matplotlib>
    plot_model_parameters_plotly.py <plot_model_parameters_plotly>

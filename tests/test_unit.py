@@ -809,16 +809,13 @@ def test_make_future():
 
 
 def test_too_many_NaN():
-    # n_lags, n_forecasts = 12, 1
+    n_lags = 12
+    n_forecasts = 1
     config_missing = configure.MissingDataHandling(
-        impute_missing=True, impute_linear=5, impute_rolling=5, drop_missing=False
-    )
-    config_train = configure.Train(
-        learning_rate=None,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        loss_func="SmoothL1Loss",
-        optimizer="AdamW",
+        impute_missing=True,
+        impute_linear=5,
+        impute_rolling=5,
+        drop_missing=False,
     )
     length = 100
     days = pd.date_range(start="2017-01-01", periods=length)
@@ -840,16 +837,19 @@ def test_too_many_NaN():
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
         time_dataset.TimeDataset(
-            df,
-            "name",
+            df=df,
+            name="name",
             predict_mode=False,
-            config_missing=config_missing,
-            config_lagged_regressors=None,
-            config_country_holidays=None,
-            config_events=None,
-            config_train=config_train,
-            predict_steps=1,
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
             prediction_frequency=None,
+            predict_steps=1,
+            config_seasonality=None,
+            config_events=None,
+            config_country_holidays=None,
+            config_regressors=None,
+            config_lagged_regressors=None,
+            config_missing=config_missing,
         )
 
 
