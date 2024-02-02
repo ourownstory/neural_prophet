@@ -5,11 +5,11 @@ import logging
 import os
 import pathlib
 import time
-import torch
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import torch
 from plotly.subplots import make_subplots
 from plotly_resampler import unregister_plotly_resampler
 
@@ -233,7 +233,7 @@ def test_EnergyPriceDaily():
     create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "EnergyPriceDaily.svg"))
 
 
-def test_EnergyPerformance():
+def test_EnergyDailyDeep():
     ### Temporary Test for on-the-fly sampling - very time consuming!
 
     df = pd.read_csv(ENERGY_PRICE_DAILY_FILE)
@@ -270,17 +270,17 @@ def test_EnergyPerformance():
 
     # Hyperparameter
     tuned_params = {
-        "n_lags": 24 * 15,
+        "n_lags": 15,
         "newer_samples_weight": 2.0,
         "n_changepoints": 0,
         "yearly_seasonality": 10,
-        "weekly_seasonality": True,
-        "daily_seasonality": False,  # due to conditional daily seasonality
-        "batch_size": 128,
-        "ar_layers": [32, 64, 32, 16],
-        "lagged_reg_layers": [32, 32],
+        "weekly_seasonality": False,  # due to conditional daily seasonality
+        "daily_seasonality": False,  # due to data freq
+        "batch_size": 64,
+        "ar_layers": [16, 32, 16, 8],
+        "lagged_reg_layers": [32, 16],
         # not tuned
-        "n_forecasts": 33,
+        "n_forecasts": 7,
         "learning_rate": 0.001,
         "epochs": 30,
         "trend_global_local": "global",
@@ -306,11 +306,11 @@ def test_EnergyPerformance():
     m = NeuralProphet(**tuned_params, **trainer_configs, quantiles=quantile_list)
 
     # Lagged Regressor
-    m.add_lagged_regressor(names="temp", n_lags=33, normalize="standardize")
+    m.add_lagged_regressor(names="temp", n_lags=7, normalize="standardize")
 
     # Conditional Seasonality
-    m.add_seasonality(name="winter", period=1, fourier_order=6, condition_name="winter")
-    m.add_seasonality(name="summer", period=1, fourier_order=6, condition_name="summer")
+    m.add_seasonality(name="winter", period=7, fourier_order=6, condition_name="winter")
+    m.add_seasonality(name="summer", period=7, fourier_order=6, condition_name="summer")
 
     # Holidays
     m.add_country_holidays(country_name="US", lower_window=-1, upper_window=1)
@@ -320,5 +320,97 @@ def test_EnergyPerformance():
     df_test = df[df["ds"] >= "2016-05-01"]
 
     # Training & Predict
-    _ = m.fit(df=df_train, freq="H", num_workers=4, early_stopping=True)
+    _ = m.fit(df=df_train, freq="D", num_workers=4)
     _ = m.predict(df_test)
+
+
+# TODO: adapt to hourly dataset with multiple IDs
+# def test_EnergyPerformance():
+#     ### Temporary Test for on-the-fly sampling - very time consuming!
+
+#     df = pd.read_csv(ENERGY_PRICE_DAILY_FILE)
+#     df = df[df["ds"] < "2018-01-01"]
+#     df["temp"] = df["temperature"]
+#     df["ds"] = pd.to_datetime(df["ds"])
+#     df["y"] = pd.to_numeric(df["y"], errors="coerce")
+#     df["ID"] = "test"
+
+#     # Conditional Seasonality
+#     df["winter"] = np.where(
+#         df["ds"].dt.month.isin(
+#             [
+#                 10,
+#                 11,
+#                 12,
+#                 1,
+#                 2,
+#                 3,
+#             ]
+#         ),
+#         1,
+#         0,
+#     )
+#     df["summer"] = np.where(df["ds"].dt.month.isin([4, 5, 6, 7, 8, 9]), 1, 0)
+#     df["winter"] = pd.to_numeric(df["winter"], errors="coerce")
+#     df["summer"] = pd.to_numeric(df["summer"], errors="coerce")
+
+#     # Normalize Temperature
+#     df["temp"] = (df["temp"] - 65.0) / 50.0
+
+#     # df
+#     df = df[["ID", "ds", "y", "temp", "winter", "summer"]]
+
+#     # Hyperparameter
+#     tuned_params = {
+#         "n_lags": 24 * 15,
+#         "newer_samples_weight": 2.0,
+#         "n_changepoints": 0,
+#         "yearly_seasonality": 10,
+#         "weekly_seasonality": True,
+#         "daily_seasonality": False,  # due to conditional daily seasonality
+#         "batch_size": 128,
+#         "ar_layers": [32, 64, 32, 16],
+#         "lagged_reg_layers": [32, 32],
+#         # not tuned
+#         "n_forecasts": 33,
+#         "learning_rate": 0.001,
+#         "epochs": 30,
+#         "trend_global_local": "global",
+#         "season_global_local": "global",
+#         "drop_missing": True,
+#         "normalize": "standardize",
+#     }
+
+#     # Uncertainty Quantification
+#     confidence_lv = 0.98
+#     quantile_list = [round(((1 - confidence_lv) / 2), 2), round((confidence_lv + (1 - confidence_lv) / 2), 2)]
+
+#     # Check if GPU is available
+#     use_gpu = torch.cuda.is_available()
+
+#     # Set trainer configuration
+#     trainer_configs = {
+#         "accelerator": "gpu" if use_gpu else "cpu",
+#     }
+#     print(f"Using {'GPU' if use_gpu else 'CPU'}")
+
+#     # Model
+#     m = NeuralProphet(**tuned_params, **trainer_configs, quantiles=quantile_list)
+
+#     # Lagged Regressor
+#     m.add_lagged_regressor(names="temp", n_lags=33, normalize="standardize")
+
+#     # Conditional Seasonality
+#     m.add_seasonality(name="winter", period=1, fourier_order=6, condition_name="winter")
+#     m.add_seasonality(name="summer", period=1, fourier_order=6, condition_name="summer")
+
+#     # Holidays
+#     m.add_country_holidays(country_name="US", lower_window=-1, upper_window=1)
+
+#     # Split
+#     df_train = df[df["ds"] < "2016-05-01"]
+#     df_test = df[df["ds"] >= "2016-05-01"]
+
+#     # Training & Predict
+#     _ = m.fit(df=df_train, freq="H", num_workers=4, early_stopping=True)
+#     _ = m.predict(df_test)
