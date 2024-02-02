@@ -68,35 +68,58 @@ def test_impute_missing():
         plt.show()
 
 
-def test_time_dataset():
+def test_timedataset_minimal():
     # manually load any file that stores a time series, for example:
     df_in = pd.read_csv(AIR_FILE, index_col=False, nrows=NROWS)
     log.debug(f"Infile shape: {df_in.shape}")
-    n_lags = 3
-    n_forecasts = 1
     valid_p = 0.2
-    config_missing = configure.MissingDataHandling()
-    config_train = configure.Train(
-        learning_rate=LR,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        loss_func="SmoothL1Loss",
-        optimizer="AdamW",
-    )
-    df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
-    # create a tabularized dataset from time series
-    df, _, _ = df_utils.check_dataframe(df_train)
-    local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
-    df = df.drop("ID", axis=1)
-    df = df_utils.normalize(df, global_data_params)
-    inputs, targets = time_dataset.tabularize_univariate_datetime(
-        df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing, config_train=config_train
-    )
-    log.debug(
-        "tabularized inputs: {}".format(
-            "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
+    for n_forecasts, n_lags in [(1, 0), (1, 5), (3, 5)]:
+        config_missing = configure.MissingDataHandling()
+        # config_train = configure.Train()
+        df, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
+        # create a tabularized dataset from time series
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _ = df_utils.check_dataframe(df)
+        df = _handle_missing_data(
+            df,
+            freq="MS",
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            config_missing=config_missing,
+            # config_regressors: Optional[ConfigFutureRegressors],
+            # config_lagged_regressors: Optional[ConfigLaggedRegressors],
+            # config_events: Optional[ConfigEvents],
+            # config_seasonality: Optional[ConfigSeasonality],
+            predicting=False,
         )
-    )
+        local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
+        df = df.drop("ID", axis=1)
+        df = df_utils.normalize(df, global_data_params)
+
+        dataset = time_dataset.TimeDataset(
+            df=df,
+            name="name",
+            predict_mode=False,
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            prediction_frequency=None,
+            predict_steps=1,
+            config_seasonality=None,
+            config_events=None,
+            config_country_holidays=None,
+            config_regressors=None,
+            config_lagged_regressors=None,
+            config_missing=config_missing,
+        )
+        inputs, targets, meta = dataset.__getitem__(0)
+        # inputs50, targets50, meta50 = dataset.__getitem__(50)
+        log.debug(f"(n_forecasts {n_forecasts}, n_lags {n_lags})")
+        log.debug(f"tabularized targets: {targets.shape}")
+        log.debug(
+            "tabularized inputs: {}".format(
+                "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
+            )
+        )
 
 
 def test_normalize():

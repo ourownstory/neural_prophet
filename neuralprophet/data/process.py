@@ -438,14 +438,14 @@ def _check_dataframe(
 
 def _handle_missing_data(
     df: pd.DataFrame,
-    freq: Optional[str],
+    freq: str,
     n_lags: int,
     n_forecasts: int,
     config_missing,
-    config_regressors: Optional[ConfigFutureRegressors],
-    config_lagged_regressors: Optional[ConfigLaggedRegressors],
-    config_events: Optional[ConfigEvents],
-    config_seasonality: Optional[ConfigSeasonality],
+    config_regressors: Optional[ConfigFutureRegressors] = None,
+    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+    config_events: Optional[ConfigEvents] = None,
+    config_seasonality: Optional[ConfigSeasonality] = None,
     predicting: bool = False,
 ) -> pd.DataFrame:
     """
