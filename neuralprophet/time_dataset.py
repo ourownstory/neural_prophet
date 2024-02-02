@@ -234,6 +234,153 @@ class GlobalTimeDataset(TimeDataset):
         return self.datasets[df_name].__getitem__(local_pos)
 
 
+def get_sample_targets(df, origin_index, n_forecasts, max_lags, predict_mode):
+    if predict_mode:
+        return torch.zeros((n_forecasts, 1), dtype=torch.float32)
+    else:
+        if n_forecasts == 1:
+            if max_lags == 0:
+                targets = df.at[origin_index, "y_scaled"]
+            if max_lags > 0:
+                targets = df.at[origin_index + 1, "y_scaled"]
+            targets = np.expand_dims(targets, 0)
+            targets = np.expand_dims(targets, 1)  # extra dimension at end for quantiles:median
+        else:
+            # Note: df.loc is inclusive of slice end, while df.iloc is not.
+            targets = df.loc[origin_index + 1 : origin_index + n_forecasts, "y_scaled"].values
+            targets = np.expand_dims(targets, 1)  # extra dimension at end for quantiles:median
+        return torch.as_tensor(targets, dtype=torch.float32)
+
+
+def get_sample_lagged_regressors(df, origin_index, config_lagged_regressors):
+    lagged_regressors = OrderedDict({})
+    # Future TODO: optimize this computation for many lagged_regressors
+    for lagged_reg in df.columns:
+        if lagged_reg in config_lagged_regressors:
+            covar_lags = config_lagged_regressors[lagged_reg].n_lags
+            assert covar_lags > 0
+            # Note: df.loc is inclusive of slice end, while df.iloc is not.
+            lagged_regressors[lagged_reg] = df.loc[origin_index - covar_lags + 1 : origin_index, lagged_reg].values
+            lagged_regressors[lagged_reg] = torch.as_tensor(lagged_regressors[lagged_reg], dtype=torch.float32)
+    return lagged_regressors
+
+
+def get_sample_seasonalities(df, origin_index, n_forecasts, max_lags, n_lags, config_seasonality):
+    # TODO: precompute and save fourier features and only tabularize / slide windows when calling __getitem_
+    seasonalities = OrderedDict({})
+    if max_lags == 0:
+        dates = pd.Series(df.at[origin_index, "ds"])
+    else:
+        # Note: df.loc is inclusive of slice end, while df.iloc is not.
+        dates = pd.Series(df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "ds"].values)
+    # Seasonality features
+    for name, period in config_seasonality.periods.items():
+        if period.resolution > 0:
+            if config_seasonality.computation == "fourier":
+                # Compute Fourier series components with the specified frequency and order.
+                # convert to days since epoch
+                t = np.array((dates - datetime(1900, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
+                # features: Matrix with dims (length len(dates), 2*resolution)
+                features = np.column_stack(
+                    [np.sin(2.0 * (i + 1) * np.pi * t / period.period) for i in range(period.resolution)]
+                    + [np.cos(2.0 * (i + 1) * np.pi * t / period.period) for i in range(period.resolution)]
+                )
+            else:
+                raise NotImplementedError
+            if period.condition_name is not None:
+                # multiply seasonality features with condition mask/values
+                if max_lags == 0:
+                    condition_values = pd.Series(df.at[origin_index, period.condition_name]).values[:, np.newaxis]
+                else:
+                    condition_values = df.loc[
+                        origin_index - n_lags + 1 : origin_index + n_forecasts, period.condition_name
+                    ].values[:, np.newaxis]
+                features = features * condition_values
+            seasonalities[name] = torch.as_tensor(features, dtype=torch.float32)
+    return seasonalities
+
+
+def get_sample_future_regressors(
+    df, origin_index, n_forecasts, max_lags, n_lags, additive_regressors_names, multiplicative_regressors_names
+):
+    regressors = OrderedDict({})
+    if max_lags == 0:
+        if len(additive_regressors_names) > 0:
+            features = df.loc[origin_index, additive_regressors_names].values
+            regressors["additive"] = torch.as_tensor(
+                np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
+            )
+        if len(multiplicative_regressors_names) > 0:
+            features = df.loc[origin_index, multiplicative_regressors_names].values
+            regressors["multiplicative"] = torch.as_tensor(
+                np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
+            )
+    else:
+        if len(additive_regressors_names) > 0:
+            features = df.loc[origin_index + 1 - n_lags : origin_index + n_forecasts, additive_regressors_names].values
+            regressors["additive"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
+        if len(multiplicative_regressors_names) > 0:
+            features = df.loc[
+                origin_index + 1 - n_lags : origin_index + n_forecasts, multiplicative_regressors_names
+            ].values
+            regressors["multiplicative"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
+    return regressors
+
+
+def get_sample_future_events(
+    df,
+    origin_index,
+    n_forecasts,
+    max_lags,
+    n_lags,
+    additive_event_and_holiday_names,
+    multiplicative_event_and_holiday_names,
+):
+    events = OrderedDict({})
+    if max_lags == 0:
+        # forecasts are at origin_index
+        if len(additive_event_and_holiday_names) > 0:
+            features = df.loc[origin_index, additive_event_and_holiday_names].values
+            events["additive"] = torch.as_tensor(
+                np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
+            )
+        if len(multiplicative_event_and_holiday_names) > 0:
+            features = df.loc[origin_index, multiplicative_event_and_holiday_names].values
+            events["multiplicative"] = torch.as_tensor(
+                np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
+            )
+    else:
+        # forecasts are at origin_index + 1 up to origin_index + n_forecasts
+        if len(additive_event_and_holiday_names) > 0:
+            features = df.loc[
+                origin_index + 1 - n_lags : origin_index + n_forecasts, additive_event_and_holiday_names
+            ].values
+            events["additive"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
+
+        if len(multiplicative_event_and_holiday_names) > 0:
+            features = df.loc[
+                origin_index + 1 - n_lags : origin_index + n_forecasts, multiplicative_event_and_holiday_names
+            ].values
+            events["multiplicative"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
+    return events
+
+
+def log_input_shapes(inputs):
+    tabularized_input_shapes_str = ""
+    for key, value in inputs.items():
+        if key in [
+            "seasonalities",
+            "covariates",
+            "events",
+            "regressors",
+        ]:
+            for name, period_features in value.items():
+                tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
+        else:
+            tabularized_input_shapes_str += f"    {key} {value.shape} \n"
+    log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
+
+
 def tabularize_univariate_datetime_single_index(
     df: pd.DataFrame,
     origin_index: int,
@@ -297,7 +444,7 @@ def tabularize_univariate_datetime_single_index(
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (n_forecasts, 1)
     """
-    # TODO: pre-process al type conversions (e.g. torch.float32) in __init__
+    # TODO: pre-process all type conversions (e.g. torch.float32) in __init__
 
     # sample features are stored and returned in OrderedDict
     inputs = OrderedDict({})
@@ -305,167 +452,76 @@ def tabularize_univariate_datetime_single_index(
     if max_lags == 0:
         assert n_forecasts == 1
 
-    if predict_mode:
-        targets = torch.zeros((n_forecasts, 1), dtype=torch.float32)
-    else:
-        if n_forecasts == 1:
-            if max_lags == 0:
-                targets = df.at[origin_index, "y_scaled"]
-            if max_lags > 0:
-                targets = df.at[origin_index + 1, "y_scaled"]
-            targets = np.expand_dims(targets, 0)
-            targets = np.expand_dims(targets, 1)  # extra dimension at end for quantiles:median
-        else:
-            # Note: df.loc is inclusive of slice end, while df.iloc is not.
-            targets = df.loc[origin_index + 1 : origin_index + n_forecasts, "y_scaled"].values
-            targets = np.expand_dims(targets, 1)  # extra dimension at end for quantiles:median
-        targets = torch.as_tensor(targets, dtype=torch.float32)
+    targets = get_sample_targets(
+        df=df, origin_index=origin_index, n_forecasts=n_forecasts, max_lags=max_lags, predict_mode=predict_mode
+    )
 
     # TIME: the time at each sample's lags and forecasts
     if max_lags == 0:
-        inputs["time"] = df.at[origin_index, "t"]
-        inputs["time"] = np.expand_dims(inputs["time"], 0)
-        inputs["time"] = torch.tensor(inputs["time"], dtype=torch.float32)
-
+        t = df.at[origin_index, "t"]
+        inputs["time"] = torch.tensor(np.expand_dims(t, 0), dtype=torch.float32)
     else:
         # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
         # Note: df.loc is inclusive of slice end, while df.iloc is not.
-        inputs["time"] = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
-        inputs["time"] = torch.as_tensor(inputs["time"], dtype=torch.float32)
+        t = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
+        inputs["time"] = torch.as_tensor(t, dtype=torch.float32)
 
     # LAGS: From y-series, extract preceeding n_lags steps up to and including origin_index
     if n_lags >= 1 and "y_scaled" in df.columns:
         # Note: df.loc is inclusive of slice end, while df.iloc is not.
-        inputs["lags"] = df.loc[origin_index - n_lags + 1 : origin_index, "y_scaled"].values
-        inputs["lags"] = torch.as_tensor(inputs["lags"], dtype=torch.float32)
+        lags = df.loc[origin_index - n_lags + 1 : origin_index, "y_scaled"].values
+        inputs["lags"] = torch.as_tensor(lags, dtype=torch.float32)
 
     # COVARIATES / LAGGED REGRESSORS: Lagged regressor inputs: analogous to LAGS
     if config_lagged_regressors is not None and max_lags > 0:
-        lagged_regressors = OrderedDict({})
-        # Future TODO: optimize this computation for many lagged_regressors
-        for lagged_reg in df.columns:
-            if lagged_reg in config_lagged_regressors:
-                covar_lags = config_lagged_regressors[lagged_reg].n_lags
-                assert covar_lags > 0
-                # Note: df.loc is inclusive of slice end, while df.iloc is not.
-                lagged_regressors[lagged_reg] = df.loc[origin_index - covar_lags + 1 : origin_index, lagged_reg].values
-                lagged_regressors[lagged_reg] = torch.as_tensor(lagged_regressors[lagged_reg], dtype=torch.float32)
-        inputs["covariates"] = lagged_regressors
+        inputs["covariates"] = get_sample_lagged_regressors(
+            df=df, origin_index=origin_index, config_lagged_regressors=config_lagged_regressors
+        )
 
-    # SEASONALITIES
-    # TODO: precompute and save fourier features and only tabularize / slide windows when calling __getitem__
+    # SEASONALITIES_
     if config_seasonality is not None:
-        seasonalities = OrderedDict({})
-        if max_lags == 0:
-            dates = pd.Series(df.at[origin_index, "ds"])
-        else:
-            # Note: df.loc is inclusive of slice end, while df.iloc is not.
-            dates = pd.Series(df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "ds"].values)
-        # Seasonality features
-        for name, period in config_seasonality.periods.items():
-            if period.resolution > 0:
-                if config_seasonality.computation == "fourier":
-                    # Compute Fourier series components with the specified frequency and order.
-                    # convert to days since epoch
-                    t = np.array((dates - datetime(1900, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
-                    # features: Matrix with dims (length len(dates), 2*resolution)
-                    features = np.column_stack(
-                        [np.sin(2.0 * (i + 1) * np.pi * t / period.period) for i in range(period.resolution)]
-                        + [np.cos(2.0 * (i + 1) * np.pi * t / period.period) for i in range(period.resolution)]
-                    )
-                else:
-                    raise NotImplementedError
-                if period.condition_name is not None:
-                    # multiply seasonality features with condition mask/values
-                    if max_lags == 0:
-                        condition_values = pd.Series(df.at[origin_index, period.condition_name]).values[:, np.newaxis]
-                    else:
-                        condition_values = df.loc[
-                            origin_index - n_lags + 1 : origin_index + n_forecasts, period.condition_name
-                        ].values[:, np.newaxis]
-                    features = features * condition_values
-                seasonalities[name] = torch.as_tensor(features, dtype=torch.float32)
-        inputs["seasonalities"] = seasonalities
+        inputs["seasonalities"] = get_sample_seasonalities(
+            df=df,
+            origin_index=origin_index,
+            n_forecasts=n_forecasts,
+            max_lags=max_lags,
+            n_lags=n_lags,
+            config_seasonality=config_seasonality,
+        )
 
     # FUTURE REGRESSORS: get the future regressors features
     # create numpy array of values of additive and multiplicative regressors, at correct indexes
     # features dims: (n_forecasts, n_features)
     any_future_regressors = 0 < len(additive_regressors_names + multiplicative_regressors_names)
     if any_future_regressors:  # if config_regressors is not None:
-        regressors = OrderedDict({})
-        if max_lags == 0:
-            if len(additive_regressors_names) > 0:
-                features = df.loc[origin_index, additive_regressors_names].values
-                regressors["additive"] = torch.as_tensor(
-                    np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
-                )
-            if len(multiplicative_regressors_names) > 0:
-                features = df.loc[origin_index, multiplicative_regressors_names].values
-                regressors["multiplicative"] = torch.as_tensor(
-                    np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
-                )
-        else:
-            if len(additive_regressors_names) > 0:
-                features = df.loc[
-                    origin_index + 1 - n_lags : origin_index + n_forecasts, additive_regressors_names
-                ].values
-                regressors["additive"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
-            if len(multiplicative_regressors_names) > 0:
-                features = df.loc[
-                    origin_index + 1 - n_lags : origin_index + n_forecasts, multiplicative_regressors_names
-                ].values
-                regressors["multiplicative"] = torch.as_tensor(
-                    np.array(features, dtype=np.float32), dtype=torch.float32
-                )
-        inputs["regressors"] = regressors
+        inputs["regressors"] = get_sample_future_regressors(
+            df=df,
+            origin_index=origin_index,
+            n_forecasts=n_forecasts,
+            max_lags=max_lags,
+            n_lags=n_lags,
+            additive_regressors_names=additive_regressors_names,
+            multiplicative_regressors_names=multiplicative_regressors_names,
+        )
 
     # FUTURE EVENTS: get the events features
     # create numpy array of values of additive and multiplicative events, at correct indexes
     # features dims: (n_forecasts, n_features)
     any_events = 0 < len(additive_event_and_holiday_names + multiplicative_event_and_holiday_names)
     if any_events:
-        events = OrderedDict({})
-        if max_lags == 0:
-            # forecasts are at origin_index
-            if len(additive_event_and_holiday_names) > 0:
-                features = df.loc[origin_index, additive_event_and_holiday_names].values
-                events["additive"] = torch.as_tensor(
-                    np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
-                )
-            if len(multiplicative_event_and_holiday_names) > 0:
-                features = df.loc[origin_index, multiplicative_event_and_holiday_names].values
-                events["multiplicative"] = torch.as_tensor(
-                    np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
-                )
-        else:
-            # forecasts are at origin_index + 1 up to origin_index + n_forecasts
-            if len(additive_event_and_holiday_names) > 0:
-                features = df.loc[
-                    origin_index + 1 - n_lags : origin_index + n_forecasts, additive_event_and_holiday_names
-                ].values
-                events["additive"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
-
-            if len(multiplicative_event_and_holiday_names) > 0:
-                features = df.loc[
-                    origin_index + 1 - n_lags : origin_index + n_forecasts, multiplicative_event_and_holiday_names
-                ].values
-                events["multiplicative"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
-        inputs["events"] = events
+        inputs["events"] = get_sample_future_events(
+            df=df,
+            origin_index=origin_index,
+            n_forecasts=n_forecasts,
+            max_lags=max_lags,
+            n_lags=n_lags,
+            additive_event_and_holiday_names=additive_event_and_holiday_names,
+            multiplicative_event_and_holiday_names=multiplicative_event_and_holiday_names,
+        )
 
     # ONLY FOR DEBUGGING
-    # tabularized_input_shapes_str = ""
-    # for key, value in inputs.items():
-    #     if key in [
-    #         "seasonalities",
-    #         "covariates",
-    #         "events",
-    #         "regressors",
-    #     ]:
-    #         for name, period_features in value.items():
-    #             tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
-    #     else:
-    #         tabularized_input_shapes_str += f"    {key} {value.shape} \n"
-    # log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
+    if log.level == 0:
+        log_input_shapes(inputs)
     return inputs, targets
 
 
