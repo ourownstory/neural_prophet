@@ -185,7 +185,10 @@ class TimeDataset(Dataset):
             df=df,
             predict_steps=self.predict_steps,
             drop_missing=self.config_missing.drop_missing,
+            predict_mode=self.predict_mode,
+            max_lags=self.max_lags,
             n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
         )  # boolean array where NAN are False
 
         # Filter NAN
