@@ -763,24 +763,38 @@ def create_nan_mask(df, predict_steps, drop_missing, predict_mode, max_lags, n_l
 
     # Targets
     if predict_mode:
+        # Targets not needed
         targets_valid = np.ones(len(df), dtype=bool)
     else:
-        if n_forecasts == 1:
-            if max_lags == 0:  # y-series and origin index match
-                targets_valid = np.logical_not(df_isna["y_scaled"].values)
-            if max_lags > 0:
-                targets_nan = df_isna.loc[1:, "y_scaled"].values
-                targets_nan = np.pad(targets_nan, pad_width=(1, 0), mode="constant", constant_values=True)
-                targets_valid = np.logical_not(targets_nan)
+        if max_lags == 0:  # y-series and origin index match
+            targets_valid = np.logical_not(df_isna["y_scaled"].values)
         else:
-            targets_nan = sliding_window_view(df_isna["y_scaled"], window_shape=n_forecasts, axis=0).any(axis=-1)
-            # first entry corresponds to origin_index -1, drop this.
-            targets_nan = targets_nan[1:]
-            # pad last n_forecasts as missing, as forecast origins will have missing forecast-targets there.
-            targets_nan = np.pad(targets_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
-            targets_valid = np.logical_not(targets_nan)
+            if n_forecasts == 1:
+                targets_nan = df_isna.loc[1:, "y_scaled"].values
+                targets_nan = np.pad(targets_nan, pad_width=(0, 1), mode="constant", constant_values=True)
+                targets_valid = np.logical_not(targets_nan)
+            else:  # This is also correct for n_forecasts == 1, but slower.
+                targets_nan = sliding_window_view(df_isna["y_scaled"], window_shape=n_forecasts, axis=0).any(axis=-1)
+                # first entry corresponds to origin_index -1, drop this.
+                targets_nan = targets_nan[1:]
+                # pad last n_forecasts as missing, as forecast origins will have missing forecast-targets there.
+                targets_nan = np.pad(targets_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
+                targets_valid = np.logical_not(targets_nan)
+        non_nan = np.logical_and(non_nan, targets_valid)
 
-    non_nan = np.logical_and(non_nan, targets_valid)
+    # TIME: the time at each sample's lags and forecasts
+    if max_lags == 0:  # y-series and origin_index match
+        time_valid = np.logical_not(df_isna["t"].values)
+    else:
+        # TODO: sliding_window_view and pad operations.
+        time_valid = np.ones(len(df), dtype=bool)
+        ## inspiration from tabularization:
+        # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
+        # Note: df.loc is inclusive of slice end, while df.iloc is not.
+        # t = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
+        # inputs["time"] = torch.as_tensor(t, dtype=torch.float32)
+    non_nan = np.logical_and(non_nan, time_valid)
+
     return non_nan
 
     # TIME: the time at each sample's lags and forecasts
@@ -792,12 +806,6 @@ def create_nan_mask(df, predict_steps, drop_missing, predict_mode, max_lags, n_l
         # Note: df.loc is inclusive of slice end, while df.iloc is not.
         t = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
         inputs["time"] = torch.as_tensor(t, dtype=torch.float32)
-
-    # LAGS: From y-series, extract preceeding n_lags steps up to and including origin_index
-    if n_lags >= 1 and "y_scaled" in df.columns:
-        # Note: df.loc is inclusive of slice end, while df.iloc is not.
-        lags = df.loc[origin_index - n_lags + 1 : origin_index, "y_scaled"].values
-        inputs["lags"] = torch.as_tensor(lags, dtype=torch.float32)
 
     # COVARIATES / LAGGED REGRESSORS: Lagged regressor inputs: analogous to LAGS
     if config_lagged_regressors is not None and max_lags > 0:
