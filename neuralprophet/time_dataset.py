@@ -6,6 +6,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 import torch
+from numpy.lib.stride_tricks import sliding_window_view
 from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure, utils
@@ -76,7 +77,8 @@ class TimeDataset(Dataset):
         self.config_missing = config_missing
 
         self.max_lags = get_max_num_lags(n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors)
-
+        if self.max_lags == 0:
+            assert self.n_forecasts == 1
         self.two_level_inputs = ["seasonalities", "covariates", "events", "regressors"]
 
         # Preprocessing of events and holidays features (added to self.df)
@@ -154,7 +156,6 @@ class TimeDataset(Dataset):
 
     def sample_index_to_df_index(self, sample_index):
         """Translates a single outer sample to dataframe index"""
-        # Will need more sophisticated mapping for GlobalTimeDataset
         return self.sample2index_map[sample_index]
 
     def create_sample2index_map(self, df):
@@ -174,16 +175,29 @@ class TimeDataset(Dataset):
         # analogous to `self.filter_samples_after_init(self.kwargs["prediction_frequency"])`
         prediction_frequency_mask = create_prediction_frequency_filter_mask(df, self.prediction_frequency)
 
+        # Combine prediction origin masks
+        valid_prediction_mask = np.logical_and(prediction_frequency_mask, origin_start_end_mask)
+
         # TODO Create NAN-free index mapping of sample index to df index
         # analogous to `self.drop_nan_after_init(
         # self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
         nan_mask = create_nan_mask(
-            df, self.predict_steps, self.config_missing.drop_missing
+            df=df,
+            predict_steps=self.predict_steps,
+            drop_missing=self.config_missing.drop_missing,
+            n_lags=self.n_lags,
         )  # boolean array where NAN are False
 
-        # Combine masks
-        mask = np.logical_and(prediction_frequency_mask, origin_start_end_mask)
-        valid_sample_mask = np.logical_and(mask, nan_mask)
+        # Filter NAN
+        valid_sample_mask = np.logical_and(valid_prediction_mask, nan_mask)
+        n_clean_data_samples = sum(valid_prediction_mask)
+        n_real_data_samples = sum(valid_sample_mask)
+        nan_samples_to_drop = n_clean_data_samples - n_real_data_samples
+        if nan_samples_to_drop > 0 and not self.config_missing.drop_missing:
+            raise ValueError(
+                f"NANs found. {nan_samples_to_drop} samples affected. Set `drop_missing` to `True` to drop these samples."
+            )
+
         # Convert boolean valid_sample to list of the positinal index of all true/one entries
         #   e.g. [0,0,1,1,0,1,0] -> [2,3,5]
         index_range = np.arange(0, df_length)
@@ -445,12 +459,10 @@ def tabularize_univariate_datetime_single_index(
             Targets to be predicted of same length as each of the model inputs, dims: (n_forecasts, 1)
     """
     # TODO: pre-process all type conversions (e.g. torch.float32) in __init__
+    # Note: if max_lags == 0, then n_forecasts == 1
 
     # sample features are stored and returned in OrderedDict
     inputs = OrderedDict({})
-
-    if max_lags == 0:
-        assert n_forecasts == 1
 
     targets = get_sample_targets(
         df=df, origin_index=origin_index, n_forecasts=n_forecasts, max_lags=max_lags, predict_mode=predict_mode
@@ -598,38 +610,6 @@ def get_event_offset_features(event, config, feature):
     return events
 
 
-def _create_event_offset_features(event, config, feature, additive_events, multiplicative_events):
-    """
-    Create event offset features for the given event, config and feature
-    Parameters
-    ----------
-        event : str
-            Name of the event
-        config : configure.ConfigEvents
-            User specified events, holidays, and country specific holidays
-        feature : pd.Series
-            Feature for the event
-        additive_events : pd.DataFrame
-            Dataframe of additive events
-        multiplicative_events : pd.DataFrame
-            Dataframe of multiplicative events
-    Returns
-    -------
-        tuple
-            Tuple of additive_events and multiplicative_events
-    """
-    lw = config.lower_window
-    uw = config.upper_window
-    mode = config.mode
-    for offset in range(lw, uw + 1):
-        key = utils.create_event_names_for_offsets(event, offset)
-        offset_feature = feature.shift(periods=offset, fill_value=0.0)
-        if mode == "additive":
-            additive_events[key] = offset_feature
-        else:
-            multiplicative_events[key] = offset_feature
-
-
 def add_event_features_to_df(
     df,
     config_events: Optional[configure.ConfigEvents] = None,
@@ -759,7 +739,7 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
     return mask
 
 
-def create_nan_mask(df, predict_steps, drop_missing):
+def create_nan_mask(df, predict_steps, drop_missing, predict_mode, max_lags, n_lags, n_forecasts):
     """Creates mask for each prediction origin,
     accounting for corresponding input lags / forecast targets containing any NaN values.
 
@@ -770,9 +750,105 @@ def create_nan_mask(df, predict_steps, drop_missing):
         predict_steps : int
             number of steps to predict
     """
+    # check y: lags:
+    non_nan = np.ones(len(df), dtype=bool)
+    df_isna = df.isna()
+    if n_lags > 0:
+        # boolean vector, starting at origin_index = n_lags -1
+        y_lags_nan = sliding_window_view(df_isna["y_scaled"], window_shape=n_lags, axis=0).any(axis=-1)
+        # fill first n_lags -1 positions with True
+        y_lags_nan = np.pad(y_lags_nan, pad_width=(n_lags - 1, 0), mode="constant", constant_values=True)
+        y_lags_valid = np.logical_not(y_lags_nan)
+        non_nan = np.logical_and(non_nan, y_lags_valid)
+
+    # Targets
+    if predict_mode:
+        targets_valid = np.ones(len(df), dtype=bool)
+    else:
+        if n_forecasts == 1:
+            if max_lags == 0:  # y-series and origin index match
+                targets_valid = np.logical_not(df_isna["y_scaled"].values)
+            if max_lags > 0:
+                targets_nan = df_isna.loc[1:, "y_scaled"].values
+                targets_nan = np.pad(targets_nan, pad_width=(1, 0), mode="constant", constant_values=True)
+                targets_valid = np.logical_not(targets_nan)
+        else:
+            targets_nan = sliding_window_view(df_isna["y_scaled"], window_shape=n_forecasts, axis=0).any(axis=-1)
+            # first entry corresponds to origin_index -1, drop this.
+            targets_nan = targets_nan[1:]
+            # pad last n_forecasts as missing, as forecast origins will have missing forecast-targets there.
+            targets_nan = np.pad(targets_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
+            targets_valid = np.logical_not(targets_nan)
+
+    non_nan = np.logical_and(non_nan, targets_valid)
+    return non_nan
+
+    # TIME: the time at each sample's lags and forecasts
+    if max_lags == 0:
+        t = df.at[origin_index, "t"]
+        inputs["time"] = torch.tensor(np.expand_dims(t, 0), dtype=torch.float32)
+    else:
+        # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
+        # Note: df.loc is inclusive of slice end, while df.iloc is not.
+        t = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
+        inputs["time"] = torch.as_tensor(t, dtype=torch.float32)
+
+    # LAGS: From y-series, extract preceeding n_lags steps up to and including origin_index
+    if n_lags >= 1 and "y_scaled" in df.columns:
+        # Note: df.loc is inclusive of slice end, while df.iloc is not.
+        lags = df.loc[origin_index - n_lags + 1 : origin_index, "y_scaled"].values
+        inputs["lags"] = torch.as_tensor(lags, dtype=torch.float32)
+
+    # COVARIATES / LAGGED REGRESSORS: Lagged regressor inputs: analogous to LAGS
+    if config_lagged_regressors is not None and max_lags > 0:
+        inputs["covariates"] = get_sample_lagged_regressors(
+            df=df, origin_index=origin_index, config_lagged_regressors=config_lagged_regressors
+        )
+
+    # SEASONALITIES_
+    if config_seasonality is not None:
+        inputs["seasonalities"] = get_sample_seasonalities(
+            df=df,
+            origin_index=origin_index,
+            n_forecasts=n_forecasts,
+            max_lags=max_lags,
+            n_lags=n_lags,
+            config_seasonality=config_seasonality,
+        )
+
+    # FUTURE REGRESSORS: get the future regressors features
+    # create numpy array of values of additive and multiplicative regressors, at correct indexes
+    # features dims: (n_forecasts, n_features)
+    any_future_regressors = 0 < len(additive_regressors_names + multiplicative_regressors_names)
+    if any_future_regressors:  # if config_regressors is not None:
+        inputs["regressors"] = get_sample_future_regressors(
+            df=df,
+            origin_index=origin_index,
+            n_forecasts=n_forecasts,
+            max_lags=max_lags,
+            n_lags=n_lags,
+            additive_regressors_names=additive_regressors_names,
+            multiplicative_regressors_names=multiplicative_regressors_names,
+        )
+
+    # FUTURE EVENTS: get the events features
+    # create numpy array of values of additive and multiplicative events, at correct indexes
+    # features dims: (n_forecasts, n_features)
+    any_events = 0 < len(additive_event_and_holiday_names + multiplicative_event_and_holiday_names)
+    if any_events:
+        inputs["events"] = get_sample_future_events(
+            df=df,
+            origin_index=origin_index,
+            n_forecasts=n_forecasts,
+            max_lags=max_lags,
+            n_lags=n_lags,
+            additive_event_and_holiday_names=additive_event_and_holiday_names,
+            multiplicative_event_and_holiday_names=multiplicative_event_and_holiday_names,
+        )
+
     # IMPORTANT !!
     # TODO implement actual filtering
-    return np.ones(len(df), dtype=bool)
+    # return np.ones(len(df), dtype=bool)
 
     # Create index mapping of sample index to df index
     # - Filter missing samples (does not actually drop, but creates indexmapping)
