@@ -97,7 +97,7 @@ class TimeDataset(Dataset):
         )
 
         # Construct index map
-        self.sample2index_map, self.length = self.create_sample2index_map(df)
+        self.sample2index_map, self.length = self.create_sample2index_map(self.df)
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -888,9 +888,9 @@ def create_nan_mask(
 def mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts):
     # assert len(names) > 0
     contains_nan = df_isna.loc[:, names]
-    if len(contains_nan.shape) > 1:
-        assert len(contains_nan.shape) == 2
-        contains_nan = contains_nan.any(axis=1)
+    # if len(contains_nan.shape) > 1:
+    #     assert len(contains_nan.shape) == 2
+    contains_nan = contains_nan.any(axis=1)
     if max_lags > 0:
         if n_lags == 0 and n_forecasts == 1:
             contains_nan = contains_nan[1:]
