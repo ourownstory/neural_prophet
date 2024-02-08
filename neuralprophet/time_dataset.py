@@ -189,6 +189,9 @@ class TimeDataset(Dataset):
             max_lags=self.max_lags,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
+            config_lagged_regressors=self.config_lagged_regressors,
+            future_regressor_names=self.additive_regressors_names + self.multiplicative_regressors_names,
+            event_names=self.additive_event_and_holiday_names + self.multiplicative_event_and_holiday_names,
         )  # boolean array where NAN are False
 
         # Filter NAN
@@ -272,13 +275,13 @@ def get_sample_targets(df, origin_index, n_forecasts, max_lags, predict_mode):
 def get_sample_lagged_regressors(df, origin_index, config_lagged_regressors):
     lagged_regressors = OrderedDict({})
     # Future TODO: optimize this computation for many lagged_regressors
-    for lagged_reg in df.columns:
-        if lagged_reg in config_lagged_regressors:
-            covar_lags = config_lagged_regressors[lagged_reg].n_lags
+    for name in df.columns:
+        if name in config_lagged_regressors:
+            covar_lags = config_lagged_regressors[name].n_lags
             assert covar_lags > 0
             # Note: df.loc is inclusive of slice end, while df.iloc is not.
-            lagged_regressors[lagged_reg] = df.loc[origin_index - covar_lags + 1 : origin_index, lagged_reg].values
-            lagged_regressors[lagged_reg] = torch.as_tensor(lagged_regressors[lagged_reg], dtype=torch.float32)
+            lagged_regressors[name] = df.loc[origin_index - covar_lags + 1 : origin_index, name].values
+            lagged_regressors[name] = torch.as_tensor(lagged_regressors[name], dtype=torch.float32)
     return lagged_regressors
 
 
@@ -488,7 +491,7 @@ def tabularize_univariate_datetime_single_index(
         inputs["lags"] = torch.as_tensor(lags, dtype=torch.float32)
 
     # COVARIATES / LAGGED REGRESSORS: Lagged regressor inputs: analogous to LAGS
-    if config_lagged_regressors is not None and max_lags > 0:
+    if config_lagged_regressors is not None:  # and max_lags > 0:
         inputs["covariates"] = get_sample_lagged_regressors(
             df=df, origin_index=origin_index, config_lagged_regressors=config_lagged_regressors
         )
@@ -742,7 +745,18 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
     return mask
 
 
-def create_nan_mask(df, predict_steps, drop_missing, predict_mode, max_lags, n_lags, n_forecasts):
+def create_nan_mask(
+    df,
+    predict_steps,
+    drop_missing,
+    predict_mode,
+    max_lags,
+    n_lags,
+    n_forecasts,
+    config_lagged_regressors,
+    future_regressor_names,
+    event_names,
+):
     """Creates mask for each prediction origin,
     accounting for corresponding input lags / forecast targets containing any NaN values.
 
@@ -753,18 +767,10 @@ def create_nan_mask(df, predict_steps, drop_missing, predict_mode, max_lags, n_l
         predict_steps : int
             number of steps to predict
     """
-    # check y: lags:
-    non_nan = np.ones(len(df), dtype=bool)
+    valid_origins = np.ones(len(df), dtype=bool)
     df_isna = df.isna()
-    if n_lags > 0:
-        # boolean vector, starting at origin_index = n_lags -1
-        y_lags_nan = sliding_window_view(df_isna["y_scaled"], window_shape=n_lags, axis=0).any(axis=-1)
-        # fill first n_lags -1 positions with True
-        y_lags_nan = np.pad(y_lags_nan, pad_width=(n_lags - 1, 0), mode="constant", constant_values=True)
-        y_lags_valid = np.logical_not(y_lags_nan)
-        non_nan = np.logical_and(non_nan, y_lags_valid)
 
-    # Targets
+    # TARGETS
     if predict_mode:
         # Targets not needed
         targets_valid = np.ones(len(df), dtype=bool)
@@ -773,7 +779,7 @@ def create_nan_mask(df, predict_steps, drop_missing, predict_mode, max_lags, n_l
             targets_valid = np.logical_not(df_isna["y_scaled"].values)
         else:
             if n_forecasts == 1:
-                targets_nan = df_isna.loc[1:, "y_scaled"].values
+                targets_nan = df_isna["y_scaled"].values[1:]
                 targets_nan = np.pad(targets_nan, pad_width=(0, 1), mode="constant", constant_values=True)
                 targets_valid = np.logical_not(targets_nan)
             else:  # This is also correct for n_forecasts == 1, but slower.
@@ -783,129 +789,123 @@ def create_nan_mask(df, predict_steps, drop_missing, predict_mode, max_lags, n_l
                 # pad last n_forecasts as missing, as forecast origins will have missing forecast-targets there.
                 targets_nan = np.pad(targets_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
                 targets_valid = np.logical_not(targets_nan)
-        non_nan = np.logical_and(non_nan, targets_valid)
+    valid_origins = np.logical_and(valid_origins, targets_valid)
 
-    # TIME: the time at each sample's lags and forecasts
-    if max_lags == 0:  # y-series and origin_index match
-        time_valid = np.logical_not(df_isna["t"].values)
-    else:
-        # TODO: sliding_window_view and pad operations.
-        time_valid = np.ones(len(df), dtype=bool)
-        ## inspiration from tabularization:
-        # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
-        # Note: df.loc is inclusive of slice end, while df.iloc is not.
-        # t = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
-        # inputs["time"] = torch.as_tensor(t, dtype=torch.float32)
-    non_nan = np.logical_and(non_nan, time_valid)
+    # AR LAGS
+    if n_lags > 0:
+        # boolean vector, starting at origin_index = n_lags -1
+        y_lags_nan = sliding_window_view(df_isna["y_scaled"], window_shape=n_lags, axis=0).any(axis=-1)
+        # fill first n_lags -1 positions with True
+        # as there are missing lags for the corresponding origin_indexes
+        y_lags_nan = np.pad(y_lags_nan, pad_width=(n_lags - 1, 0), mode="constant", constant_values=True)
+        y_lags_valid = np.logical_not(y_lags_nan)
+        valid_origins = np.logical_and(valid_origins, y_lags_valid)
 
-    return non_nan
+    # LAGGED REGRESSORS
+    if config_lagged_regressors is not None:  # and max_lags > 0:
+        reg_lags_valid = np.ones(len(df), dtype=bool)
+        for name in df.columns:
+            if name in config_lagged_regressors:
+                n_reg_lags = config_lagged_regressors[name].n_lags
+                if n_reg_lags > 0:
+                    # boolean vector, starting at origin_index = n_lags -1
+                    reg_lags_nan = sliding_window_view(df_isna[name], window_shape=n_reg_lags, axis=0).any(axis=-1)
+                    # fill first n_reg_lags -1 positions with True,
+                    # as there are missing lags for the corresponding origin_indexes
+                    reg_lags_nan = np.pad(
+                        reg_lags_nan, pad_width=(n_reg_lags - 1, 0), mode="constant", constant_values=True
+                    )
+                    reg_lags_valid_i = np.logical_not(reg_lags_nan)
+                    reg_lags_valid = np.logical_and(reg_lags_valid, reg_lags_valid_i)
+        valid_origins = np.logical_and(valid_origins, reg_lags_valid)
 
-    # TIME: the time at each sample's lags and forecasts
-    if max_lags == 0:
-        t = df.at[origin_index, "t"]
-        inputs["time"] = torch.tensor(np.expand_dims(t, 0), dtype=torch.float32)
-    else:
-        # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
-        # Note: df.loc is inclusive of slice end, while df.iloc is not.
-        t = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
-        inputs["time"] = torch.as_tensor(t, dtype=torch.float32)
+    # TIME: TREND & SEASONALITY: the time at each sample's lags and forecasts
+    # FUTURE REGRESSORS
+    # EVENTS
+    for names in [["t"], future_regressor_names, event_names]:
+        if len(names) > 0:
+            valid_columns = mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts)
+            valid_origins = np.logical_and(valid_origins, valid_columns)
 
-    # COVARIATES / LAGGED REGRESSORS: Lagged regressor inputs: analogous to LAGS
-    if config_lagged_regressors is not None and max_lags > 0:
-        inputs["covariates"] = get_sample_lagged_regressors(
-            df=df, origin_index=origin_index, config_lagged_regressors=config_lagged_regressors
-        )
+    # # TIME: TREND & SEASONALITY: the time at each sample's lags and forecasts
+    # if max_lags == 0:  # y-series and origin_index match
+    #     time_valid = np.logical_not(df_isna["t"].values)
+    # else:
+    #     time_nan = sliding_window_view(df_isna["t"], window_shape=n_lags+n_forecasts, axis=0).any(axis=-1)
+    #     # first sample is at origin_index = n_lags -1,
+    #     if n_lags == 0: # first sample origin index is at -1
+    #         time_nan = time_nan[1:]
+    #     else:
+    #         time_nan = np.pad(time_nan, pad_width=(n_lags-1, 0), mode="constant", constant_values=True)
+    #     # there are n_forecasts origin_indexes missing at end
+    #     time_nan = np.pad(time_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
+    #     time_valid = np.logical_not(time_nan)
+    # non_nan = np.logical_and(non_nan, time_valid)
 
-    # SEASONALITIES_
-    if config_seasonality is not None:
-        inputs["seasonalities"] = get_sample_seasonalities(
-            df=df,
-            origin_index=origin_index,
-            n_forecasts=n_forecasts,
-            max_lags=max_lags,
-            n_lags=n_lags,
-            config_seasonality=config_seasonality,
-        )
+    # # FUTURE REGRESSORS
+    # if len(future_regressor_names) > 0:
+    #     if max_lags == 0:
+    #          fut_reg_nan = df_isna.loc[:, future_regressor_names]
+    #          assert len(fut_reg_nan.shape) == 2
+    #          fut_reg_nan = fut_reg_nan.any(axis=-1)
+    #     else:
+    #         fut_reg_nan = sliding_window_view(df_isna.loc[:, future_regressor_names], window_shape=n_lags+n_forecasts, axis=0).any(axis=-1)
+    #         assert len(fut_reg_nan.shape) == 2
+    #         fut_reg_nan = fut_reg_nan.any(axis=-1)
+    #         # first sample is at origin_index = n_lags -1,
+    #         if n_lags == 0: # first sample origin index is at -1
+    #             fut_reg_nan = fut_reg_nan[1:]
+    #         else:
+    #             fut_reg_nan = np.pad(fut_reg_nan, pad_width=(n_lags-1, 0), mode="constant", constant_values=True)
+    #         # there are n_forecasts origin_indexes missing at end
+    #         fut_reg_nan = np.pad(fut_reg_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
+    #     fut_reg_valid = np.logical_not(fut_reg_nan)
+    #     non_nan = np.logical_and(non_nan, fut_reg_valid)
 
-    # FUTURE REGRESSORS: get the future regressors features
-    # create numpy array of values of additive and multiplicative regressors, at correct indexes
-    # features dims: (n_forecasts, n_features)
-    any_future_regressors = 0 < len(additive_regressors_names + multiplicative_regressors_names)
-    if any_future_regressors:  # if config_regressors is not None:
-        inputs["regressors"] = get_sample_future_regressors(
-            df=df,
-            origin_index=origin_index,
-            n_forecasts=n_forecasts,
-            max_lags=max_lags,
-            n_lags=n_lags,
-            additive_regressors_names=additive_regressors_names,
-            multiplicative_regressors_names=multiplicative_regressors_names,
-        )
+    # # EVENTS
+    # if len(event_names) > 0:
+    #     if max_lags == 0:
+    #          event_nan = df_isna.loc[:, event_names]
+    #          assert len(event_nan.shape) == 2
+    #          event_nan = event_nan.any(axis=-1)
+    #     else:
+    #         event_nan = sliding_window_view(df_isna.loc[:, event_names], window_shape=n_lags+n_forecasts, axis=0).any(axis=-1)
+    #         assert len(event_nan.shape) == 2
+    #         event_nan = event_nan.any(axis=-1)
+    #         # first sample is at origin_index = n_lags -1,
+    #         if n_lags == 0: # first sample origin index is at -1
+    #             event_nan = event_nan[1:]
+    #         else:
+    #             event_nan = np.pad(event_nan, pad_width=(n_lags-1, 0), mode="constant", constant_values=True)
+    #         # there are n_forecasts origin_indexes missing at end
+    #         event_nan = np.pad(event_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
+    #     event_valid = np.logical_not(event_nan)
+    #     non_nan = np.logical_and(non_nan, event_valid)
 
-    # FUTURE EVENTS: get the events features
-    # create numpy array of values of additive and multiplicative events, at correct indexes
-    # features dims: (n_forecasts, n_features)
-    any_events = 0 < len(additive_event_and_holiday_names + multiplicative_event_and_holiday_names)
-    if any_events:
-        inputs["events"] = get_sample_future_events(
-            df=df,
-            origin_index=origin_index,
-            n_forecasts=n_forecasts,
-            max_lags=max_lags,
-            n_lags=n_lags,
-            additive_event_and_holiday_names=additive_event_and_holiday_names,
-            multiplicative_event_and_holiday_names=multiplicative_event_and_holiday_names,
-        )
+    return valid_origins
 
-    # IMPORTANT !!
-    # TODO implement actual filtering
-    # return np.ones(len(df), dtype=bool)
 
-    # Create index mapping of sample index to df index
-    # - Filter missing samples (does not actually drop, but creates indexmapping)
-    # -- drop nan analogous to `self.drop_nan_after_init(self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
-    # Note: needs to also account for NANs in lagged inputs or in n_forecasts, not just first target.
-    # Implement a convolutional filter for targets and each lagged regressor.
-    # Also account for future regressors and events.
-
-    # Rewrite to return mask instead of filtering df:
-    nan_idx = []
-    # NaNs in inputs
-    for key, data in self.inputs.items():
-        if isinstance(data, torch.Tensor):
-            nans = torch.where(torch.isnan(data))[0].tolist()
-            if len(nans) > 0:
-                nan_idx += nans
-        elif isinstance(data, dict):
-            for subkey, subdata in data.items():
-                nans = torch.where(torch.isnan(subdata))[0].tolist()
-                if len(nans) > 0:
-                    nan_idx += nans
-
-    # NaNs in targets that are not inserted for prediction at the end
-    nans = torch.where(torch.isnan(self.targets))[0].tolist()
-    if len(nans) > 0:
-        for idx in nans:
-            if idx not in nan_idx and idx < len(self) - predict_steps:
-                nan_idx.append(idx)
-
-    nan_idx = list(set(nan_idx))
-    nan_idx.sort()
-    if drop_missing and len(nan_idx) > 0:
-        log.warning(f"{len(nan_idx)} samples with missing values were dropped from the data. ")
-        for key, data in self.inputs.items():
-            if key not in ["time", "lags"]:  # "time_lagged"
-                for name, features in data.items():
-                    self.inputs[key][name] = np.delete(self.inputs[key][name], nan_idx, 0)
+def mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts):
+    # assert len(names) > 0
+    contains_nan = df_isna.loc[:, names]
+    if len(contains_nan.shape) > 1:
+        assert len(contains_nan.shape) == 2
+        contains_nan = contains_nan.any(axis=-1)
+    if max_lags > 0:
+        if n_lags == 0 and n_forecasts == 1:
+            contains_nan = contains_nan[1:]
+            contains_nan = np.pad(contains_nan, pad_width=(0, 1), mode="constant", constant_values=True)
+        else:
+            contains_nan = sliding_window_view(contains_nan, window_shape=n_lags + n_forecasts, axis=0).any(axis=-1)
+            # first sample is at origin_index = n_lags -1,
+            if n_lags == 0:  # first sample origin index is at -1
+                contains_nan = contains_nan[1:]
             else:
-                self.inputs[key] = np.delete(self.inputs[key], nan_idx, 0)
-        self.targets = np.delete(self.targets, nan_idx, 0)
-        self.length = self.inputs["time"].shape[0]
-    if not drop_missing and len(nan_idx) > 0:
-        raise ValueError(
-            "Inputs/targets with missing values detected. "
-            "Please either adjust imputation parameters, or set 'drop_missing' to True to drop those samples."
-        )
+                contains_nan = np.pad(contains_nan, pad_width=(n_lags - 1, 0), mode="constant", constant_values=True)
+            # there are n_forecasts origin_indexes missing at end
+            contains_nan = np.pad(contains_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
+    valid_origins = np.logical_not(contains_nan)
+    return valid_origins
 
 
 def sort_regressor_names(config):
