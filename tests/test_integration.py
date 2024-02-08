@@ -1505,9 +1505,10 @@ def test_n_lags_for_regressors():
         n_forecasts=2,
         n_lags=2,
     )
-    m = m.add_lagged_regressor(names="A", n_lags=0)
-    m = m.add_lagged_regressor(names="B", n_lags=0)
-    with pytest.raises(AssertionError):
+
+    with pytest.raises(ValueError):
+        m = m.add_lagged_regressor(names="A", n_lags=0)
+        m = m.add_lagged_regressor(names="B", n_lags=0)
         m.fit(df1, freq="D")
 
 

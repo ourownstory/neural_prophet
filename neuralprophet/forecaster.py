@@ -510,10 +510,8 @@ class NeuralProphet:
         lagged_reg_layers = self.config_model.lagged_reg_layers
 
         if n_lags == 0 or n_lags is None:
-            n_lags = 0
-            log.warning(
-                "Please, set n_lags to a value greater than 0 or to the options 'scalar' or 'auto'. No lags will be "
-                + "added to regressors when n_lags = 0 or n_lags is None"
+            raise ValueError(
+                f"Received n_lags {n_lags} for lagged regressor {names}. Please set n_lags > 0 or use options 'scalar' or 'auto'."
             )
         if n_lags == "auto":
             if self.n_lags is not None and self.n_lags > 0:
