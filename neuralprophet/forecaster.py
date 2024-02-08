@@ -1005,7 +1005,7 @@ class NeuralProphet:
             # Only display the plot if the session is interactive, eg. do not show in github actions since it
             # causes an error in the Windows and MacOS environment
             if matplotlib.is_interactive():
-                fig
+                fig.show()
 
         self.fitted = True
         return metrics_df

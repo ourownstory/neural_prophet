@@ -507,14 +507,12 @@ def check_dataframe(
     for name in columns:
         if name not in df:
             raise ValueError(f"Column {name!r} missing from dataframe")
-        if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
+        if sum(df.loc[:, name].notnull().values) < 1:
             raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
         if not np.issubdtype(df[name].dtype, np.number):
             df[name] = pd.to_numeric(df[name])
         if np.isinf(df.loc[:, name].values).any():
             df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
-        if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
-            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
 
     if future:
         return df, regressors_to_remove, lag_regressors_to_remove
