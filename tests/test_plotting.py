@@ -4,6 +4,7 @@ import logging
 import os
 import pathlib
 
+import matplotlib
 import pandas as pd
 import pytest
 
@@ -72,6 +73,7 @@ def test_plot(plotting_backend):
         fig6.show()
         fig7.show()
         fig8.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -114,6 +116,7 @@ def test_plot_components(plotting_backend):
         fig2.show()
         fig3.show()
         fig4.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -154,6 +157,7 @@ def test_plot_parameters(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -222,6 +226,7 @@ def test_plot_global_local_parameters(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -290,6 +295,7 @@ def test_plot_events(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -356,6 +362,7 @@ def test_plot_events_additive(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -394,6 +401,7 @@ def test_plot_events_components(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -419,6 +427,7 @@ def test_plot_trend(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -490,6 +499,7 @@ def test_plot_seasonality(plotting_backend):
         fig4.show()
         fig5.show()
         fig6.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -519,6 +529,7 @@ def test_plot_daily_seasonality(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -556,6 +567,7 @@ def test_plot_lag_reg(plotting_backend):
         fig2.show()
         fig3.show()
         fig4.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -585,6 +597,7 @@ def test_plot_future_reg(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -643,6 +656,7 @@ def test_plot_uncertainty(plotting_backend):
         fig5.show()
         fig6.show()
         fig7.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -706,6 +720,7 @@ def test_plot_conformal_prediction(plotting_backend):
             fig3.show()
             fig4.show()
             fig5.show()
+    matplotlib.pyplot.close("all")
 
 
 def test_advanced_conformal_prediction_plots():
@@ -734,6 +749,7 @@ def test_advanced_conformal_prediction_plots():
         fig0 = m.conformal_plot(forecast)
         if PLOT:
             fig0.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -763,6 +779,7 @@ def test_plot_conformal_prediction_asymmetric(plotting_backend):
         fig0.show()
         fig1.show()
         fig2.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -791,6 +808,7 @@ def test_plot_latest_forecast(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 def test_plotting_backend_options():
@@ -842,3 +860,4 @@ def test_plotting_backend_options():
         fig10.show()
         fig11.show()
         fig12.show()
+    matplotlib.pyplot.close("all")
