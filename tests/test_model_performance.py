@@ -335,17 +335,21 @@ def test_EnergyHourlyDeep():
     df["y"] = pd.to_numeric(df["y"], errors="coerce")
 
     df = df.drop("ds", axis=1)
-    df['ds'] = pd.date_range(start="2015-01-01 00:00:00", periods=len(df), freq="H")
+    df["ds"] = pd.date_range(start="2015-01-01 00:00:00", periods=len(df), freq="H")
     df["ID"] = "test"
 
-    df_id = df[['ds', 'y', 'temp']].copy()
-    df_id['ID'] = "test2"
-    df_id['y'] = df_id['y'] * 0.3
-    df_id['temp'] = df_id['temp'] * 0.4
+    df_id = df[["ds", "y", "temp"]].copy()
+    df_id["ID"] = "test2"
+    df_id["y"] = df_id["y"] * 0.3
+    df_id["temp"] = df_id["temp"] * 0.4
     df = pd.concat([df, df_id], ignore_index=True)
 
     # Conditional Seasonality
-    df["winter"] = np.where(df["ds"].dt.month.isin([1]), 1, 0,)
+    df["winter"] = np.where(
+        df["ds"].dt.month.isin([1]),
+        1,
+        0,
+    )
     df["summer"] = np.where(df["ds"].dt.month.isin([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]), 1, 0)
     df["winter"] = pd.to_numeric(df["winter"], errors="coerce")
     df["summer"] = pd.to_numeric(df["summer"], errors="coerce")
