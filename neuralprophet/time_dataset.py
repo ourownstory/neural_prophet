@@ -1,7 +1,7 @@
 import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -410,10 +410,10 @@ def tabularize_univariate_datetime_single_index(
     n_forecasts: int = 1,
     config_seasonality: Optional[configure.ConfigSeasonality] = None,
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
-    additive_event_and_holiday_names: list[str] = [],
-    multiplicative_event_and_holiday_names: list[str] = [],
-    additive_regressors_names: list[str] = [],
-    multiplicative_regressors_names: list[str] = [],
+    additive_event_and_holiday_names: List[str] = [],
+    multiplicative_event_and_holiday_names: List[str] = [],
+    additive_regressors_names: List[str] = [],
+    multiplicative_regressors_names: List[str] = [],
 ):
     """Create a tabular data sample from timeseries dataframe, used for mini-batch creation.
     Note
