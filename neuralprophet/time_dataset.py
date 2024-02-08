@@ -826,6 +826,7 @@ def create_nan_mask(
         if len(names) > 0:
             valid_columns = mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts)
             valid_origins = np.logical_and(valid_origins, valid_columns)
+    return valid_origins
 
     # # TIME: TREND & SEASONALITY: the time at each sample's lags and forecasts
     # if max_lags == 0:  # y-series and origin_index match
@@ -840,7 +841,7 @@ def create_nan_mask(
     #     # there are n_forecasts origin_indexes missing at end
     #     time_nan = np.pad(time_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
     #     time_valid = np.logical_not(time_nan)
-    # non_nan = np.logical_and(non_nan, time_valid)
+    # valid_origins = np.logical_and(valid_origins, time_valid)
 
     # # FUTURE REGRESSORS
     # if len(future_regressor_names) > 0:
@@ -860,7 +861,7 @@ def create_nan_mask(
     #         # there are n_forecasts origin_indexes missing at end
     #         fut_reg_nan = np.pad(fut_reg_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
     #     fut_reg_valid = np.logical_not(fut_reg_nan)
-    #     non_nan = np.logical_and(non_nan, fut_reg_valid)
+    #     valid_origins = np.logical_and(valid_origins, fut_reg_valid)
 
     # # EVENTS
     # if len(event_names) > 0:
@@ -880,9 +881,8 @@ def create_nan_mask(
     #         # there are n_forecasts origin_indexes missing at end
     #         event_nan = np.pad(event_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
     #     event_valid = np.logical_not(event_nan)
-    #     non_nan = np.logical_and(non_nan, event_valid)
-
-    return valid_origins
+    #     valid_origins = np.logical_and(valid_origins, event_valid)
+    # return valid_origins
 
 
 def mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts):
@@ -890,7 +890,7 @@ def mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_fore
     contains_nan = df_isna.loc[:, names]
     if len(contains_nan.shape) > 1:
         assert len(contains_nan.shape) == 2
-        contains_nan = contains_nan.any(axis=-1)
+        contains_nan = contains_nan.any(axis=1)
     if max_lags > 0:
         if n_lags == 0 and n_forecasts == 1:
             contains_nan = contains_nan[1:]
