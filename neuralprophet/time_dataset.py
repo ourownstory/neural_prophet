@@ -45,12 +45,12 @@ class TimeDataset(Dataset):
             **kwargs : dict
                 Identical to :meth:`tabularize_univariate_datetime`
         """
-        ## Outcome after a call to init (summary):
+        # Outcome after a call to init (summary):
         # - add events and holidays columns to df
         # - calculated the number of usable samples (accounting for nan and filters)
         # - creates mapping of sample index to df index
 
-        ## Context Notes
+        # Context Notes
         # Currently done to df before it arrives here:
         # -> fit calls prep_or_copy_df, _check_dataframe, and _handle_missing_data, passes to _train
         # -> _train calls prep_or_copy_df, then passes to init_train_loader, which returns the train_loader
