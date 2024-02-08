@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Iterable, Optional, Union
+from typing import Iterable, Union
 
 import numpy as np
 import pandas as pd

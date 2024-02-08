@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import holidays
 import pytest
 
 from neuralprophet import event_utils

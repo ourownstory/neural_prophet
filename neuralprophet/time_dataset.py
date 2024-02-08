@@ -1,5 +1,5 @@
 import logging
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from datetime import datetime
 from typing import List, Optional
 

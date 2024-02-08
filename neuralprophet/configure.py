@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from neuralprophet import df_utils, np_types, utils, utils_torch
+from neuralprophet import df_utils, np_types, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 from neuralprophet.event_utils import get_holiday_names
 
