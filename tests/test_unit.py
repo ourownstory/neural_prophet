@@ -977,19 +977,18 @@ def test_handle_negative_values_replace():
 
 
 def test_add_country_holiday_multiple_calls_warning(caplog):
-    error_message = (
-        "Country holidays can only be added for a single country. Previous country holidays were overridden."
-    )
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    m.add_country_holidays("US")
+    m.add_country_holidays(["US", "Germany"])
+    error_message = "Country holidays can only be added once."
     assert error_message not in caplog.text
 
-    m.add_country_holidays("Germany")
-    assert error_message in caplog.text
+    with pytest.raises(AssertionError):
+        m.add_country_holidays("Germany")
+        # assert error_message in caplog.text
 
 
 def test_multiple_countries():

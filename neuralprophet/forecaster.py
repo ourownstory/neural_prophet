@@ -708,9 +708,9 @@ class NeuralProphet:
                 ``additive`` (default) or ``multiplicative``.
         """
         if self.fitted:
-            raise Exception("Country must be specified prior to model fitting.")
+            raise AssertionError("Country must be specified prior to model fitting.")
         if self.config_country_holidays:
-            log.error(
+            raise AssertionError(
                 "Country holidays can only be added once. Previous country holidays will be overridden."
                 "If adding multiple countries, please add as list. "
             )
