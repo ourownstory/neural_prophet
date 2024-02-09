@@ -395,7 +395,7 @@ def log_input_shapes(inputs):
             "regressors",
         ]:
             for name, period_features in value.items():
-                tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
+                tabularized_input_shapes_str += f"    {name} {key} {period_features.shape}\n"
         else:
             tabularized_input_shapes_str += f"    {key} {value.shape} \n"
     log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")

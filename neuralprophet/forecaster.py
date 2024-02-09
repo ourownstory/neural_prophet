@@ -2544,7 +2544,7 @@ class NeuralProphet:
         -------
             torch DataLoader
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)  # TODO: Can this call be avoided?
         # if not self.fitted:
         self.config_normalization.init_data_params(
             df=df,
@@ -2641,7 +2641,7 @@ class NeuralProphet:
                 metrics
         """
         # Set up data the training dataloader
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)  # TODO: Can this call be removed?
         train_loader = self._init_train_loader(df, num_workers)
         dataset_size = len(df)  # train_loader.dataset
 
