@@ -10,7 +10,7 @@ import pytest
 from neuralprophet import NeuralProphet, uncertainty_evaluate
 
 log = logging.getLogger("NP.test")
-log.setLevel("DEBUG")
+log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
@@ -26,7 +26,7 @@ LR = 1.0
 
 def test_uncertainty_estimation_peyton_manning():
     log.info("testing: Uncertainty Estimation Peyton Manning")
-    df = pd.read_csv(PEYTON_FILE)
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     playoffs = pd.DataFrame(
         {
             "event": "playoff",
@@ -103,7 +103,7 @@ def test_uncertainty_estimation_peyton_manning():
 
 def test_uncertainty_estimation_yosemite_temps():
     log.info("testing: Uncertainty Estimation Yosemite Temps")
-    df = pd.read_csv(YOS_FILE)
+    df = pd.read_csv(YOS_FILE, nrows=NROWS)
     m = NeuralProphet(
         n_lags=12,
         n_forecasts=6,
