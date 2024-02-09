@@ -710,8 +710,9 @@ class NeuralProphet:
         if self.fitted:
             raise Exception("Country must be specified prior to model fitting.")
         if self.config_country_holidays:
-            log.warning(
-                "Country holidays can only be added for a single country. Previous country holidays were overridden."
+            log.error(
+                "Country holidays can only be added once. Previous country holidays will be overridden."
+                "If adding multiple countries, please add as list. "
             )
 
         if regularization is not None:
@@ -906,18 +907,18 @@ class NeuralProphet:
                 ]
             )
             if reg_enabled:
-                log.warning(
+                log.info(
                     "Early stopping is enabled, but regularization only starts after half the number of configured \
                         epochs. If you see no impact of the regularization, turn off the early_stopping or reduce the \
                         number of epochs to train for."
                 )
 
         if progress == "plot" and metrics is False:
-            log.warning("Progress plot requires metrics to be enabled. Enabling the default metrics.")
+            log.info("Progress plot requires metrics to be enabled. Enabling the default metrics.")
             metrics = utils_metrics.get_metrics(True)
 
         if not self.config_normalization.global_normalization:
-            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
+            log.info("When Global modeling with local normalization, metrics are displayed in normalized scale.")
 
         if minimal:
             checkpointing = False
@@ -1138,7 +1139,7 @@ class NeuralProphet:
         val_metrics_df = pd.DataFrame(val_metrics)
         # TODO Check whether supported by Lightning
         if not self.config_normalization.global_normalization:
-            log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
+            log.info("Note that the metrics are displayed in normalized scale because of local normalization.")
         return val_metrics_df
 
     def split_df(self, df: pd.DataFrame, freq: str = "auto", valid_p: float = 0.2, local_split: bool = False):
@@ -2112,8 +2113,8 @@ class NeuralProphet:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
                 raise Exception(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be \
-                        plotted."
+                    "Many time series are present in the pd.DataFrame (more than one ID)."
+                    "Please, especify ID to be plotted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
@@ -2121,7 +2122,7 @@ class NeuralProphet:
         if len(self.config_train.quantiles) > 1:
             log.warning(
                 "Plotting latest forecasts when uncertainty estimation enabled"
-                " plots the forecasts only for the median quantile."
+                " plots only the median quantile forecasts."
             )
         if plot_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
@@ -2174,10 +2175,7 @@ class NeuralProphet:
         plotting_backend: Optional[str] = None,
     ):
         args = locals()
-        log.warning(
-            "plot_last_forecast() has been renamed to plot_latest_forecast() and is therefore deprecated. "
-            "Please use plot_latst_forecast() in the future"
-        )
+        log.error("plot_last_forecast() is deprecated." "Please use plot_latest_forecast().")
 
         return NeuralProphet.plot_latest_forecast(**args)
 
@@ -2251,8 +2249,8 @@ class NeuralProphet:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
                 raise Exception(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be \
-                        plotted."
+                    "Multiple time series are present in the pd.DataFrame (more than one ID)."
+                    "Please, especify ID to be plotted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
@@ -2278,8 +2276,8 @@ class NeuralProphet:
         if self.model.config_seasonality is not None:
             if self.model.config_seasonality.global_local == "local" and df_name is None:
                 raise Exception(
-                    "df_name parameter is required for multiple time series and local modeling of at least one \
-                        component."
+                    "df_name parameter is required for multiple time series "
+                    "and local modeling of at least one component."
                 )
 
         # Validate components to be plotted

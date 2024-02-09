@@ -538,8 +538,8 @@ def tabularize_univariate_datetime_single_index(
         )
 
     # ONLY FOR DEBUGGING
-    if log.level == 0:
-        log_input_shapes(inputs)
+    # if log.level == 0:
+    #     log_input_shapes(inputs)
     return inputs, targets
 
 
