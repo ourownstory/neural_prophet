@@ -16,8 +16,8 @@ from plotly_resampler import unregister_plotly_resampler
 from neuralprophet import NeuralProphet, set_random_seed
 
 log = logging.getLogger("NP.test")
-log.setLevel("DEBUG")
-log.parent.setLevel("WARNING")
+log.setLevel("ERROR")
+log.parent.setLevel("ERROR")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")

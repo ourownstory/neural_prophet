@@ -15,8 +15,8 @@ from neuralprophet import NeuralProphet, df_utils, set_random_seed
 from neuralprophet.data.process import _handle_missing_data, _validate_column_name
 
 log = logging.getLogger("NP.test")
-log.setLevel("DEBUG")
-log.parent.setLevel("WARNING")
+log.setLevel("ERROR")
+log.parent.setLevel("ERROR")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
@@ -473,12 +473,10 @@ def test_events():
         ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
     )
     # add the country specific holidays
-    m = m.add_country_holidays("US", mode="additive", regularization=0.5)
-    m.add_country_holidays("Indonesia")
+    m = m.add_country_holidays(
+        ["US", "Indonesia", "Philippines", "Pakistan", "Belarus"], mode="additive", regularization=0.5
+    )
     # m.add_country_holidays("Thailand") # holidays package has issue with int input for timedelta. accepts np.float64()
-    m.add_country_holidays("Philippines")
-    m.add_country_holidays("Pakistan")
-    m.add_country_holidays("Belarus")
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)

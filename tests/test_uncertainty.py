@@ -10,8 +10,8 @@ import pytest
 from neuralprophet import NeuralProphet, uncertainty_evaluate
 
 log = logging.getLogger("NP.test")
-log.setLevel("WARNING")
-log.parent.setLevel("WARNING")
+log.setLevel("ERROR")
+log.parent.setLevel("ERROR")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")

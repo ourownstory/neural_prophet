@@ -15,8 +15,8 @@ from neuralprophet.data.process import _create_dataset, _handle_missing_data
 from neuralprophet.data.transform import _normalize
 
 log = logging.getLogger("NP.test")
-log.setLevel("DEBUG")
-log.parent.setLevel("WARNING")
+log.setLevel("ERROR")
+log.parent.setLevel("ERROR")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
