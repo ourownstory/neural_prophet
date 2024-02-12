@@ -101,8 +101,10 @@ line_length = 120
 
 [tool.pyright]
 include = [
-    "neuralprophet/**.py",
-    "neuralprophet/**plot**.py"
+    "neuralprophet/**/*.py"
+]
+exclude = [
+    "neuralprophet/**/*plot*.py"
 ]
 
 [tool.ruff]
