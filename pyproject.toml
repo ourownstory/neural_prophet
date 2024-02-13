@@ -19,30 +19,31 @@ Homepage = "https://github.com/ourownstory/neural_prophet"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
-captum = ">=0.6.0,<1.0"
-holidays = ">=0.41"
-matplotlib = "^3.5.3"
+typing-extensions = "^4.5.0"
 numpy = "^1.22.0"
 pandas = ">=2.0.0"
-plotly = "^5.13.1"
-plotly-resampler = ">=0.8.3.1,<1.0"
+torch = ">=2.0.0"
+# Note: torch defaults to already installed version or installs CUDA version
 pytorch-lightning = "^1.9.4" # TODO: move to ^2.0
 tensorboard = "^2.11.2"
-torch = ">=2.0.0"
 torchmetrics = ">=0.11.3,<1.0"
-typing-extensions = "^4.5.0"
+captum = ">=0.6.0,<1.0"
+holidays = ">=0.41"
 nbformat = ">=4.2.0"
+matplotlib = "^3.5.3"
+plotly = "^5.13.1"
+plotly-resampler = ">=0.8.3.1,<1.0"
 livelossplot = { version = ">=0.5.5,<1.0", optional = true }
 
 [tool.poetry.extras]
 live = ["livelossplot"]
 
 [tool.poetry.group.dev.dependencies]
-black = { extras = ["jupyter"], version = "^23.1.0" }
-flake8 = "^5.0.4"
-isort = "^5.11.5"
-pytest = "^7.2"
-pytest-cov = "^4.0"
+black = { extras = ["jupyter"], version = ">=23.1.0" }
+flake8 = ">=5.0.4"
+isort = ">=5.11.5"
+pytest = ">=7.2"
+pytest-cov = ">=4.0"
 kaleido = "0.2.1" # required for plotly static image export
 tabulate = "^0.9" # Used in model metrics CI only; md export for github-actions bot
 
@@ -69,7 +70,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 120
-target-version = ['py310']
+target-version = ['py311']
 include = '\.pyi?$'
 exclude = '''
 
@@ -100,10 +101,10 @@ line_length = 120
 
 [tool.pyright]
 include = [
-    "neuralprophet/forecaster.py",
-    "neuralprophet/configure.py",
-    "neuralprophet/df_utils.py",
-    "neuralprophet/hdays_utils.py",
+    "neuralprophet/**/*.py"
+]
+exclude = [
+    "neuralprophet/**/*plot*.py"
 ]
 
 [tool.ruff]
