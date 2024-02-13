@@ -1,8 +1,9 @@
 name: model
 on:
   push:
-    paths: # Run only when files under neuralprophet/ are modified
-      - neuralprophet/**
+    paths: # Run only when files under neuralprophet/ or tests/ are modified
+    - neuralprophet/**
+    - tests/**
     branches: # Run only on these branches
       - main
       - develop
