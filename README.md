@@ -134,6 +134,10 @@ Please cite [NeuralProphet](https://arxiv.org/abs/2111.15397) in your publicatio
       primaryClass={cs.LG}
 }
 ```
+### Many Thanks To Our Contributors:
+<a href="https://github.com/ourownstory/neural_prophet/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=ourownstory/neural_prophet" />
+</a>
 
 ## About
 NeuralProphet is an open-source community project, supported by awesome people like you. 

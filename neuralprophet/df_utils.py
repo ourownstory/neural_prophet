@@ -1080,7 +1080,7 @@ def create_dummy_datestamps(
     Examples
     --------
     Adding dummy datestamps to a dataframe without datestamps.
-    To prepare the dataframe for training, import df_utils and insert your prefered dates.
+    To prepare the dataframe for training, import df_utils and insert your preferred dates.
         >>> from neuralprophet import df_utils
         >>> df_drop = df.drop("ds", axis=1)
         >>> df_dummy = df_utils.create_dummy_datestamps(

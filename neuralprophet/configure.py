@@ -119,7 +119,7 @@ class Train:
         if isinstance(self.loss_func, str):
             if self.loss_func.lower() in ["smoothl1", "smoothl1loss", "huber"]:
                 # keeping 'huber' for backwards compatiblility, though not identical
-                self.loss_func = torch.nn.SmoothL1Loss(reduction="none", beta=1.0)
+                self.loss_func = torch.nn.SmoothL1Loss(reduction="none", beta=0.3)
             elif self.loss_func.lower() in ["mae", "maeloss", "l1", "l1loss"]:
                 self.loss_func = torch.nn.L1Loss(reduction="none")
             elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
@@ -158,15 +158,15 @@ class Train:
     def set_auto_batch_epoch(
         self,
         n_data: int,
-        min_batch: int = 16,
-        max_batch: int = 512,
+        min_batch: int = 32,
+        max_batch: int = 1024,
         min_epoch: int = 10,
         max_epoch: int = 1000,
     ):
         assert n_data >= 1
         self.n_data = n_data
         if self.batch_size is None:
-            self.batch_size = int(2 ** (2 + int(np.log10(n_data))))
+            self.batch_size = int(2 ** (3 + int(np.log10(n_data))))
             self.batch_size = min(max_batch, max(min_batch, self.batch_size))
             self.batch_size = min(self.n_data, self.batch_size)
             log.info(f"Auto-set batch_size to {self.batch_size}")
@@ -197,8 +197,9 @@ class Train:
             {
                 "pct_start": 0.3,
                 "anneal_strategy": "cos",
-                "div_factor": 100.0,
-                "final_div_factor": 5000.0,
+                "div_factor": 10.0,
+                "final_div_factor": 10.0,
+                "three_phase": True,
             }
         )
 

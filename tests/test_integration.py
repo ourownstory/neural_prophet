@@ -475,7 +475,7 @@ def test_events():
     # add the country specific holidays
     m = m.add_country_holidays("US", mode="additive", regularization=0.5)
     m.add_country_holidays("Indonesia")
-    m.add_country_holidays("Thailand")
+    # m.add_country_holidays("Thailand") # holidays package has issue with int input for timedelta. accepts np.float64()
     m.add_country_holidays("Philippines")
     m.add_country_holidays("Pakistan")
     m.add_country_holidays("Belarus")
@@ -1782,3 +1782,16 @@ def test_unused_future_regressors():
     m.add_future_regressor("price")
     m.add_lagged_regressor("cost")
     m.fit(df, freq="D")
+
+
+def test_fit_twice_error():
+    log.info("testing: Fit model twice error")
+    df = pd.read_csv(PEYTON_FILE, nrows=10)
+    m = NeuralProphet(
+        epochs=1,
+        batch_size=10,
+        learning_rate=1,
+    )
+    _ = m.fit(df, freq="D")
+    with pytest.raises(RuntimeError):
+        _ = m.fit(df, freq="D")
