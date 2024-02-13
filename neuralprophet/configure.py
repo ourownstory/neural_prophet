@@ -361,27 +361,31 @@ class ConfigSeasonality:
                     resolution=6,
                     period=365.25,
                     arg=self.yearly_arg,
-                    global_local=self.yearly_global_local
-                    if self.yearly_global_local in ["global", "local"]
-                    else self.global_local,
+                    global_local=(
+                        self.yearly_global_local
+                        if self.yearly_global_local in ["global", "local"]
+                        else self.global_local
+                    ),
                     condition_name=None,
                 ),
                 "weekly": Season(
                     resolution=3,
                     period=7,
                     arg=self.weekly_arg,
-                    global_local=self.weekly_global_local
-                    if self.weekly_global_local in ["global", "local"]
-                    else self.global_local,
+                    global_local=(
+                        self.weekly_global_local
+                        if self.weekly_global_local in ["global", "local"]
+                        else self.global_local
+                    ),
                     condition_name=None,
                 ),
                 "daily": Season(
                     resolution=6,
                     period=1,
                     arg=self.daily_arg,
-                    global_local=self.daily_global_local
-                    if self.daily_global_local in ["global", "local"]
-                    else self.global_local,
+                    global_local=(
+                        self.daily_global_local if self.daily_global_local in ["global", "local"] else self.global_local
+                    ),
                     condition_name=None,
                 ),
             }
