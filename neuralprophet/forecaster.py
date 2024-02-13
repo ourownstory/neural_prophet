@@ -878,6 +878,9 @@ class NeuralProphet:
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
+        if self.fitted:
+            raise RuntimeError("Model has been fitted already. Please initialize a new model to fit again.")
+
         # Configuration
         if epochs is not None:
             self.config_train.epochs = epochs

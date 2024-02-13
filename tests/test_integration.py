@@ -1705,3 +1705,16 @@ def test_unused_future_regressors():
     m.add_future_regressor("price")
     m.add_lagged_regressor("cost")
     m.fit(df, freq="D")
+
+
+def test_fit_twice_error():
+    log.info("testing: Fit model twice error")
+    df = pd.read_csv(PEYTON_FILE, nrows=10)
+    m = NeuralProphet(
+        epochs=1,
+        batch_size=10,
+        learning_rate=1,
+    )
+    _ = m.fit(df, freq="D")
+    with pytest.raises(RuntimeError):
+        _ = m.fit(df, freq="D")
