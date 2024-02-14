@@ -158,7 +158,7 @@ class Train:
     def set_auto_batch_epoch(
         self,
         n_data: int,
-        min_batch: int = 32,
+        min_batch: int = 8,
         max_batch: int = 1024,
         min_epoch: int = 10,
         max_epoch: int = 1000,
