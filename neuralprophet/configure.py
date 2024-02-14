@@ -249,6 +249,7 @@ class Trend:
     trend_reg: float
     trend_reg_threshold: Optional[Union[bool, float]]
     trend_global_local: str
+    trend_local_reg: Optional[Union[bool, float]] = None
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -303,6 +304,21 @@ class Trend:
             log.error("Invalid growth for global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
             self.trend_global_local = "global"
 
+        # If trend_local_reg < 0
+        if self.trend_local_reg < 0:
+            log.error("Invalid  negative trend_local_reg '{}'. Set to False".format(self.trend_local_reg))
+            self.trend_local_reg = False
+
+        # If trend_local_reg = True
+        if self.trend_local_reg == True:
+            log.error("trend_local_reg = True. Default trend_local_reg value set to 1")
+            self.trend_local_reg = 1
+
+        # If Trend modelling is global.
+        if self.trend_global_local == "global" and self.trend_local_reg != False:
+            log.error("Trend modeling is '{}'. Setting the trend_local_reg to False".format(self.trend_global_local))
+            self.trend_local_reg = False
+
 
 @dataclass
 class Season:
@@ -310,6 +326,7 @@ class Season:
     period: float
     arg: np_types.SeasonalityArgument
     condition_name: Optional[str]
+    global_local: np_types.SeasonGlobalLocalMode = "local"
 
 
 @dataclass
@@ -321,28 +338,84 @@ class ConfigSeasonality:
     weekly_arg: np_types.SeasonalityArgument = "auto"
     daily_arg: np_types.SeasonalityArgument = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
-    global_local: np_types.SeasonGlobalLocalMode = "local"
+    global_local: np_types.SeasonGlobalLocalMode = "global"
+    seasonality_local_reg: Optional[Union[bool, float]] = None
+    yearly_global_local: np_types.SeasonalityArgument = "auto"
+    weekly_global_local: np_types.SeasonalityArgument = "auto"
+    daily_global_local: np_types.SeasonalityArgument = "auto"
     condition_name: Optional[str] = None
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
             log.info("Note: Fourier-based seasonality regularization is experimental.")
             self.reg_lambda = 0.001 * self.reg_lambda
-        self.periods = OrderedDict(
-            {
-                "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg, condition_name=None),
-                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg, condition_name=None),
-                "daily": Season(resolution=6, period=1, arg=self.daily_arg, condition_name=None),
-            }
-        )
 
         # If global_local is not in the expected set, set to "global"
         if self.global_local not in ["global", "local"]:
             log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.global_local))
             self.global_local = "global"
 
-    def append(self, name, period, resolution, arg, condition_name):
-        self.periods[name] = Season(resolution=resolution, period=period, arg=arg, condition_name=condition_name)
+        self.periods = OrderedDict(
+            {
+                "yearly": Season(
+                    resolution=6,
+                    period=365.25,
+                    arg=self.yearly_arg,
+                    global_local=(
+                        self.yearly_global_local
+                        if self.yearly_global_local in ["global", "local"]
+                        else self.global_local
+                    ),
+                    condition_name=None,
+                ),
+                "weekly": Season(
+                    resolution=3,
+                    period=7,
+                    arg=self.weekly_arg,
+                    global_local=(
+                        self.weekly_global_local
+                        if self.weekly_global_local in ["global", "local"]
+                        else self.global_local
+                    ),
+                    condition_name=None,
+                ),
+                "daily": Season(
+                    resolution=6,
+                    period=1,
+                    arg=self.daily_arg,
+                    global_local=(
+                        self.daily_global_local if self.daily_global_local in ["global", "local"] else self.global_local
+                    ),
+                    condition_name=None,
+                ),
+            }
+        )
+
+        # If seasonality_local_reg < 0
+        if self.seasonality_local_reg < 0:
+            log.error("Invalid  negative seasonality_local_reg '{}'. Set to False".format(self.seasonality_local_reg))
+            self.seasonality_local_reg = False
+
+        # If seasonality_local_reg = True
+        if self.seasonality_local_reg == True:
+            log.error("seasonality_local_reg = True. Default seasonality_local_reg value set to 1")
+            self.seasonality_local_reg = 1
+
+        # If Season modelling is global.
+        if self.global_local == "global" and self.seasonality_local_reg != False:
+            log.error(
+                "Seasonality modeling is '{}'. Setting the seasonality_local_reg to False".format(self.global_local)
+            )
+            self.seasonality_local_reg = False
+
+    def append(self, name, period, resolution, arg, condition_name, global_local="auto"):
+        self.periods[name] = Season(
+            resolution=resolution,
+            period=period,
+            arg=arg,
+            global_local=global_local if global_local in ["global", "local"] else self.global_local,
+            condition_name=condition_name,
+        )
 
 
 @dataclass
@@ -406,7 +479,15 @@ class Regressor:
     mode: str
 
 
-ConfigFutureRegressors = OrderedDictType[str, Regressor]
+@dataclass
+class ConfigFutureRegressors:
+    model: str
+    d_hidden: int
+    num_hidden_layers: int
+    regressors: OrderedDict = field(init=False)  # contains RegressorConfig objects
+
+    def __post_init__(self):
+        self.regressors = None
 
 
 @dataclass

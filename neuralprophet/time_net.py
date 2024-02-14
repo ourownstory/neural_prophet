@@ -18,7 +18,9 @@ from neuralprophet.utils import (
     reg_func_events,
     reg_func_regressors,
     reg_func_season,
+    reg_func_seasonality_glocal,
     reg_func_trend,
+    reg_func_trend_glocal,
 )
 from neuralprophet.utils_torch import init_parameter, interprete_model
 
@@ -59,6 +61,7 @@ class TimeNet(pl.LightningModule):
         id_list: List[str] = ["__df__"],
         num_trends_modelled: int = 1,
         num_seasonalities_modelled: int = 1,
+        num_seasonalities_modelled_dict: dict = None,
         meta_used_in_model: bool = False,
     ):
         """
@@ -180,6 +183,7 @@ class TimeNet(pl.LightningModule):
         self.id_dict = dict((key, i) for i, key in enumerate(id_list))
         self.num_trends_modelled = num_trends_modelled
         self.num_seasonalities_modelled = num_seasonalities_modelled
+        self.num_seasonalities_modelled_dict = num_seasonalities_modelled_dict
         self.meta_used_in_model = meta_used_in_model
 
         # Regularization
@@ -223,6 +227,7 @@ class TimeNet(pl.LightningModule):
                 id_list=id_list,
                 quantiles=self.quantiles,
                 num_seasonalities_modelled=num_seasonalities_modelled,
+                num_seasonalities_modelled_dict=num_seasonalities_modelled_dict,
                 n_forecasts=n_forecasts,
                 device=self.device,
             )
@@ -288,7 +293,7 @@ class TimeNet(pl.LightningModule):
 
         # Regressors
         self.config_regressors = config_regressors
-        if self.config_regressors is not None:
+        if self.config_regressors.regressors is not None:
             # Initialize future_regressors
             self.future_regressors = get_future_regressors(
                 config=config_regressors,
@@ -299,7 +304,7 @@ class TimeNet(pl.LightningModule):
                 config_trend_none_bool=self.config_trend is None,
             )
         else:
-            self.config_regressors = None
+            self.config_regressors.regressors = None
 
     @property
     def ar_weights(self) -> torch.Tensor:
@@ -556,19 +561,18 @@ class TimeNet(pl.LightningModule):
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
 
+        components = {}
+        additive_components = torch.zeros(
+            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)),
+            device=self.device,
+        )
         additive_components_nonstationary = torch.zeros(
             size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
         multiplicative_components_nonstationary = torch.zeros(
             size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
-        additive_components = torch.zeros(
-            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)),
-            device=self.device,
-        )
-        components = {}
 
-        # non-stationary components
         trend = self.trend(t=inputs["time"], meta=meta)
         components["trend"] = trend
 
@@ -606,14 +610,14 @@ class TimeNet(pl.LightningModule):
                 multiplicative_components_nonstationary += multiplicative_regressors
                 components["multiplicative_regressors"] = multiplicative_regressors
 
-        nonstationary_components = (  # dimensions - [batch, n_lags, median quantile]
-            trend[:, : self.n_lags, 0]
-            + additive_components_nonstationary[:, : self.n_lags, 0]
-            + trend[:, : self.n_lags, 0].detach() * multiplicative_components_nonstationary[:, : self.n_lags, 0]
-        )
-
         # stationarized input
         if "lags" in inputs:
+            # combinde all non-stationary components over AR input range
+            nonstationary_components = (  # dimensions - [batch, n_lags, median quantile]
+                trend[:, : self.n_lags, 0]
+                + additive_components_nonstationary[:, : self.n_lags, 0]
+                + trend[:, : self.n_lags, 0].detach() * multiplicative_components_nonstationary[:, : self.n_lags, 0]
+            )
             stationarized_lags = inputs["lags"] - nonstationary_components
             lags = self.auto_regression(lags=stationarized_lags)
             additive_components += lags
@@ -624,19 +628,14 @@ class TimeNet(pl.LightningModule):
             additive_components += covariates
             components["covariates"] = covariates
 
+        # combine all non-stationary components over forecast range
         predictions_nonstationary = (
             trend[:, self.n_lags : inputs["time"].shape[1], :]
             + additive_components_nonstationary[:, self.n_lags : inputs["time"].shape[1], :]
             + trend[:, self.n_lags : inputs["time"].shape[1], :].detach()
             * multiplicative_components_nonstationary[:, self.n_lags : inputs["time"].shape[1], :]
         )
-        prediction = (
-            predictions_nonstationary
-            + additive_components
-            # 0 is the median quantile index
-            # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
-            # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
-        )  # dimensions - [batch, n_forecasts, no_quantiles]
+        prediction = predictions_nonstationary + additive_components  # dimensions - [batch, n_forecasts, no_quantiles]
 
         # check for crossing quantiles and correct them here
         if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
@@ -731,7 +730,7 @@ class TimeNet(pl.LightningModule):
                 components[f"event_{event}"] = self.scalar_features_effects(
                     features=features, params=params, indices=indices
                 )
-        if self.config_regressors is not None and "regressors" in inputs:
+        if self.config_regressors.regressors is not None and "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
                 components["future_regressors_additive"] = components_raw["additive_regressors"][
                     :, self.n_lags : inputs["time"].shape[1], :
@@ -934,11 +933,28 @@ class TimeNet(pl.LightningModule):
                 reg_loss += reg_events_loss
 
             # Regularize regressors: sparsify regressor features coefficients
-            if self.config_regressors is not None:
-                reg_regressor_loss = reg_func_regressors(self.config_regressors, self)
+            if self.config_regressors.regressors is not None:
+                reg_regressor_loss = reg_func_regressors(self.config_regressors.regressors, self)
                 reg_loss += reg_regressor_loss
 
-        reg_loss = delay_weight * reg_loss
+        trend_glocal_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        # Glocal Trend
+        if self.config_trend is not None:
+            if self.config_trend.trend_global_local == "local" and self.config_trend.trend_local_reg != False:
+                trend_glocal_loss = reg_func_trend_glocal(
+                    self.trend.trend_k0, self.trend.trend_deltas, self.config_trend.trend_local_reg
+                )
+                reg_loss += trend_glocal_loss
+        # Glocal Seasonality
+        if self.config_seasonality is not None:
+            if (
+                self.config_seasonality.global_local in ["local", "glocal"]
+                and self.config_seasonality.seasonality_local_reg != False
+            ):
+                seasonality_glocal_loss = reg_func_seasonality_glocal(
+                    self.seasonality.season_params, self.config_seasonality.seasonality_local_reg
+                )
+                reg_loss += seasonality_glocal_loss
         loss = loss + reg_loss
         return loss, reg_loss
 

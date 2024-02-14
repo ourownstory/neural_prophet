@@ -217,11 +217,11 @@ def data_params_definition(
                 norm_type=norm_type_lag,
             )
 
-    if config_regressors is not None:
-        for reg in config_regressors.keys():
+    if config_regressors is not None and config_regressors.regressors is not None:
+        for reg in config_regressors.regressors.keys():
             if reg not in df.columns:
                 raise ValueError(f"Regressor {reg} not found in DataFrame.")
-            norm_type = config_regressors[reg].normalize
+            norm_type = config_regressors.regressors[reg].normalize
             if local_run_despite_global:
                 if len(df[reg].unique()) < 2:
                     norm_type = "soft"
@@ -988,7 +988,7 @@ def make_future_df(
     if config_events is not None:
         future_df = convert_events_to_features(future_df, config_events=config_events, events_df=events_df)
     # set the regressors features
-    if config_regressors is not None and regressors_df is not None:
+    if config_regressors.regressors is not None and regressors_df is not None:
         for regressor in regressors_df:
             # Todo: iterate over config_regressors instead
             future_df[regressor] = regressors_df[regressor]

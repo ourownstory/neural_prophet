@@ -46,6 +46,7 @@ pytest = ">=7.2"
 pytest-cov = ">=4.0"
 kaleido = "0.2.1" # required for plotly static image export
 tabulate = "^0.9" # Used in model metrics CI only; md export for github-actions bot
+ipykernel = "^6.29.2"
 
 [tool.poetry.group.docs]
 optional = true

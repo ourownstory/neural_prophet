@@ -20,6 +20,8 @@ GrowthMode = Literal["off", "linear", "discontinuous"]
 
 CollectMetricsMode = Union[Dict, bool]
 
-SeasonGlobalLocalMode = Literal["global", "local"]
+SeasonGlobalLocalMode = Literal["global", "local", "glocal"]
+
+FutureRegressorsModel = Literal["linear", "neural_nets", "shared_neural_nets"]
 
 Components = Dict[str, torch.Tensor]

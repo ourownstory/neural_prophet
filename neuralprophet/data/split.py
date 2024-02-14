@@ -115,7 +115,7 @@ def _get_maybe_extend_periods(
     while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
         nan_at_end += 1
     if max_lags > 0:
-        if config_regressors is None:
+        if config_regressors is not None and config_regressors.regressors is not None:
             # if dataframe has already been extended into future,
             # don't extend beyond n_forecasts.
             periods_add = max(0, n_forecasts - nan_at_end)
@@ -199,11 +199,11 @@ def _make_future_dataframe(
         raise ValueError("Set either history or future to contain more than zero values.")
 
     # check for external regressors known in future
-    if model.config_regressors is not None and periods > 0:
+    if model.config_regressors.regressors is not None and periods > 0:
         if regressors_df is None:
             raise ValueError("Future values of all user specified regressors not provided")
         else:
-            for regressor in model.config_regressors.keys():
+            for regressor in model.config_regressors.regressors.keys():
                 if regressor not in regressors_df.columns:
                     raise ValueError(f"Future values of user specified regressor {regressor} not provided")
 

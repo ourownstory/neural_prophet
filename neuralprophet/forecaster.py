@@ -108,6 +108,14 @@ class NeuralProphet:
             Internally it will be set to ``global``, meaning that all the elements(only one in this case)
             are modelled with the same trend.
 
+        trend_local_reg : Optional[Union[bool, float]] = False,
+            Parameter to regularize weights to induce similarity between global and local trend
+
+            Note
+            ----
+            Large values (~100) will limit the variability of changepoints.
+            Small values (~0.001) will allow changepoints to change faster.
+
         COMMENT
         Seasonality Config
         COMMENT
@@ -118,20 +126,36 @@ class NeuralProphet:
                 * ``True`` or ``False``
                 * ``auto``: set automatically
                 * ``value``: number of Fourier/linear terms to generate
+        yearly_seasonality_glocal_mode : bool, str
+            Whether to train the yearly seasonality. Only effective on multiple time series
+            Options
+                * ``global``
+                * ``local``
+                * ``glocal``
         weekly_seasonality : bool, int
             Fit monthly seasonality.
-
             Options
                 * ``True`` or ``False``
                 * ``auto``: set automatically
                 * ``value``: number of Fourier/linear terms to generate
+        weekly_seasonality_glocal_mode : bool, str
+            Whether to train the weekly seasonality. Only effective on multiple time series
+            Options
+                * ``global``
+                * ``local``
+                * ``glocal``
         daily_seasonality : bool, int
             Fit daily seasonality.
-
             Options
                 * ``True`` or ``False``
                 * ``auto``: set automatically
                 * ``value``: number of Fourier/linear terms to generate
+        daily_seasonality_glocal_mode : bool, str
+            Whether to train the daily seasonality. Only effective on multiple time series
+            Options
+                * ``global``
+                * ``local``
+                * ``glocal``
         seasonality_mode : str
             Specifies mode of seasonality
 
@@ -147,7 +171,7 @@ class NeuralProphet:
             larger values (~1-100) dampen the seasonality.
             default: None, no regularization
         season_global_local : str, default 'global'
-            Modelling strategy of the seasonality when multiple time series are present.
+            Modelling strategy of the general/default seasonality when multiple time series are present.
             Options:
                 * ``global``: All the elements are modelled with the same seasonality.
                 * ``local``: Each element is modelled with a different seasonality.
@@ -156,6 +180,29 @@ class NeuralProphet:
             When only one time series is input, this parameter should not be provided.
             Internally it will be set to ``global``, meaning that all the elements(only one in this case)
             are modelled with the same seasonality.
+        seasonality_local_reg : Optional[Union[bool, float]] = False,
+            Parameter to regularize weights to induce similarity between global and local seasonality
+
+            Note
+            ----
+            Large values (~100) will limit the variability of changepoints.
+            Small values (~0.001) will allow changepoints to change faster.
+
+        COMMENT
+        Future Regressors
+        COMMENT
+        future_regressors_model: str
+            Options
+                * (default) ``linear``
+                * ``neural_nets``
+
+        future_regressors_d_hidden: int
+            Number of hidden layers in the neural network model for future regressors.
+            Ignored if ``future_regressors_model`` is ``linear``.
+
+        future_regressors_num_hidden_layers: int
+            Dimension of hidden layers in the neural network model for future regressors.
+            Ignored if ``future_regressors_model`` is ``linear``.
 
         COMMENT
         AR Config
@@ -346,12 +393,20 @@ class NeuralProphet:
         trend_reg: float = 0,
         trend_reg_threshold: Optional[Union[bool, float]] = False,
         trend_global_local: str = "global",
+        trend_local_reg: Optional[Union[bool, float]] = False,
         yearly_seasonality: np_types.SeasonalityArgument = "auto",
+        yearly_seasonality_glocal_mode: np_types.SeasonalityArgument = "auto",
         weekly_seasonality: np_types.SeasonalityArgument = "auto",
+        weekly_seasonality_glocal_mode: np_types.SeasonalityArgument = "auto",
         daily_seasonality: np_types.SeasonalityArgument = "auto",
+        daily_seasonality_glocal_mode: np_types.SeasonalityArgument = "auto",
         seasonality_mode: np_types.SeasonalityMode = "additive",
         seasonality_reg: float = 0,
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
+        seasonality_local_reg: Optional[Union[bool, float]] = False,
+        future_regressors_model: np_types.FutureRegressorsModel = "linear",
+        future_regressors_d_hidden: int = 4,
+        future_regressors_num_hidden_layers: int = 2,
         n_forecasts: int = 1,
         n_lags: int = 0,
         ar_layers: Optional[list] = [],
@@ -441,6 +496,7 @@ class NeuralProphet:
             trend_reg=trend_reg,
             trend_reg_threshold=trend_reg_threshold,
             trend_global_local=trend_global_local,
+            trend_local_reg=trend_local_reg,
         )
 
         # Seasonality
@@ -451,6 +507,10 @@ class NeuralProphet:
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
             global_local=season_global_local,
+            seasonality_local_reg=seasonality_local_reg,
+            yearly_global_local=yearly_seasonality_glocal_mode,
+            weekly_global_local=weekly_seasonality_glocal_mode,
+            daily_global_local=daily_seasonality_glocal_mode,
             condition_name=None,
         )
 
@@ -460,7 +520,11 @@ class NeuralProphet:
 
         # Extra Regressors
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
-        self.config_regressors: Optional[configure.ConfigFutureRegressors] = None
+        self.config_regressors = configure.ConfigFutureRegressors(
+            model=future_regressors_model,
+            d_hidden=future_regressors_d_hidden,
+            num_hidden_layers=future_regressors_num_hidden_layers,
+        )  # Optional[configure.ConfigFutureRegressors] = None
 
         # set during fit()
         self.data_freq = None
@@ -620,9 +684,11 @@ class NeuralProphet:
             config_regressors=self.config_regressors,
         )
 
-        if self.config_regressors is None:
-            self.config_regressors = OrderedDict()
-        self.config_regressors[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
+        if self.config_regressors.regressors is None:
+            self.config_regressors.regressors = OrderedDict()
+        self.config_regressors.regressors[name] = configure.Regressor(
+            reg_lambda=regularization, normalize=normalize, mode=mode
+        )
         return self
 
     def add_events(
@@ -731,7 +797,14 @@ class NeuralProphet:
         self.config_country_holidays.init_holidays()
         return self
 
-    def add_seasonality(self, name: str, period: float, fourier_order: int, condition_name: Optional[str] = None):
+    def add_seasonality(
+        self,
+        name: str,
+        period: float,
+        fourier_order: int,
+        global_local: str = "auto",
+        condition_name: Optional[str] = None,
+    ):
         """Add a seasonal component with specified period, number of Fourier components, and regularization.
 
         Increasing the number of Fourier components allows the seasonality to change more quickly
@@ -751,8 +824,11 @@ class NeuralProphet:
                 number of days in one period.
             fourier_order : int
                 number of Fourier components to use.
+            global_local : str
+                glocal modelling mode.
             condition_name : string
                 string name of the seasonality condition.
+
 
         Examples
         --------
@@ -802,7 +878,12 @@ class NeuralProphet:
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
         self.config_seasonality.append(
-            name=name, period=period, resolution=fourier_order, condition_name=condition_name, arg="custom"
+            name=name,
+            period=period,
+            resolution=fourier_order,
+            arg="custom",
+            global_local=global_local,
+            condition_name=condition_name,
         )
         return self
 
@@ -902,7 +983,7 @@ class NeuralProphet:
             reg_enabled = utils.check_for_regularization(
                 [
                     self.config_seasonality,
-                    self.config_regressors,
+                    self.config_regressors.regressors,
                     self.config_ar,
                     self.config_events,
                     self.config_country_holidays,
@@ -949,8 +1030,21 @@ class NeuralProphet:
 
         # Setup for global-local modelling: If there is only a single time series, then self.id_list = ['__df__']
         self.num_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
-        self.num_seasonalities_modelled = len(self.id_list) if self.config_seasonality.global_local == "local" else 1
-        self.meta_used_in_model = self.num_trends_modelled != 1 or self.num_seasonalities_modelled != 1
+        self.num_seasonalities_modelled = (
+            len(self.id_list) if self.config_seasonality.global_local in ["glocal", "local"] else 1
+        )
+        self.num_seasonalities_modelled_dict = OrderedDict()
+        for season_i in self.config_seasonality.periods:
+            self.num_seasonalities_modelled_dict[season_i] = (
+                len(self.id_list) if self.config_seasonality.periods[season_i].global_local == "local" else 1
+            )
+        # check if any of the values of the dictionary self.num_seasonalities_modelled_dict is different from 1
+
+        self.meta_used_in_model = (
+            self.num_trends_modelled != 1
+            or self.num_seasonalities_modelled != 1
+            or any(value != 1 for value in self.num_seasonalities_modelled_dict.values())
+        )
 
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
@@ -1786,7 +1880,7 @@ class NeuralProphet:
                 # Meta as a tensor for prediction
                 if self.model.config_seasonality is None:
                     meta_name_tensor = None
-                elif self.model.config_seasonality.global_local == "local":
+                elif self.model.config_seasonality.global_local in ["local", "glocal"]:
                     meta = OrderedDict()
                     meta["df_name"] = [df_name for _ in range(inputs["time"].shape[0])]
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
@@ -2274,7 +2368,7 @@ class NeuralProphet:
 
         # Error if local modelling of season and df_name not provided
         if self.model.config_seasonality is not None:
-            if self.model.config_seasonality.global_local == "local" and df_name is None:
+            if self.model.config_seasonality.global_local in ["local", "glocal"] and df_name is None:
                 raise Exception(
                     "df_name parameter is required for multiple time series and local modeling of at least one \
                         component."
@@ -2445,6 +2539,7 @@ class NeuralProphet:
             "events",
             "future_regressors",
         ]
+
         valid_plot_configuration = get_valid_configuration(
             m=self,
             components=components,
@@ -2525,6 +2620,7 @@ class NeuralProphet:
             id_list=self.id_list,
             num_trends_modelled=self.num_trends_modelled,
             num_seasonalities_modelled=self.num_seasonalities_modelled,
+            num_seasonalities_modelled_dict=self.num_seasonalities_modelled_dict,
             meta_used_in_model=self.meta_used_in_model,
         )
         log.debug(self.model)
@@ -2865,10 +2961,13 @@ class NeuralProphet:
                     multiplicative = True
                 elif (
                     "future_regressor_" in name or "future_regressors_" in name
-                ) and self.config_regressors is not None:
+                ) and self.config_regressors.regressors is not None:
                     regressor_name = name.split("_")[2]
-                    if self.config_regressors is not None and regressor_name in self.config_regressors:
-                        if self.config_regressors[regressor_name].mode == "multiplicative":
+                    if (
+                        self.config_regressors.regressors is not None
+                        and regressor_name in self.config_regressors.regressors
+                    ):
+                        if self.config_regressors.regressors[regressor_name].mode == "multiplicative":
                             multiplicative = True
                     elif "multiplicative" in regressor_name:
                         multiplicative = True
