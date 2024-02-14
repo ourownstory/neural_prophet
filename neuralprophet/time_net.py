@@ -561,26 +561,18 @@ class TimeNet(pl.LightningModule):
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
 
+        components = {}
+        additive_components = torch.zeros(
+            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)),
+            device=self.device,
+        )
         additive_components_nonstationary = torch.zeros(
             size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
         multiplicative_components_nonstationary = torch.zeros(
             size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
-        additive_components = torch.zeros(
-            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)),
-            device=self.device,
-        )
-        multiplicative_components = torch.zeros(
-            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
-        )
 
-        if "lags" in inputs:
-            additive_components += self.auto_regression(lags=inputs["lags"])
-        # else: assert self.n_lags == 0
-
-        components = {}
-        # non-stationary components
         trend = self.trend(t=inputs["time"], meta=meta)
         components["trend"] = trend
 
@@ -618,14 +610,14 @@ class TimeNet(pl.LightningModule):
                 multiplicative_components_nonstationary += multiplicative_regressors
                 components["multiplicative_regressors"] = multiplicative_regressors
 
-        nonstationary_components = (  # dimensions - [batch, n_lags, median quantile]
-            trend[:, : self.n_lags, 0]
-            + additive_components_nonstationary[:, : self.n_lags, 0]
-            + trend[:, : self.n_lags, 0].detach() * multiplicative_components_nonstationary[:, : self.n_lags, 0]
-        )
-
         # stationarized input
         if "lags" in inputs:
+            # combinde all non-stationary components over AR input range
+            nonstationary_components = (  # dimensions - [batch, n_lags, median quantile]
+                trend[:, : self.n_lags, 0]
+                + additive_components_nonstationary[:, : self.n_lags, 0]
+                + trend[:, : self.n_lags, 0].detach() * multiplicative_components_nonstationary[:, : self.n_lags, 0]
+            )
             stationarized_lags = inputs["lags"] - nonstationary_components
             lags = self.auto_regression(lags=stationarized_lags)
             additive_components += lags
@@ -636,19 +628,14 @@ class TimeNet(pl.LightningModule):
             additive_components += covariates
             components["covariates"] = covariates
 
+        # combine all non-stationary components over forecast range
         predictions_nonstationary = (
             trend[:, self.n_lags : inputs["time"].shape[1], :]
             + additive_components_nonstationary[:, self.n_lags : inputs["time"].shape[1], :]
             + trend[:, self.n_lags : inputs["time"].shape[1], :].detach()
             * multiplicative_components_nonstationary[:, self.n_lags : inputs["time"].shape[1], :]
         )
-        prediction = (
-            predictions_nonstationary
-            + additive_components
-            # 0 is the median quantile index
-            # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
-            # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
-        )  # dimensions - [batch, n_forecasts, no_quantiles]
+        prediction = predictions_nonstationary + additive_components  # dimensions - [batch, n_forecasts, no_quantiles]
 
         # check for crossing quantiles and correct them here
         if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
