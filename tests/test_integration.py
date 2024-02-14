@@ -1723,13 +1723,15 @@ def test_unused_future_regressors():
     m.fit(df, freq="D")
 
 
-def test_on_the_fly_sampling():
-    start_date = "2022-10-16 00:00:00"
-    end_date = "2022-12-30 00:00:00"
-    date_range = pd.date_range(start=start_date, end=end_date, freq="D")
-    y = np.random.randint(0, 20, size=(len(date_range),))
-    df = pd.DataFrame({"ds": date_range, "y": y})
+def test_fit_twice_error():
+    log.info("testing: Fit model twice error")
+    df = pd.read_csv(PEYTON_FILE, nrows=10)
+    m = NeuralProphet(
+        epochs=1,
+        batch_size=10,
+        learning_rate=1,
+    )
+    _ = m.fit(df, freq="D")
+    with pytest.raises(RuntimeError):
+        _ = m.fit(df, freq="D")
 
-    m = NeuralProphet(epochs=1, learning_rate=0.01)
-    m.fit(df, freq="H")
-    _ = m.predict(df)
