@@ -95,10 +95,10 @@ def test_timedataset_minimal():
         local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
         df = df.drop("ID", axis=1)
         df = df_utils.normalize(df, global_data_params)
+        df["ID"] = "__df__"
 
         dataset = time_dataset.TimeDataset(
             df=df,
-            name="name",
             predict_mode=False,
             n_lags=n_lags,
             n_forecasts=n_forecasts,
@@ -864,7 +864,6 @@ def test_too_many_NaN():
     with pytest.raises(ValueError):
         time_dataset.TimeDataset(
             df=df,
-            name="name",
             predict_mode=False,
             n_lags=n_lags,
             n_forecasts=n_forecasts,

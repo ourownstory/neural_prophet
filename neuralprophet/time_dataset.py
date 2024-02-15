@@ -58,7 +58,7 @@ class TimeDataset(Dataset):
             self.df = self.df.drop("index", axis=1)
         df_names = list(np.unique(df.loc[:, "ID"].values))
         assert len(df_names) == 1
-        assert df_names[0] is str
+        assert type(df_names[0]) is str
         self.df_name = df_names[0]
 
         self.meta = OrderedDict({})
@@ -746,7 +746,9 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
     timestamps = pd.to_datetime(df.loc[:, "ds"])
     filter_masks = []
     for key, value in prediction_frequency.items():
-        if key == "daily-hour":
+        if key == "hourly-minute":
+            mask = timestamps.dt.minute == value
+        elif key == "daily-hour":
             mask = timestamps.dt.hour == value
         elif key == "weekly-day":
             mask = timestamps.dt.dayofweek == value
@@ -754,8 +756,6 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
             mask = timestamps.dt.day == value
         elif key == "yearly-month":
             mask = timestamps.dt.month == value
-        elif key == "hourly-minute":
-            mask = timestamps.dt.minute == value
         else:
             raise ValueError(f"Invalid prediction frequency: {key}")
         filter_masks.append(mask)
