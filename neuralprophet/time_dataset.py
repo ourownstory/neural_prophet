@@ -22,7 +22,6 @@ class TimeDataset(Dataset):
     def __init__(
         self,
         df,
-        name,
         predict_mode,
         n_lags,
         n_forecasts,
@@ -40,10 +39,6 @@ class TimeDataset(Dataset):
         ----------
             df : pd.DataFrame
                 Time series data
-            name : str
-                Name of time-series
-            **kwargs : dict
-                Identical to :meth:`tabularize_univariate_datetime`
         """
         # Outcome after a call to init (summary):
         # - add events and holidays columns to df
@@ -61,14 +56,19 @@ class TimeDataset(Dataset):
         self.df = df.reset_index(drop=True)  # Needed for index based operations in __getitem__
         if "index" in list(self.df.columns):  # should not be the case
             self.df = self.df.drop("index", axis=1)
+        df_names = list(np.unique(df.loc[:, "ID"].values))
+        assert len(df_names) == 1
+        assert df_names[0] is str
+        self.df_name = df_names[0]
+
         self.meta = OrderedDict({})
-        self.meta["df_name"] = name
+        self.meta["df_name"] = self.df_name
 
         self.predict_mode = predict_mode
         self.n_lags = n_lags
         self.n_forecasts = n_forecasts
         self.prediction_frequency = prediction_frequency
-        self.predict_steps = predict_steps
+        self.predict_steps = predict_steps  # currently unused
         self.config_seasonality = config_seasonality
         self.config_events = config_events
         self.config_country_holidays = config_country_holidays
@@ -172,7 +172,6 @@ class TimeDataset(Dataset):
 
         # Prediction Frequency
         # Filter missing samples and prediction frequency (does not actually drop, but creates indexmapping)
-        # analogous to `self.filter_samples_after_init(self.kwargs["prediction_frequency"])`
         prediction_frequency_mask = create_prediction_frequency_filter_mask(df, self.prediction_frequency)
 
         # Combine prediction origin masks
@@ -212,20 +211,46 @@ class TimeDataset(Dataset):
 
 
 class GlobalTimeDataset(TimeDataset):
-    def __init__(self, df, **kwargs):
+    def __init__(
+        self,
+        df,
+        predict_mode,
+        n_lags,
+        n_forecasts,
+        prediction_frequency,
+        predict_steps,
+        config_seasonality,
+        config_events,
+        config_country_holidays,
+        config_regressors,
+        config_lagged_regressors,
+        config_missing,
+    ):
         """Initialize Timedataset from time-series df.
         Parameters
         ----------
             df : pd.DataFrame
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` and
                 normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
-            **kwargs : dict
-                Identical to :meth:`tabularize_univariate_datetime`
+
         """
         self.df_names = sorted(list(np.unique(df.loc[:, "ID"].values)))
         self.datasets = OrderedDict({})
         for df_name in self.df_names:
-            self.datasets[df_name] = TimeDataset(df[df["ID"] == df_name], df_name, **kwargs)
+            self.datasets[df_name] = TimeDataset(
+                df=df[df["ID"] == df_name],
+                predict_mode=predict_mode,
+                n_lags=n_lags,
+                n_forecasts=n_forecasts,
+                prediction_frequency=prediction_frequency,
+                predict_steps=predict_steps,
+                config_seasonality=config_seasonality,
+                config_events=config_events,
+                config_country_holidays=config_country_holidays,
+                config_regressors=config_regressors,
+                config_lagged_regressors=config_lagged_regressors,
+                config_missing=config_missing,
+            )
         self.length = sum(dataset.length for (name, dataset) in self.datasets.items())
         global_sample_to_local_ID = []
         global_sample_to_local_sample = []
