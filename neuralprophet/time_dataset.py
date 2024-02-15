@@ -735,15 +735,13 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
 
     Returns boolean mask where prediction origin indexes to be included are True, and the rest False.
     """
-    # !! IMPORTANT
-    # TODO: Adjust top level documentation to specify that the filter is applied to prediction ORIGIN, not targets start.
-    # !! IMPORTANT
-
     mask = np.ones((len(df),), dtype=bool)
 
     # Basic case: no filter
-    if prediction_frequency is None or prediction_frequency == 1:
+    if prediction_frequency is None:
         return mask
+    else:
+        assert prediction_frequency is dict
 
     timestamps = pd.to_datetime(df.loc[:, "ds"])
     filter_masks = []
@@ -838,10 +836,7 @@ def create_nan_mask(
     names = ["t"] + future_regressor_names + event_names
     valid_columns = mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts)
     valid_origins = np.logical_and(valid_origins, valid_columns)
-    # for names in [["t"], future_regressor_names, event_names]:
-    #     if len(names) > 0:
-    #         valid_columns = mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts)
-    #         valid_origins = np.logical_and(valid_origins, valid_columns)
+
     return valid_origins
 
 

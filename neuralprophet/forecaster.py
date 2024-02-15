@@ -364,7 +364,7 @@ class NeuralProphet:
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
         prediction_frequency: dict
-            periodic interval in which forecasts should be made.
+            Periodic interval in which forecasts should be made.
             More than one item only allowed for {"daily-hour": x, "weekly-day": y"} to forecast on a specific hour of a
             specific day of week.
 
@@ -379,6 +379,11 @@ class NeuralProphet:
                 * ``'weekly-day'``: forecast once per week at a specified day
                 * ``'monthly-day'``: forecast once per month at a specified day
                 * ``'yearly-month'``: forecast once per year at a specified month
+
+            Note
+            ----
+            The forecast origin set refers to the last observation's timestamp, not the first forecast target.
+            In the special case where no auto-regression or lagged regressors are used, the forecast origin and forecast target are identical.
     """
 
     model: time_net.TimeNet
