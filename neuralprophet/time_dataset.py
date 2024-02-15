@@ -741,7 +741,7 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
     if prediction_frequency is None:
         return mask
     else:
-        assert prediction_frequency is dict
+        assert type(prediction_frequency) is dict
 
     timestamps = pd.to_datetime(df.loc[:, "ds"])
     filter_masks = []
