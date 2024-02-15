@@ -365,8 +365,9 @@ class NeuralProphet:
             Dictionary of additional trainer configuration parameters.
         prediction_frequency: dict
             Periodic interval in which forecasts should be made.
-            More than one item only allowed for {"daily-hour": x, "weekly-day": y"} to forecast on a specific hour of a
-            specific day of week.
+
+            Currently, only one item in dict is supported, except for the specific combination of
+            {"daily-hour": x, "weekly-day": y"} to predict at a specific hour of a specific day of week.
 
             Key: str
                 periodicity of the predictions to be made.
@@ -374,11 +375,11 @@ class NeuralProphet:
                 forecast origin of the predictions to be made, e.g. 7 for 7am in case of 'daily-hour'.
 
             Options
-                * ``'hourly-minute'``: forecast once per hour at a specified minute
-                * ``'daily-hour'``: forecast once per day at a specified hour
-                * ``'weekly-day'``: forecast once per week at a specified day
-                * ``'monthly-day'``: forecast once per month at a specified day
-                * ``'yearly-month'``: forecast once per year at a specified month
+                * ``'hourly-minute'``: forecast once per hour at a specified minute in range [0, 59]
+                * ``'daily-hour'``: forecast once per day at a specified hour in range [0, 23]
+                * ``'weekly-day'``: forecast once per week at a specified day in range [0, 6]
+                * ``'monthly-day'``: forecast once per month at a specified day in range [1, 31]
+                * ``'yearly-month'``: forecast once per year at a specified month in range [1, 12]
 
             Note
             ----
