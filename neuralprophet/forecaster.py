@@ -1880,7 +1880,6 @@ class NeuralProphet:
         for df_name, df_i in df.groupby("ID"):
             dataset = time_dataset.TimeDataset(
                 df=df_i,
-                name=df_name,
                 predict_mode=True,
                 n_lags=0,
                 n_forecasts=1,
