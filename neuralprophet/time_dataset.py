@@ -511,7 +511,7 @@ def tabularize_univariate_datetime_single_index(
     # create numpy array of values of additive and multiplicative regressors, at correct indexes
     # features dims: (n_forecasts, n_features)
     any_future_regressors = 0 < len(additive_regressors_names + multiplicative_regressors_names)
-    if any_future_regressors:  # if config_regressors is not None:
+    if any_future_regressors:  # if config_regressors.regressors is not None:
         inputs["regressors"] = get_sample_future_regressors(
             df=df,
             origin_index=origin_index,
@@ -911,12 +911,10 @@ def mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_fore
 def sort_regressor_names(config):
     additive_regressors_names = []
     multiplicative_regressors_names = []
-    if config is not None:
+    if config is not None and config.regressors is not None:
         # sort and divide regressors into multiplicative and additive
-        additive_regressors_names = []
-        multiplicative_regressors_names = []
-        for reg in sorted(list(config.keys())):
-            mode = config[reg].mode
+        for reg in sorted(list(config.regressors.keys())):
+            mode = config.regressors[reg].mode
             if mode == "additive":
                 additive_regressors_names.append(reg)
             else:
