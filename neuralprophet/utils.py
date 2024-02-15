@@ -142,6 +142,50 @@ def reg_func_trend(weights, threshold=None):
     return reg
 
 
+def reg_func_trend_glocal(trend_k0, trend_deltas, trend_local_reg):
+    """Regularization of weights to induce similarity between global and local trend
+    Parameters
+    ----------
+        # trend_k0 : torch.Tensor
+        #     Local trend intercept
+        # trend_deltas : torch.Tensor
+        #     Local trend slopes
+        # trend_local_reg : float
+        #     glocal trend regularization coefficient
+    Returns
+    -------
+        torch.Tensor
+            regularization loss
+    """
+    trend_k0_val = (trend_k0 - trend_k0.mean()).pow(2).mean()
+    trend_val = (trend_deltas - trend_deltas.mean(-2).unsqueeze(-2)).pow(2).mean()
+
+    return trend_local_reg * (trend_k0_val + trend_val)
+
+
+def reg_func_seasonality_glocal(season_params, seasonality_local_reg):
+    """Regularization of weights to induce similarity between global and local trend
+    Parameters
+    ----------
+        # season_params : torch.Tensor
+        #     Local season params
+        # seasonality_local_reg : float
+        #     glocal season regularization coefficient
+    Returns
+    -------
+        torch.Tensor
+            regularization loss
+    """
+
+    # Perform the operation on each value and store the results in a list
+    results = []
+    for key, season_params_i in season_params.items():
+        result = (season_params_i - season_params_i.mean(-2).unsqueeze(-2)).pow(2).mean()
+        results.append(result)
+
+    return seasonality_local_reg * sum(results)
+
+
 def reg_func_season(weights):
     return reg_func_abs(weights)
 
@@ -273,6 +317,12 @@ def check_for_regularization(configs: list):
         if hasattr(config, "reg_lambda"):
             if config.reg_lambda is not None:
                 reg_sum += config.reg_lambda
+        if hasattr(config, "trend_local_reg"):
+            if config.trend_local_reg is not None:
+                reg_sum += config.trend_local_reg
+        if hasattr(config, "seasonality_local_reg"):
+            if config.seasonality_local_reg is not None:
+                reg_sum += config.seasonality_local_reg
     return reg_sum > 0
 
 
@@ -456,14 +506,14 @@ def config_regressors_to_model_dims(config_regressors):
             This dictionaries' keys correspond to individual regressor and values in a dict containing the mode
             and the indices in the input dataframe corresponding to each regressor.
     """
-    if config_regressors is None:
+    if config_regressors is not None and config_regressors.regressors is None:
         return None
     else:
         additive_regressors = []
         multiplicative_regressors = []
 
-        if config_regressors is not None:
-            for regressor, configs in config_regressors.items():
+        if config_regressors is not None and config_regressors.regressors is not None:
+            for regressor, configs in config_regressors.regressors.items():
                 mode = configs.mode
                 if mode == "additive":
                     additive_regressors.append(regressor)

@@ -1,5 +1,6 @@
 import inspect
 import logging
+from typing import Any
 
 import numpy as np
 import pytorch_lightning as pl
@@ -74,7 +75,15 @@ def create_optimizer_from_config(optimizer_name, optimizer_args):
     return optimizer, optimizer_args
 
 
-def interprete_model(target_model: pl.LightningModule, net: str, forward_func: str, _input: torch.Tensor = None):
+def interprete_model(
+    target_model: pl.LightningModule,
+    net: str,
+    forward_func: str,
+    _num_in_features: int = None,
+    _num_out_features: int = None,
+    _input: torch.Tensor = None,
+    additional_forward_args: Any = None,
+):
     """
     Returns model input attributions for a given network and forward function.
 
@@ -82,10 +91,8 @@ def interprete_model(target_model: pl.LightningModule, net: str, forward_func: s
     ----------
         target_model : pl.LightningModule
             The model for which input attributions are to be computed.
-
         net : str
             Name of the network for which input attributions are to be computed.
-
         forward_func : str
             Name of the forward function for which input attributions are to be computed.
 
@@ -103,10 +110,12 @@ def interprete_model(target_model: pl.LightningModule, net: str, forward_func: s
 
     # Number of quantiles
     num_quantiles = len(target_model.quantiles)
+
     # Number of input features to the net (aka n_lags)
-    num_in_features = getattr(target_model, net)[0].in_features
+    num_in_features = getattr(target_model, net)[0].in_features if _num_in_features is None else _num_in_features
     # Number of output features from the net (aka n_forecasts)
-    num_out_features = getattr(target_model, net)[-1].out_features
+    num_out_features = getattr(target_model, net)[-1].out_features if _num_out_features is None else _num_out_features
+
     num_out_features_without_quantiles = int(num_out_features / num_quantiles)
 
     # Create a tensor of ones as model input
@@ -116,7 +125,12 @@ def interprete_model(target_model: pl.LightningModule, net: str, forward_func: s
     attributions = torch.empty((0, num_in_features))
     for output_feature in range(num_out_features_without_quantiles):
         for quantile in range(num_quantiles):
-            target_attribution = saliency.attribute(model_input, target=[(output_feature, quantile)], abs=False)
+            target_attribution = saliency.attribute(
+                model_input,
+                target=[(output_feature, quantile)],
+                abs=False,
+                additional_forward_args=additional_forward_args,
+            )
             attributions = torch.cat((attributions, target_attribution), 0)
 
     # Average the attributions over the input features

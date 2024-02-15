@@ -196,7 +196,7 @@ def check_if_configured(m, components, error_flag=False):  # move to utils
     if "events" in components and (m.config_events is None and m.config_country_holidays is None):
         components.remove("events")
         invalid_components.append("events")
-    if "future_regressors" in components and m.config_regressors is None:
+    if "future_regressors" in components and m.config_regressors.regressors is None:
         components.remove("future_regressors")
         invalid_components.append("future_regressors")
     if "uncertainty" in components and not len(m.model.quantiles) > 1:
@@ -294,7 +294,7 @@ def get_valid_configuration(  # move to utils
             if df_name is None:
                 if m.id_list.__len__() > 1:
                     if (
-                        m.model.config_seasonality.global_local == "local"
+                        m.model.config_seasonality.global_local in ["local", "glocal"]
                         or m.model.config_trend.trend_global_local == "local"
                     ):
                         df_name = m.id_list
@@ -471,7 +471,7 @@ def get_valid_configuration(  # move to utils
     additive_future_regressors = []
     multiplicative_future_regressors = []
     if "future_regressors" in components:
-        for regressor, configs in m.config_regressors.items():
+        for regressor, configs in m.config_regressors.regressors.items():
             if validator == "plot_components" and configs.mode == "additive":
                 plot_components.append(
                     {

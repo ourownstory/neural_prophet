@@ -138,8 +138,10 @@ def test_normalize():
     )
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
+
     m.config_normalization.init_data_params(df, m.config_lagged_regressors, m.config_regressors, m.config_events)
     _normalize(df=df, config_normalization=m.config_normalization)
+
     m.config_normalization.unknown_data_normalization = True
     _normalize(df=df, config_normalization=m.config_normalization)
     m.config_normalization.unknown_data_normalization = False
@@ -755,6 +757,7 @@ def test_newer_sample_weight():
         learning_rate=LR,
         newer_samples_weight=newer_bias,
         newer_samples_start=0.0,
+        future_regressors_model="linear",
         # growth='off',
         n_changepoints=0,
         daily_seasonality=False,
