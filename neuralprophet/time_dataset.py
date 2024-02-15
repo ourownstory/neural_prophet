@@ -178,13 +178,9 @@ class TimeDataset(Dataset):
         # Combine prediction origin masks
         valid_prediction_mask = np.logical_and(prediction_frequency_mask, origin_start_end_mask)
 
-        # TODO Create NAN-free index mapping of sample index to df index
-        # analogous to `self.drop_nan_after_init(
-        # self.df, self.kwargs["predict_steps"], self.kwargs["config_missing"].drop_missing)
+        # Create NAN-free index mapping of sample index to df index
         nan_mask = create_nan_mask(
             df=df,
-            predict_steps=self.predict_steps,
-            drop_missing=self.config_missing.drop_missing,
             predict_mode=self.predict_mode,
             max_lags=self.max_lags,
             n_lags=self.n_lags,
@@ -747,8 +743,6 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
 
 def create_nan_mask(
     df,
-    predict_steps,
-    drop_missing,
     predict_mode,
     max_lags,
     n_lags,
@@ -760,12 +754,6 @@ def create_nan_mask(
     """Creates mask for each prediction origin,
     accounting for corresponding input lags / forecast targets containing any NaN values.
 
-    Parameters
-    ----------
-        drop_missing : bool
-            whether to automatically drop missing samples from the data
-        predict_steps : int
-            number of steps to predict
     """
     valid_origins = np.ones(len(df), dtype=bool)
     df_isna = df.isna()
