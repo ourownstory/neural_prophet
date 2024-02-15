@@ -364,7 +364,13 @@ class NeuralProphet:
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
         prediction_frequency: dict
-            Periodic interval in which forecasts should be made.
+            Set a periodic interval in which forecasts should be made.
+
+            By default, a model creates predictions for all possible prediction origins in dataset.
+            (e.g. for a hourly dataset, at each hour, each day, for all days in dataset)
+            Setting `prediction_frequency` allows to make forecasts only at a specific, periodically repeating point in time (prediction origin).
+            (e.g. {"daily-hour": 12} sets the model to predict only at noon, and no other hour)
+
 
             Currently, only one item in dict is supported, except for the specific combination of
             {"daily-hour": x, "weekly-day": y"} to predict at a specific hour of a specific day of week.
@@ -383,7 +389,11 @@ class NeuralProphet:
 
             Note
             ----
-            The forecast origin set refers to the last observation's timestamp, not the first forecast target.
+            This filter is applied to both model training and prediction.
+
+            Note
+            ----
+            The forecast/prediction origin set refers to the last observation's timestamp, not the first forecast target.
             In the special case where no auto-regression or lagged regressors are used, the forecast origin and forecast target are identical.
     """
 
