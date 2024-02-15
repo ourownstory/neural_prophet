@@ -821,68 +821,15 @@ def create_nan_mask(
 
     # TIME: TREND & SEASONALITY: the time at each sample's lags and forecasts
     # FUTURE REGRESSORS
-    # EVENTS
-    for names in [["t"], future_regressor_names, event_names]:
-        if len(names) > 0:
-            valid_columns = mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts)
-            valid_origins = np.logical_and(valid_origins, valid_columns)
-    return valid_origins
-
-    # # TIME: TREND & SEASONALITY: the time at each sample's lags and forecasts
-    # if max_lags == 0:  # y-series and origin_index match
-    #     time_valid = np.logical_not(df_isna["t"].values)
-    # else:
-    #     time_nan = sliding_window_view(df_isna["t"], window_shape=n_lags+n_forecasts, axis=0).any(axis=-1)
-    #     # first sample is at origin_index = n_lags -1,
-    #     if n_lags == 0: # first sample origin index is at -1
-    #         time_nan = time_nan[1:]
-    #     else:
-    #         time_nan = np.pad(time_nan, pad_width=(n_lags-1, 0), mode="constant", constant_values=True)
-    #     # there are n_forecasts origin_indexes missing at end
-    #     time_nan = np.pad(time_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
-    #     time_valid = np.logical_not(time_nan)
-    # valid_origins = np.logical_and(valid_origins, time_valid)
-
-    # # FUTURE REGRESSORS
-    # if len(future_regressor_names) > 0:
-    #     if max_lags == 0:
-    #          fut_reg_nan = df_isna.loc[:, future_regressor_names]
-    #          assert len(fut_reg_nan.shape) == 2
-    #          fut_reg_nan = fut_reg_nan.any(axis=-1)
-    #     else:
-    #         fut_reg_nan = sliding_window_view(df_isna.loc[:, future_regressor_names], window_shape=n_lags+n_forecasts, axis=0).any(axis=-1)
-    #         assert len(fut_reg_nan.shape) == 2
-    #         fut_reg_nan = fut_reg_nan.any(axis=-1)
-    #         # first sample is at origin_index = n_lags -1,
-    #         if n_lags == 0: # first sample origin index is at -1
-    #             fut_reg_nan = fut_reg_nan[1:]
-    #         else:
-    #             fut_reg_nan = np.pad(fut_reg_nan, pad_width=(n_lags-1, 0), mode="constant", constant_values=True)
-    #         # there are n_forecasts origin_indexes missing at end
-    #         fut_reg_nan = np.pad(fut_reg_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
-    #     fut_reg_valid = np.logical_not(fut_reg_nan)
-    #     valid_origins = np.logical_and(valid_origins, fut_reg_valid)
-
     # # EVENTS
-    # if len(event_names) > 0:
-    #     if max_lags == 0:
-    #          event_nan = df_isna.loc[:, event_names]
-    #          assert len(event_nan.shape) == 2
-    #          event_nan = event_nan.any(axis=-1)
-    #     else:
-    #         event_nan = sliding_window_view(df_isna.loc[:, event_names], window_shape=n_lags+n_forecasts, axis=0).any(axis=-1)
-    #         assert len(event_nan.shape) == 2
-    #         event_nan = event_nan.any(axis=-1)
-    #         # first sample is at origin_index = n_lags -1,
-    #         if n_lags == 0: # first sample origin index is at -1
-    #             event_nan = event_nan[1:]
-    #         else:
-    #             event_nan = np.pad(event_nan, pad_width=(n_lags-1, 0), mode="constant", constant_values=True)
-    #         # there are n_forecasts origin_indexes missing at end
-    #         event_nan = np.pad(event_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
-    #     event_valid = np.logical_not(event_nan)
-    #     valid_origins = np.logical_and(valid_origins, event_valid)
-    # return valid_origins
+    names = ["t"] + future_regressor_names + event_names
+    valid_columns = mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts)
+    valid_origins = np.logical_and(valid_origins, valid_columns)
+    # for names in [["t"], future_regressor_names, event_names]:
+    #     if len(names) > 0:
+    #         valid_columns = mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts)
+    #         valid_origins = np.logical_and(valid_origins, valid_columns)
+    return valid_origins
 
 
 def mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts):
