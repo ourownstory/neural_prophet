@@ -63,6 +63,7 @@ def _maybe_extend_df(
                 periods=periods_add[df_name],
                 freq=freq,
                 config_events=config_events,
+                config_regressors=config_regressors,
             )
             future_df["ID"] = df_name
             df_i = pd.concat([df_i, future_df])
@@ -173,7 +174,9 @@ def _make_future_dataframe(
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
     if periods == 0 and n_historic_predictions is True:
-        log.warning("Not extending df into future as no periods specified." "You can call predict directly instead.")
+        log.warning(
+            "Not extending df into future as no periods specified. You can skip this and predict directly instead."
+        )
     df = df.copy(deep=True)
     _ = df_utils.infer_frequency(df, n_lags=max_lags, freq=freq)
     last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
