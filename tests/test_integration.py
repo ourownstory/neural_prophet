@@ -15,8 +15,8 @@ from neuralprophet import NeuralProphet, df_utils, set_random_seed
 from neuralprophet.data.process import _handle_missing_data, _validate_column_name
 
 log = logging.getLogger("NP.test")
-log.setLevel("DEBUG")
-log.parent.setLevel("WARNING")
+log.setLevel("ERROR")
+log.parent.setLevel("ERROR")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
@@ -473,12 +473,10 @@ def test_events():
         ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
     )
     # add the country specific holidays
-    m = m.add_country_holidays("US", mode="additive", regularization=0.5)
-    m.add_country_holidays("Indonesia")
+    m = m.add_country_holidays(
+        ["US", "Indonesia", "Philippines", "Pakistan", "Belarus"], mode="additive", regularization=0.5
+    )
     # m.add_country_holidays("Thailand") # holidays package has issue with int input for timedelta. accepts np.float64()
-    m.add_country_holidays("Philippines")
-    m.add_country_holidays("Pakistan")
-    m.add_country_holidays("Belarus")
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
@@ -1582,9 +1580,10 @@ def test_n_lags_for_regressors():
         n_forecasts=2,
         n_lags=2,
     )
-    m = m.add_lagged_regressor(names="A", n_lags=0)
-    m = m.add_lagged_regressor(names="B", n_lags=0)
-    with pytest.raises(AssertionError):
+
+    with pytest.raises(ValueError):
+        m = m.add_lagged_regressor(names="A", n_lags=0)
+        m = m.add_lagged_regressor(names="B", n_lags=0)
         m.fit(df1, freq="D")
 
 
@@ -1673,6 +1672,23 @@ def test_accelerator():
 
 def test_selective_forecasting():
     log.info("testing: selective forecasting with matching n_forecasts and prediction_frequency")
+    start_date = "2019-01-01"
+    end_date = "2019-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="H")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=24,
+        n_lags=48,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"daily-hour": 7},
+    )
+    m.fit(df, freq="H")
+    m.predict(df)
+
+    log.info("testing: selective forecasting with n_forecasts < prediction_frequency with lags")
     start_date = "2019-01-01"
     end_date = "2019-03-01"
     date_range = pd.date_range(start=start_date, end=end_date, freq="H")
@@ -1795,3 +1811,4 @@ def test_fit_twice_error():
     _ = m.fit(df, freq="D")
     with pytest.raises(RuntimeError):
         _ = m.fit(df, freq="D")
+

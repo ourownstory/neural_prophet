@@ -9,8 +9,8 @@ import pandas as pd
 from neuralprophet import NeuralProphet
 
 log = logging.getLogger("NP.test")
-log.setLevel("DEBUG")
-log.parent.setLevel("WARNING")
+log.setLevel("ERROR")
+log.parent.setLevel("ERROR")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
@@ -187,6 +187,8 @@ def test_wrong_option_global_local_modeling():
     df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
+    prev_level = log.parent.getEffectiveLevel()
+    log.parent.setLevel("CRITICAL")
     m = NeuralProphet(
         n_forecasts=2,
         n_lags=10,
@@ -197,6 +199,7 @@ def test_wrong_option_global_local_modeling():
         season_global_local="glocsl",
         trend_global_local="glocsl",
     )
+    log.parent.setLevel(prev_level)
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
