@@ -13,7 +13,6 @@ Feature guides
     Global Local Modelling<feature-guides/global_local_modeling>
     Live Plotting during Training<feature-guides/Live_plot_during_training>
     Network Architecture Visualization<feature-guides/network_architecture_visualization>
-    
     Plotting<feature-guides/plotly>
     Multiplicative Seasonality<feature-guides/season_multiplicative_air_travel>
     Sparse Autoregression<feature-guides/sparse_autoregression_yosemite_temps>
@@ -21,6 +20,7 @@ Feature guides
     Testing and Cross Validation<feature-guides/test_and_crossvalidate>
     Uncertainty Quantification<feature-guides/uncertainty_quantification>
     Hyperparameter Selection<feature-guides/hyperparameter-selection>
+    MLflow<feature-guides/mlflow_and_neuralprophet>
 
 Application examples
 --------------------
