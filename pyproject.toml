@@ -10,8 +10,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Operating System :: POSIX :: Linux",
-    "Operating System :: MacOS :: MacOS X",
-    "Operating System :: Microsoft :: Windows",
 ]
 
 [tool.poetry.urls]
