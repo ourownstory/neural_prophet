@@ -17,8 +17,8 @@ from tests.utils.dataset_generators import (
 )
 
 log = logging.getLogger("NP.test")
-log.setLevel("DEBUG")
-log.parent.setLevel("WARNING")
+log.setLevel("ERROR")
+log.parent.setLevel("ERROR")
 
 # Fix random seeds
 torch.manual_seed(0)

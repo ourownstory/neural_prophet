@@ -13,8 +13,9 @@ import numpy as np
 import pandas as pd
 import torch
 
-from neuralprophet import df_utils, np_types, utils, utils_torch
+from neuralprophet import df_utils, np_types, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
+from neuralprophet.event_utils import get_holiday_names
 
 log = logging.getLogger("NP.config")
 
@@ -41,10 +42,9 @@ class Normalization:
         config_events: Optional[ConfigEvents] = None,
         config_seasonality: Optional[ConfigSeasonality] = None,
     ):
-        if len(df["ID"].unique()) == 1:
-            if not self.global_normalization:
-                log.info("Setting normalization to global as only one dataframe provided for training.")
-                self.global_normalization = True
+        if len(df["ID"].unique()) == 1 and not self.global_normalization:
+            log.info("Setting normalization to global as only one dataframe provided for training.")
+            self.global_normalization = True
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df=df,
             normalize=self.normalize,
@@ -511,7 +511,7 @@ class Holidays:
     holiday_names: set = field(init=False)
 
     def init_holidays(self, df=None):
-        self.holiday_names = utils.get_holidays_from_country(self.country, df)
+        self.holiday_names = get_holiday_names(self.country, df)
 
 
 ConfigCountryHolidays = Holidays
