@@ -89,6 +89,8 @@ cd neural_prophet
 pip install .
 ```
 
+Note for Windows users: Please use WSL2
+
 ## Features
 ### Model components
 * Autoregression: Autocorrelation modelling - linear or NN (AR-Net).
