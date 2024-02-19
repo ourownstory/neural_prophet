@@ -7,7 +7,8 @@
 NeuralProphet
 =========================================
 
-Based on Neural Networks, inspired by `Facebook Prophet <https://github.com/facebook/prophet>`_ and `AR-Net <https://github.com/ourownstory/AR-Net>`_, built on Pytorch.
+Fusing traditional time series algorithms using standard deep learning methods, built on PyTorch. 
+- inspired by `Facebook Prophet <https://github.com/facebook/prophet>`_ and `AR-Net <https://github.com/ourownstory/AR-Net>`_.
 
 
 Links
@@ -19,17 +20,15 @@ Links
 Why NeuralProphet?
 ------------------
 
-NeuralProphet changes the way time series modelling and forecasting is done:
+NeuralProphet provides many time series modeling and workflow features, in a simple package:
 
-- Support for auto-regression and covariates.
+- Support for global modeling of many time series.
 - Automatic selection of training related hyperparameters.
-- Fourier term seasonality at different periods such as yearly, daily, weekly, hourly.
-- Piecewise linear trend with optional automatic changepoint detection.
-- Plotting for forecast components, model coefficients and final predictions.
-- Support for global modeling.
-- Lagged and future regressors.
-- Sparsity of coefficients through regularization.
-- User-friendly and powerful Python package:
+- Plotting utilities for forecast components, model coefficients and final predictions.
+- Local context through Autoregression and lagged covariates.
+- Changing trends and smooth seasonality at different periods.
+- Modeling of event, holiday, and future regressor effects.
+- Many customization options, such as regularization.
 
 .. code-block:: pycon
 
