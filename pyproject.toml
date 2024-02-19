@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "neuralprophet"
-version = "1.0.0rc8"
+version = "1.0.0rc9"
 description = "NeuralProphet is an easy to learn framework for interpretable time series forecasting."
 authors = ["Oskar Triebe <triebe@stanford.edu>"]
 license = "MIT"
@@ -10,8 +10,6 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Operating System :: POSIX :: Linux",
-    "Operating System :: MacOS :: MacOS X",
-    "Operating System :: Microsoft :: Windows",
 ]
 
 [tool.poetry.urls]

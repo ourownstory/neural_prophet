@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
+    from neuralprophet.configure import ConfigEvents, ConfigFutureRegressors, ConfigLaggedRegressors, ConfigSeasonality
 
 
 log = logging.getLogger("NP.df_utils")
@@ -139,7 +139,7 @@ def data_params_definition(
     df,
     normalize,
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
-    config_regressors=None,
+    config_regressors: Optional[ConfigFutureRegressors] = None,
     config_events: Optional[ConfigEvents] = None,
     config_seasonality: Optional[ConfigSeasonality] = None,
     local_run_despite_global: Optional[bool] = None,
@@ -247,7 +247,7 @@ def init_data_params(
     df,
     normalize="auto",
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
-    config_regressors=None,
+    config_regressors: Optional[ConfigFutureRegressors] = None,
     config_events: Optional[ConfigEvents] = None,
     config_seasonality: Optional[ConfigSeasonality] = None,
     global_normalization=False,
@@ -323,13 +323,13 @@ def init_data_params(
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i,
-            normalize,
-            config_lagged_regressors,
-            config_regressors,
-            config_events,
-            config_seasonality,
-            local_run_despite_global,
+            df=df_i,
+            normalize=normalize,
+            config_lagged_regressors=config_lagged_regressors,
+            config_regressors=config_regressors,
+            config_events=config_events,
+            config_seasonality=config_seasonality,
+            local_run_despite_global=local_run_despite_global,
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
@@ -945,9 +945,9 @@ def make_future_df(
     last_date,
     periods,
     freq,
-    config_events: Optional[ConfigEvents] = None,
+    config_events: ConfigEvents,
+    config_regressors: ConfigFutureRegressors,
     events_df=None,
-    config_regressors=None,
     regressors_df=None,
 ):
     """Extends df periods number steps into future.
@@ -985,9 +985,9 @@ def make_future_df(
     if config_events is not None:
         future_df = convert_events_to_features(future_df, config_events=config_events, events_df=events_df)
     # set the regressors features
-    if config_regressors.regressors is not None and regressors_df is not None:
-        for regressor in regressors_df:
-            # Todo: iterate over config_regressors instead
+    if config_regressors is not None and config_regressors.regressors is not None and regressors_df is not None:
+        for regressor in config_regressors.regressors.keys():
+            assert regressor in regressors_df.columns, f"Regressor {regressor} not found in regressors_df"
             future_df[regressor] = regressors_df[regressor]
     for column in df_columns:
         if column not in future_df.columns:
