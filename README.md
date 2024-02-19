@@ -89,7 +89,7 @@ cd neural_prophet
 pip install .
 ```
 
-Note for Windows users: Please use WSL2
+Note for Windows users: Please use WSL2.
 
 ## Features
 ### Model components
@@ -97,8 +97,9 @@ Note for Windows users: Please use WSL2
 * Trend: Piecewise linear trend with optional automatic changepoint detection.
 * Seasonality: Fourier terms at different periods such as yearly, daily, weekly, hourly.
 * Lagged regressors: Lagged observations (e.g temperature sensor) - linear or NN.
-* Future regressors: In advance known features (e.g. temperature forecast) - linear.
+* Future regressors: In advance known features (e.g. temperature forecast) - linear or NN.
 * Events: Country holidays & recurring custom events.
+* Global Modeling: Components can be local, global or 'glocal' (global + regularized local)
 
 
 ### Framework features
@@ -110,19 +111,13 @@ Note for Windows users: Please use WSL2
 * Model checkpointing and validation.
 
 
-
 ### Coming soon<sup>:tm:</sup>
 
 * Cross-relation of lagged regressors.
-* Cross-relation and non-linear modelling of future regressors.
-* Static features / Time series featurization.
+* Static metadata regression for multiple series
 * Logistic growth for trend component.
-* Model bias modelling / correction with secondary model.
-* Multimodal seasonality.
 
 For a list of past changes, please refer to the [releases page](https://github.com/ourownstory/neural_prophet/releases).
-
-The vision for future development can be seen at [Development Timeline](notes/development_timeline.md) (partially outdated).
 
 ## Cite
 Please cite [NeuralProphet](https://arxiv.org/abs/2111.15397) in your publications if it helps your research:
