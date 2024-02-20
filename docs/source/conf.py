@@ -106,7 +106,9 @@ nbsphinx_execute_arguments = [
 # change index.rst to contents.rst for custom landing page feature
 root_doc = "contents"
 
-html_additional_pages = {"index": "index.html"}
+html_additional_pages = {
+    "index": "index.html",
+}
 
 
 def setup(app):
