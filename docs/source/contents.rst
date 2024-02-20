@@ -7,17 +7,16 @@
 NeuralProphet
 =========================================
 
-Fusing traditional time series algorithms using standard deep learning methods, built on PyTorch. 
-- inspired by `Facebook Prophet <https://github.com/facebook/prophet>`_ and `AR-Net <https://github.com/ourownstory/AR-Net>`_.
+Fusing traditional time series algorithms using standard deep learning methods, built on PyTorch, inspired by `Facebook Prophet <https://github.com/facebook/prophet>`_ and `AR-Net <https://github.com/ourownstory/AR-Net>`_.
 
 
-Links
------
+Resources
+-----------------
 
 - `Read the paper <https://arxiv.org/abs/2111.15397?fbclid=IwAR2vCkHYiy5yuPPjWXpJgAJs-uD5NkH4liORt1ch4a6X_kmpMqagGtXyez4>`_
 - `GitHub repository <https://github.com/ourownstory/neural_prophet>`_
 
-Why NeuralProphet?
+Features
 ------------------
 
 NeuralProphet provides many time series modeling and workflow features, in a simple package:
@@ -30,7 +29,8 @@ NeuralProphet provides many time series modeling and workflow features, in a sim
 - Modeling of event, holiday, and future regressor effects.
 - Many customization options, such as regularization.
 
-Simple Example:
+Simple Example
+------------------
 
 .. code-block:: pycon
 
