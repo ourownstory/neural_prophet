@@ -10,11 +10,16 @@ NeuralProphet
 Fusing traditional time series algorithms using standard deep learning methods, built on PyTorch, inspired by `Facebook Prophet <https://github.com/facebook/prophet>`_ and `AR-Net <https://github.com/ourownstory/AR-Net>`_.
 
 
-Resources
------------------
+Simple Example
+------------------
 
-- `Read the paper <https://arxiv.org/abs/2111.15397?fbclid=IwAR2vCkHYiy5yuPPjWXpJgAJs-uD5NkH4liORt1ch4a6X_kmpMqagGtXyez4>`_
-- `GitHub repository <https://github.com/ourownstory/neural_prophet>`_
+.. code-block:: pycon
+
+    >>> from neuralprophet import NeuralProphet
+    >>> m = NeuralProphet()
+    >>> metrics = m.fit(df)
+    >>> forecast = m.predict(df)
+    >>> m.plot(forecast)
 
 Features
 ------------------
@@ -29,16 +34,12 @@ NeuralProphet provides many time series modeling and workflow features, in a sim
 - Modeling of event, holiday, and future regressor effects.
 - Many customization options, such as regularization.
 
-Simple Example
-------------------
+Resources
+-----------------
 
-.. code-block:: pycon
+- `Read the paper <https://arxiv.org/abs/2111.15397?fbclid=IwAR2vCkHYiy5yuPPjWXpJgAJs-uD5NkH4liORt1ch4a6X_kmpMqagGtXyez4>`_
+- `GitHub repository <https://github.com/ourownstory/neural_prophet>`_
 
-    >>> from neuralprophet import NeuralProphet
-    >>> m = NeuralProphet()
-    >>> metrics = m.fit(df)
-    >>> forecast = m.predict(df)
-    >>> m.plot(forecast)
 
 .. toctree::
     :hidden:
