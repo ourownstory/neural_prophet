@@ -67,7 +67,7 @@ Resources
     :maxdepth: 1
     :caption: Code Documentation
 
-    forecaster.py <code/forecaster>
+    NeuralProphet <code/index>
 
 .. toctree::
     :hidden:

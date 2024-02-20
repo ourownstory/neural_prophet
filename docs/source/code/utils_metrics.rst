@@ -1,5 +1,5 @@
 Core Module Documentation
 ==========================
 
-.. automodule:: neuralprophet.event_utils
+.. automodule:: neuralprophet.utils_metrics
    :members:
