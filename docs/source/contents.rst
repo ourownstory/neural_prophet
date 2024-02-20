@@ -30,12 +30,14 @@ NeuralProphet provides many time series modeling and workflow features, in a sim
 - Modeling of event, holiday, and future regressor effects.
 - Many customization options, such as regularization.
 
+Simple Example:
+
 .. code-block:: pycon
 
     >>> from neuralprophet import NeuralProphet
     >>> m = NeuralProphet()
-    >>> metrics = m.fit(your_df, freq='D')
-    >>> forecast = m.predict(your_df)
+    >>> metrics = m.fit(df)
+    >>> forecast = m.predict(df)
     >>> m.plot(forecast)
 
 .. toctree::
@@ -62,15 +64,7 @@ NeuralProphet provides many time series modeling and workflow features, in a sim
 .. toctree::
     :hidden:
     :maxdepth: 1
-    :caption: The Science Behind
-
-    Model Overview<science-behind/model-overview>
-    Presentation<https://github.com/ourownstory/neural_prophet/raw/61f1c6d4667db19a189e15037eb230ee5e90b80c/notes/NeuralProphet_Introduction.pdf>
-
-.. toctree::
-    :hidden:
-    :maxdepth: 1
-    :caption: API Reference
+    :caption: Code Documentation
 
     forecaster.py <code/forecaster>
 
@@ -82,3 +76,11 @@ NeuralProphet provides many time series modeling and workflow features, in a sim
     Contribution<community/contribute>
     GitHub <https://github.com/ourownstory/neural_prophet>
     Slack <https://join.slack.com/t/neuralprophet/shared_invite/zt-1iyfs2pld-vtnegAX4CtYg~6E~V8miXw>
+
+.. toctree::
+    :hidden:
+    :maxdepth: 1
+    :caption: About
+
+    Model Overview<science-behind/model-overview>
+    Presentation<https://github.com/ourownstory/neural_prophet/raw/61f1c6d4667db19a189e15037eb230ee5e90b80c/notes/NeuralProphet_Introduction.pdf>
