@@ -30,7 +30,7 @@ captum = ">=0.6.0"
 holidays = ">=0.41"
 matplotlib = "^3.5.3"
 plotly = "^5.13.1"
-plotly-resampler = "^0.8.3.1"
+plotly-resampler = "^0.9.1"
 nbformat = "^5.8.0"
 livelossplot = { version = ">=0.5.5", optional = true }
 
