@@ -224,6 +224,7 @@ def test_EnergyPriceDaily():
 
 def test_EnergyPriceHourly():
     df = pd.read_csv(HOUSTON_HOURLY_FILE)
+    # df["y"] = np.log(1 + df["y"].apply(lambda x: max(0, x)))
     m = NeuralProphet(
         changepoints_range=5.0 / 6.0,
         n_changepoints=5,
@@ -232,7 +233,7 @@ def test_EnergyPriceHourly():
         daily_seasonality=8,
         n_lags=72,
         n_forecasts=24,
-        ar_layers=[16, 8, 8],
+        ar_layers=[16, 8],
         newer_samples_weight=1,
         # quantiles=[0.05, 0.95],
     )
