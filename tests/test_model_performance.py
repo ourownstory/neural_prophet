@@ -24,6 +24,7 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 ENERGY_PRICE_DAILY_FILE = os.path.join(DATA_DIR, "tutorial04_kaggle_energy_daily_temperature.csv")
+HOUSTON_HOURLY_FILE = os.path.join(DATA_DIR, "houston_hourly_energy_price.csv")
 
 # Important to set seed for reproducibility
 set_random_seed(42)
@@ -219,3 +220,36 @@ def test_EnergyPriceDaily():
         json.dump(accuracy_metrics, outfile)
 
     create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "EnergyPriceDaily.svg"))
+
+
+def test_EnergyPriceHourly():
+    df = pd.read_csv(HOUSTON_HOURLY_FILE)
+    m = NeuralProphet(
+        changepoints_range=5.0 / 6.0,
+        n_changepoints=5,
+        yearly_seasonality=3,
+        weekly_seasonality=6,
+        daily_seasonality=8,
+        n_lags=72,
+        n_forecasts=24,
+        ar_layers=[16, 8, 8],
+        newer_samples_weight=1,
+        # quantiles=[0.05, 0.95],
+    )
+    m.add_country_holidays("US", lower_window=1, upper_window=1)
+
+    df_train, df_test = m.split_df(df=df, freq="H", valid_p=1.0 / 7.0)
+
+    system_speed, std = get_system_speed()
+    start = time.time()
+    metrics = m.fit(df_train, validation_df=df_test, freq="H")  # , early_stopping=True)
+    end = time.time()
+
+    accuracy_metrics = metrics.to_dict("records")[-1]
+    accuracy_metrics["time"] = round(end - start, 2)
+    accuracy_metrics["system_performance"] = round(system_speed, 5)
+    accuracy_metrics["system_std"] = round(std, 5)
+    with open(os.path.join(DIR, "tests", "metrics", "EnergyPriceHourly.json"), "w") as outfile:
+        json.dump(accuracy_metrics, outfile)
+
+    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "EnergyPriceHourly.svg"))

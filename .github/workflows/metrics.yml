@@ -57,6 +57,8 @@ jobs:
           cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
           echo "### EnergyPriceDaily" >> report.md
           cml asset publish tests/metrics/EnergyPriceDaily.svg --md >> report.md
+          echo "### EnergyPriceHourly" >> report.md
+          cml asset publish tests/metrics/EnergyPriceHourly.svg --md >> report.md
           echo "\n</details>" >> report.md
           # Post reports as comments in GitHub PRs
           cml comment update --target=pr report.md # post to PR
