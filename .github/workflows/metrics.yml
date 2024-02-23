@@ -29,7 +29,7 @@ jobs:
       - name: Install Dependencies
         run: poetry install --no-interaction --no-root --without docs
       - name: Install Project
-        run: poetry install --no-interaction 
+        run: poetry install --no-interaction --without docs
       - name: Train model
         run: pytest tests/test_model_performance.py
       - name: Download metrics from main
