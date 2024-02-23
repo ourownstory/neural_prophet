@@ -13,8 +13,7 @@ on:
   workflow_dispatch:
 jobs:
   metrics:
-    runs-on: ubuntu-latest
-    container: docker://ghcr.io/iterative/cml:0-dvc2-base1
+    runs-on: ubuntu-latest # container: docker://ghcr.io/iterative/cml:0-dvc2-base1
     steps:
       - name: Checkout
         uses: actions/checkout@v3
