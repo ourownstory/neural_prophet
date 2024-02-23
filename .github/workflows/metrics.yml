@@ -56,7 +56,9 @@ jobs:
           echo "<details>\n<summary>Model training plots</summary>\n" >> report.md
           echo "## Model Training" >> report.md
           echo "### PeytonManning" >> report.md
+          cml asset publish tests/metrics/PeytonManning.svg --md >> report.md
           echo "### YosemiteTemps" >> report.md
+          cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
           echo "### AirPassengers" >> report.md
           cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
           echo "### EnergyPriceDaily" >> report.md
