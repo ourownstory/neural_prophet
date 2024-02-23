@@ -28,10 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip3 install poetry
-          pip3 install pytest
-          pip3 install tabulate # required to md export
-          pip3 install kaleido # required for plotly export
-          poetry install
+          poetry install --with dev
       - name: Train model
         run: pytest tests/test_model_performance.py
       - name: Download metrics from main
