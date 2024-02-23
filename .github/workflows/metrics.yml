@@ -24,6 +24,9 @@ jobs:
         with:
           python-version: "3.12"
       - uses: iterative/setup-cml@v1
+      - uses: actions/setup-node@v3 # For CML
+        with:
+          node-version: '16'
       - name: Install Poetry
         uses: snok/install-poetry@v1
       - name: Install Dependencies
