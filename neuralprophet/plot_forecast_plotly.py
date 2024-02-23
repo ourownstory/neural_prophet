@@ -2,14 +2,15 @@ import logging
 
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objs as go
 
 from neuralprophet.plot_model_parameters_plotly import get_dynamic_axis_range
 from neuralprophet.plot_utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotly")
+
 try:
-    import plotly.express as px
-    import plotly.graph_objs as go
     from plotly.subplots import make_subplots
     from plotly_resampler import register_plotly_resampler, unregister_plotly_resampler
 
