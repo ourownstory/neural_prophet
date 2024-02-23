@@ -49,7 +49,7 @@ jobs:
         run: echo "## Model Benchmark" >> report.md
       - name: Write Benchmark Report
         run: poetry run python tests/metrics/compareMetrics.py >> report.md
-      - name: Publish Report with CML
+      - name: Update report.md plots with CML
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
@@ -65,10 +65,16 @@ jobs:
           echo "### EnergyPriceDaily" >> report.md
           cml asset publish tests/metrics/EnergyPriceDaily.svg --md >> report.md
           echo "\n</details>" >> report.md
+      - name: Post comment to PR with CML
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
           echo 
-          echo $GITHUB_SHA
+          echo $GITHUB_SHA 
+          echo ${{ github.event.pull_request.head.sha }}
           echo $GITHUB_REPOSITORY_OWNER
-          cml comment update --target=pr/${{ github.event.pull_request.head.sha }} report.md # post to PR # --repo=${{ github.event.pull_request.head.repo.html_url }} 
+          cml comment update --target=pr/${{ github.event.pull_request.head.sha }} report.md --repo=${{ github.event.pull_request.head.repo.html_url }} # post to PR # --repo=${{ github.event.pull_request.head.repo.html_url }} 
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
