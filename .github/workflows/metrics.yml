@@ -18,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.workflow_run.head.sha }}
       - name: Install Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -52,6 +52,7 @@ jobs:
       - name: Publish Report with CML
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           echo "<details>\n<summary>Model training plots</summary>\n" >> report.md
           echo "## Model Training" >> report.md
@@ -64,7 +65,10 @@ jobs:
           echo "### EnergyPriceDaily" >> report.md
           cml asset publish tests/metrics/EnergyPriceDaily.svg --md >> report.md
           echo "\n</details>" >> report.md
-          cml comment update --target=pr report.md # Post reports as comments in GitHub PRs
+          echo 
+          echo $GITHUB_SHA
+          echo $GITHUB_REPOSITORY_OWNER
+          cml comment update  --target=pr --commit-sha=${{ github.event.pull_request.head.sha }} report.md # post to PR # --repo=${{ github.event.pull_request.head.repo.html_url }} 
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
