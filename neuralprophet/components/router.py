@@ -1,5 +1,12 @@
 from neuralprophet.components.future_regressors.linear import LinearFutureRegressors
-from neuralprophet.components.seasonality.fourier import GlobalFourierSeasonality, LocalFourierSeasonality
+from neuralprophet.components.future_regressors.neural_nets import NeuralNetsFutureRegressors
+from neuralprophet.components.future_regressors.shared_neural_nets import SharedNeuralNetsFutureRegressors
+from neuralprophet.components.future_regressors.shared_neural_nets_coef import SharedNeuralNetsCoefFutureRegressors
+from neuralprophet.components.seasonality.fourier import (
+    GlobalFourierSeasonality,
+    GlocalFourierSeasonality,
+    LocalFourierSeasonality,
+)
 from neuralprophet.components.trend.linear import GlobalLinearTrend, LocalLinearTrend
 from neuralprophet.components.trend.piecewise_linear import GlobalPiecewiseLinearTrend, LocalPiecewiseLinearTrend
 from neuralprophet.components.trend.static import StaticTrend
@@ -88,11 +95,21 @@ def get_future_regressors(config, id_list, quantiles, n_forecasts, device, confi
         "device": device,
         "config_trend_none_bool": config_trend_none_bool,
     }
+    if config.model == "linear":
+        return LinearFutureRegressors(**args)
+    elif config.model == "neural_nets":
+        return NeuralNetsFutureRegressors(**args)
+    elif config.model == "shared_neural_nets":
+        return SharedNeuralNetsFutureRegressors(**args)
+    elif config.model == "shared_neural_nets_coef":
+        return SharedNeuralNetsCoefFutureRegressors(**args)
+    else:
+        raise ValueError(f"Model type {config.model} is not supported.")
 
-    return LinearFutureRegressors(**args)
 
-
-def get_seasonality(config, id_list, quantiles, num_seasonalities_modelled, n_forecasts, device):
+def get_seasonality(
+    config, id_list, quantiles, num_seasonalities_modelled, num_seasonalities_modelled_dict, n_forecasts, device
+):
     """
     Router for all seasonality classes.
     """
@@ -103,7 +120,22 @@ def get_seasonality(config, id_list, quantiles, num_seasonalities_modelled, n_fo
         "n_forecasts": n_forecasts,
         "device": device,
         "num_seasonalities_modelled": num_seasonalities_modelled,
+        "num_seasonalities_modelled_dict": num_seasonalities_modelled_dict,
     }
+
+    # if only 1 time series, global strategy
+    if len(id_list) == 1:
+        config.global_local = "global"
+        for season_i in config.periods:
+            config.periods[season_i].global_local = "global"
+
+    # if all config.periods[season_i] are the same(x), then config.global_local = x
+    if len(set([config.periods[season_i].global_local for season_i in config.periods])) == 1:
+        config.global_local = list(set([config.periods[season_i].global_local for season_i in config.periods]))[0]
+
+    # if all config.periods[season_i] are different, then config.global_local = 'glocal'
+    if len(set([config.periods[season_i].global_local for season_i in config.periods])) > 1:
+        config.global_local = "glocal"
 
     if config.global_local == "global":
         # Global seasonality
@@ -111,5 +143,8 @@ def get_seasonality(config, id_list, quantiles, num_seasonalities_modelled, n_fo
     elif config.global_local == "local":
         # Local seasonality
         return LocalFourierSeasonality(**args)
+    elif config.global_local == "glocal":
+        # Glocal seasonality
+        return GlocalFourierSeasonality(**args)
     else:
         raise ValueError(f"Seasonality mode {config.global_local} is not supported.")

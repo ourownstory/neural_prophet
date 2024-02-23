@@ -2,6 +2,8 @@ import logging
 
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objs as go
 
 from neuralprophet.plot_model_parameters_plotly import get_dynamic_axis_range
 from neuralprophet.plot_utils import set_y_as_percent
@@ -9,11 +11,12 @@ from neuralprophet.plot_utils import set_y_as_percent
 log = logging.getLogger("NP.plotly")
 
 try:
-    import plotly.express as px
-    import plotly.graph_objs as go
     from plotly.subplots import make_subplots
     from plotly_resampler import register_plotly_resampler, unregister_plotly_resampler
+
+    plotly_resampler_installed = True
 except ImportError:
+    plotly_resampler_installed = False
     log.error("Importing plotly failed. Interactive plots will not work.")
 
 # UI Configuration
@@ -81,10 +84,13 @@ def plot(
     -------
         Plotly figure
     """
-    if resampler_active:
-        register_plotly_resampler(mode="auto")
-    else:
-        unregister_plotly_resampler()
+    if plotly_resampler_installed:
+        if resampler_active:
+            register_plotly_resampler(mode="auto")
+        else:
+            unregister_plotly_resampler()
+    if resampler_active and not plotly_resampler_installed:
+        log.error("plotly-resampler is not installed. Please install it to use the resampler.")
 
     cross_marker_color = "blue"
     cross_symbol = "x"
@@ -222,7 +228,8 @@ def plot(
         **layout_args,
     )
     fig = go.Figure(data=data, layout=layout)
-    unregister_plotly_resampler()
+    if plotly_resampler_installed:
+        unregister_plotly_resampler()
     if plotly_static:
         fig = fig.show("svg")
     return fig
@@ -265,10 +272,14 @@ def plot_components(
         Plotly figure
     """
     log.debug("Plotting forecast components")
-    if resampler_active:
-        register_plotly_resampler(mode="auto")
-    else:
-        unregister_plotly_resampler()
+    if plotly_resampler_installed:
+        if resampler_active:
+            register_plotly_resampler(mode="auto")
+        else:
+            unregister_plotly_resampler()
+    if resampler_active and not plotly_resampler_installed:
+        log.error("plotly-resampler is not installed. Please install it to use the resampler.")
+
     fcst = fcst.fillna(value=np.nan)
     components_to_plot = plot_configuration["components_list"]
 
@@ -339,7 +350,8 @@ def plot_components(
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
-    unregister_plotly_resampler()
+    if plotly_resampler_installed:
+        unregister_plotly_resampler()
     if plotly_static:
         fig = fig.show("svg")
     return fig
@@ -739,10 +751,14 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
             Figure showing the nonconformity score with horizontal line for q-value based on the significance level or
             alpha
     """
-    if resampler_active:
-        register_plotly_resampler(mode="auto")
-    else:
-        unregister_plotly_resampler()
+    if plotly_resampler_installed:
+        if resampler_active:
+            register_plotly_resampler(mode="auto")
+        else:
+            unregister_plotly_resampler()
+    if resampler_active and not plotly_resampler_installed:
+        log.error("plotly-resampler is not installed. Please install it to use the resampler.")
+
     if not isinstance(q, list):
         q_sym = q
         scores = scores["noncon_scores"]
@@ -820,7 +836,8 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
             line_color="red",
         )
         fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
-        unregister_plotly_resampler()
+        if plotly_resampler_installed:
+            unregister_plotly_resampler()
         return fig
 
 
@@ -845,10 +862,14 @@ def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
         plotly.graph_objects.Figure
             Figure showing the q-values for each timestep
     """
-    if resampler_active:
-        register_plotly_resampler(mode="auto")
-    else:
-        unregister_plotly_resampler()
+    if plotly_resampler_installed:
+        if resampler_active:
+            register_plotly_resampler(mode="auto")
+        else:
+            unregister_plotly_resampler()
+    if resampler_active and not plotly_resampler_installed:
+        log.error("plotly-resampler is not installed. Please install it to use the resampler.")
+
     # check if q_hats contains q_hat_sym
     if "q_hat_sym" in q_hats.columns:
         q_hats_sym = q_hats["q_hat_sym"]
@@ -880,7 +901,8 @@ def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
             height=400,
         )
     fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
-    unregister_plotly_resampler()
+    if plotly_resampler_installed:
+        unregister_plotly_resampler()
     return fig
 
 

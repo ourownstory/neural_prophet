@@ -7,7 +7,7 @@ about: Suggest an idea for this project
 **Prerequisites**
 
 * [ ] Put an X between the brackets on this line if you have done all of the following:
-    * Checked the Answered Questions on the Github Disscussion board: https://github.com/ourownstory/neural_prophet/discussions
+    * Checked the Answered Questions on the Github Discussion board: https://github.com/ourownstory/neural_prophet/discussions
       If you have the same question but the Answer does not solve your issue, please continue the conversation there.
     * Checked that your issue isn't already filed: https://github.com/ourownstory/neural_prophet/issues
       If you have the same issue but there is a twist to your situation, please add an explanation there.

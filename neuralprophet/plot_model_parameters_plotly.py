@@ -3,16 +3,19 @@ import logging
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objs as go
+from plotly.subplots import make_subplots
 
 from neuralprophet.plot_utils import predict_one_season, predict_season_from_dates
 
 log = logging.getLogger("NP.plotly")
 
 try:
-    import plotly.graph_objs as go
-    from plotly.subplots import make_subplots
     from plotly_resampler import register_plotly_resampler, unregister_plotly_resampler
+
+    plotly_resampler_installed = True
 except ImportError:
+    plotly_resampler_installed = False
     log.error("Importing plotly failed. Interactive plots will not work.")
 
 # UI Configuration
@@ -35,7 +38,8 @@ layout_args = {
     "title": dict(font=dict(size=12)),
     "hovermode": "x unified",
 }
-register_plotly_resampler(mode="auto")
+if plotly_resampler_installed:
+    register_plotly_resampler(mode="auto")
 
 
 def get_dynamic_axis_range(df_range, type, pad=0.05, inverse=False):
@@ -502,7 +506,11 @@ def plot_yearly(m, quantile, comp_name="yearly", yearly_start=0, quick=True, mul
         )
 
     padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
-    xaxis = go.layout.XAxis(title="Day of year", range=padded_range)
+    xaxis = go.layout.XAxis(
+        title="Day of year",
+        range=padded_range,
+        tickformat="%B %e",
+    )
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
@@ -868,10 +876,14 @@ def plot_parameters(
     Returns:
         Plotly figure
     """
-    if resampler_active:
-        register_plotly_resampler(mode="auto")
-    else:
-        unregister_plotly_resampler()
+    if plotly_resampler_installed:
+        if resampler_active:
+            register_plotly_resampler(mode="auto")
+        else:
+            unregister_plotly_resampler()
+    if resampler_active and not plotly_resampler_installed:
+        log.error("plotly-resampler is not installed. Please install it to use the resampler.")
+
     compnents_to_plot = plot_configuration["components_list"]
     additive_future_regressors = plot_configuration["additive_future_regressors"]
     additive_events = plot_configuration["additive_events"]
@@ -959,5 +971,6 @@ def plot_parameters(
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
             fig.add_trace(trace, row=i + 1, col=1)  # adapt var name to plotly-resampler
-        unregister_plotly_resampler()
+        if plotly_resampler_installed:
+            unregister_plotly_resampler()
     return fig

@@ -108,8 +108,10 @@ def test_normalize():
     )
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
+
     m.config_normalization.init_data_params(df, m.config_lagged_regressors, m.config_regressors, m.config_events)
     _normalize(df=df, config_normalization=m.config_normalization)
+
     m.config_normalization.unknown_data_normalization = True
     _normalize(df=df, config_normalization=m.config_normalization)
     m.config_normalization.unknown_data_normalization = False
@@ -175,14 +177,14 @@ def test_auto_batch_epoch():
     # for epochs = int(2 ** (2.3 * np.log10(100 + n_data)) / (n_data / 1000.0))
     # for epochs = int(2 ** (2.5 * np.log10(100 + n_data)) / (n_data / 1000.0))
     check = {
-        "1": (1, 1000),
-        "10": (10, 1000),
-        "100": (16, 539),
-        "1000": (32, 194),
-        "10000": (64, 103),
-        "100000": (128, 57),
-        "1000000": (256, 32),
-        "10000000": (512, 18),
+        "1": (1, 500),
+        "10": (8, 500),
+        "100": (16, 250),
+        "1000": (32, 110),
+        "10000": (128, 60),
+        "100000": (256, 30),
+        "1000000": (1024, 20),
+        "10000000": (2048, 20),
     }
 
     for n_data, (batch_size, epochs) in check.items():
@@ -725,6 +727,7 @@ def test_newer_sample_weight():
         learning_rate=LR,
         newer_samples_weight=newer_bias,
         newer_samples_start=0.0,
+        future_regressors_model="linear",
         # growth='off',
         n_changepoints=0,
         daily_seasonality=False,

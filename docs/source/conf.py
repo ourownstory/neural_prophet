@@ -14,11 +14,10 @@
 
 import os
 import sys
+from typing import Any, Dict
 
 import sphinx_fontawesome  # noqa: F401
 from sphinx.ext.autodoc import between
-
-from typing import Any, Dict
 
 # sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath("../.."))
@@ -27,9 +26,10 @@ sys.path.insert(0, os.path.abspath("../.."))
 # -- Project information -----------------------------------------------------
 
 project = "NeuralProphet"
-copyright = "2021, Oskar Triebe"
+copyright = "2024, Oskar Triebe"
 author = "Oskar Triebe"
-
+version = "1.0.0"
+release = "1.0.0rc8"
 
 # -- General configuration ---------------------------------------------------
 
@@ -55,6 +55,7 @@ source_suffix = {
 }
 
 # Add any paths that contain templates here, relative to this directory.
+# Note: in use for custom sidebar and landing page
 templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
@@ -103,9 +104,11 @@ nbsphinx_execute_arguments = [
 ]
 
 # change index.rst to contents.rst for custom landing page feature
-master_doc = "contents"
+root_doc = "contents"
 
-html_additional_pages = {"index": "index.html"}
+html_additional_pages = {
+    "index": "index.html",
+}
 
 
 def setup(app):

@@ -21,13 +21,13 @@ NeuralProphet is fit with stochastic gradient descent - more precisely, with an 
 If the parameter `learning_rate` is not specified, a learning rate range test is conducted to determine the optimal learning rate. 
 The `epochs`, `loss_func` and `optimizer` are other parameters that directly affect the model training process. 
 If not defined, `epochs`and `loss_func` are automatically set based on the dataset size. They are set in a manner that controls the total number training steps to be around 1000 to 4000.
-NeuralProphet offers to set two different values for `optimizer`, namely `AdamW` and `SDG` (stochastic gradient decsent).
+NeuralProphet offers to set two different values for `optimizer`, namely `AdamW` and `SDG` (stochastic gradient descent).
 
 If it looks like the model is overfitting to the training data (the live loss plot can be useful hereby), 
 you can reduce `epochs`  and `learning_rate`, and potentially increase the `batch_size`. 
 If it is underfitting, the number of `epochs` and `learning_rate` can be increased and the `batch_size` potentially decreased. 
 
-The default loss function is the 'Huber' loss, which is considered to be robust to outliers. 
+The default loss function is the 'SmoothL1Loss' loss, which is considered to be robust to outliers. 
 However, you are free to choose the standard `MSE` or any other PyTorch `torch.nn.modules.loss` loss function. 
 
 ## Increasing Depth of the Model
