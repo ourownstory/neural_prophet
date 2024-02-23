@@ -1,4 +1,4 @@
-name: model
+name: Measure Model Performance
 on:
   push:
     paths: # Run only when files under neuralprophet/ are modified
