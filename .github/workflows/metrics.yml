@@ -23,6 +23,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: iterative/setup-cml@v1
       - name: Install Poetry
         uses: snok/install-poetry@v1
       - name: Install Dependencies
@@ -42,7 +43,7 @@ jobs:
       - name: Compare performance
         run: |
           echo "## Model Benchmark" >> report.md
-          python tests/metrics/compareMetrics.py >> report.md
+          poetry run python tests/metrics/compareMetrics.py >> report.md
       - name: Publish report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
