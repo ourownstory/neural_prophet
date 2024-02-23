@@ -26,11 +26,11 @@ torch = "^2.0.0"
 pytorch-lightning = "^1.9.4" # TODO: move to ^2.0.0
 tensorboard = "^2.11.2"
 torchmetrics = "^1.0.0"
-captum = ">=0.6.0"
 holidays = ">=0.41"
+captum = ">=0.6.0"
 matplotlib = "^3.5.3"
 plotly = "^5.13.1"
-nbformat = "^5.8.0"
+kaleido = "0.2.1" # required for plotly static image export
 plotly-resampler = { version = "^0.9.2", python = "<3.12", optional = true }
 livelossplot = { version = ">=0.5.5", optional = true }
 
@@ -38,18 +38,19 @@ livelossplot = { version = ">=0.5.5", optional = true }
 plotly-resampler = ["plotly-resampler"]
 live = ["livelossplot"]
 
-[tool.poetry.group.dev.dependencies]
-black = { extras = ["jupyter"], version = "^24.1.0" }
-flake8 = "^7.0.0"
-isort = "^5.12.0"
+[tool.poetry.group.dev.dependencies] # For dev involving notebooks
+ipykernel = "^6.29.2"
+nbformat = "^5.8.0"
+
+[tool.poetry.group.pytest] # pytest dev setup and CI
+optional = true
+
+[tool.poetry.group.pytest.dependencies] 
 pytest = "^8.0.0"
 pytest-xdist = "^3.1.0"
 pytest-cov = "^4.1.0"
-kaleido = "0.2.1" # required for plotly static image export
-tabulate = "^0.9.0" # Used in model metrics CI only; md export for github-actions bot
-ipykernel = "^6.29.2"
 
-[tool.poetry.group.docs]
+[tool.poetry.group.docs] # for building docs; and testing docs CI
 optional = true
 
 [tool.poetry.group.docs.dependencies]
@@ -60,11 +61,20 @@ sphinx = "^7.0.0"
 sphinx-fontawesome = "^0.0.6"
 furo = "^2024.1.29"
 
-[tool.poetry.group.pyright]
+[tool.poetry.group.metrics] # for metrics CI
 optional = true
 
-[tool.poetry.group.pyright.dependencies]
+[tool.poetry.group.metrics.dependencies]
+tabulate = "^0.9.0" # Used in model metrics CI only; md export for github-actions bot
+
+[tool.poetry.group.linters] # for linters CI
+optional = true
+
+[tool.poetry.group.linters.dependencies]
+black = { extras = ["jupyter"], version = "^24.1.0" }
+isort = "^5.12.0"
 pandas-stubs = "^2.0"
+flake8 = "^7.0.0"
 
 [build-system]
 requires = ["poetry-core"]

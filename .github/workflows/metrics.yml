@@ -1,4 +1,4 @@
-name: model
+name: Measure Model Performance
 on:
   push:
     paths: # Run only when files under neuralprophet/ are modified
@@ -32,9 +32,9 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
       - name: Install Dependencies
-        run: poetry install --no-interaction --no-root --without docs
+        run: poetry install --no-interaction --no-root --with=pytest,metrics --without=dev,docs,linters
       - name: Install Project
-        run: poetry install --no-interaction --without docs
+        run: poetry install --no-interaction --with=pytest,metrics --without=dev,docs,linters
       - name: Train model
         run: poetry run pytest tests/test_model_performance.py -n 1 --durations=0
       - name: Download metrics from main
