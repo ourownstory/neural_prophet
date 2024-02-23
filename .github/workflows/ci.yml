@@ -32,7 +32,9 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
       - name: Install dependencies
-        run: poetry install --without docs
+        run: poetry install --no-root --no-interaction --without docs
+      - name: Install Project
+        run: poetry install --no-interaction --without docs
       - name: Pytest
         run: poetry run pytest tests -v --cov=./ --cov-report=xml
       - name: Upload coverage to codecov
@@ -57,6 +59,6 @@ jobs:
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v2
       - name: Setup Requirements
-        run: poetry install --with=docs
+        run: poetry install  --no-interaction --with docs
       - name: Build with Sphinx
         run: poetry run sphinx-build docs/source _site
