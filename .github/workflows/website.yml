@@ -38,7 +38,7 @@ jobs:
       - name: Setup Poetry
         uses: snok/install-poetry@v1
       - name: Setup Requirements
-        run: poetry install --with=docs
+        run: poetry install --with=docs --without=dev,coverage,metrics,linters
       - name: Build with Sphinx
         run: poetry run sphinx-build docs/source _site
       - name: Upload artifact
