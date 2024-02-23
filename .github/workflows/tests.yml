@@ -3,11 +3,9 @@ on:
   push:
     branches:
       - main
-      - develop
   pull_request:
     branches:
       - main
-      - develop
 
 defaults:
   run:
@@ -18,8 +16,11 @@ jobs:
     runs-on: ${{matrix.os}}
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-22.04, ubuntu-latest]
         python-version: ["3.9", "3.12"]
+        exlude:
+          - os: ubuntu-22.04
+            python-version: "3.12"
     env:
       POETRY_VIRTUALENVS_CREATE: false
     steps:
@@ -32,9 +33,9 @@ jobs:
       - name: Install Poetry
         uses: snok/install-poetry@v1
       - name: Install dependencies
-        run: poetry install --no-root --no-interaction --without docs
+        run: poetry install --no-root --no-interaction --without dev,docs,coverage,metrics,linters
       - name: Install Project
-        run: poetry install --no-interaction --without docs
+        run: poetry install --no-interaction --without dev,docs,coverage,metrics,linters
       - name: Pytest
         run: poetry run pytest tests -v -n auto --durations=0 --cov=./ --cov-report=xml
       - name: Upload coverage to codecov

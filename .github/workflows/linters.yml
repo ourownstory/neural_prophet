@@ -85,6 +85,6 @@ jobs:
         if: steps.poetry-cache.outputs.cache-hit != 'true'
         uses: snok/install-poetry@v1
       - name: Install dependencies
-        run: poetry install --no-interaction --with=docs,pyright
+        run: poetry install --no-interaction --with=docs,linters
       - name: pyright
         uses: jakebailey/pyright-action@v1
