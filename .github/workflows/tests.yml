@@ -44,21 +44,3 @@ jobs:
           files: ./coverage.xml
           name: Coverage Report with codecov overview
           verbose: true
-
-  docs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Install Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.12"
-      - name: Install Poetry
-        uses: abatilo/actions-poetry@v2
-      - name: Setup Pandoc
-        uses: r-lib/actions/setup-pandoc@v2
-      - name: Setup Requirements
-        run: poetry install  --no-interaction --with docs
-      - name: Build with Sphinx
-        run: poetry run sphinx-build docs/source _site
