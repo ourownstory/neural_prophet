@@ -13,24 +13,30 @@ on:
   workflow_dispatch:
 jobs:
   metrics:
-    runs-on: ubuntu-latest
-    container: docker://ghcr.io/iterative/cml:0-dvc2-base1
-    env:
-      POETRY_VIRTUALENVS_CREATE: false
+    runs-on: ubuntu-latest # container: docker://ghcr.io/iterative/cml:0-dvc2-base1
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - name: Install dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install .
-          pip3 install pytest
-          pip3 install tabulate # required to md export
-          pip3 install kaleido # required for plotly export
+      - name: Install Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Setup NodeJS (for CML)
+        uses: actions/setup-node@v3 # For CML
+        with:
+          node-version: '16'
+      - name: Setup CML
+        uses: iterative/setup-cml@v1
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+      - name: Install Dependencies
+        run: poetry install --no-interaction --no-root --without docs
+      - name: Install Project
+        run: poetry install --no-interaction --without docs
       - name: Train model
-        run: pytest tests/test_model_performance.py
+        run: poetry run pytest tests/test_model_performance.py -n 1 --durations=0
       - name: Download metrics from main
         uses: dawidd6/action-download-artifact@v2
         with:
@@ -39,11 +45,11 @@ jobs:
           name: metrics
           path: tests/metrics-main/
           if_no_artifact_found: warn
-      - name: Compare performance
-        run: |
-          echo "## Model Benchmark" >> report.md
-          python tests/metrics/compareMetrics.py >> report.md
-      - name: Publish report
+      - name: Open Benchmark Report
+        run: echo "## Model Benchmark" >> report.md
+      - name: Write Benchmark Report
+        run: poetry run python tests/metrics/compareMetrics.py >> report.md
+      - name: Publish Report with CML
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -58,8 +64,7 @@ jobs:
           echo "### EnergyPriceDaily" >> report.md
           cml asset publish tests/metrics/EnergyPriceDaily.svg --md >> report.md
           echo "\n</details>" >> report.md
-          # Post reports as comments in GitHub PRs
-          cml comment update --target=pr report.md # post to PR
+          cml comment update --target=pr report.md # Post reports as comments in GitHub PRs
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
