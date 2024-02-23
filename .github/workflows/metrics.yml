@@ -30,7 +30,7 @@ jobs:
       - name: Install Project
         run: poetry install --no-interaction --without docs
       - name: Train model
-        run: pytest tests/test_model_performance.py
+        run: poetry run pytest tests/test_model_performance.py
       - name: Download metrics from main
         uses: dawidd6/action-download-artifact@v2
         with:
