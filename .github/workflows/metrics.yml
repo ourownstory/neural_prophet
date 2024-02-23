@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     container: docker://ghcr.io/iterative/cml:0-dvc2-base1
     env:
-      POETRY_VIRTUALENVS_CREATE: true
+      POETRY_VIRTUALENVS_CREATE: false
     steps:
       - name: Checkout
         uses: actions/checkout@v3
