@@ -36,7 +36,7 @@ jobs:
       - name: Install Project
         run: poetry install --no-interaction --without docs
       - name: Train model
-        run: poetry run pytest tests/test_model_performance.py -n auto --durations=0
+        run: poetry run pytest tests/test_model_performance.py -n 1 --durations=0
       - name: Download metrics from main
         uses: dawidd6/action-download-artifact@v2
         with:
@@ -64,8 +64,7 @@ jobs:
           echo "### EnergyPriceDaily" >> report.md
           cml asset publish tests/metrics/EnergyPriceDaily.svg --md >> report.md
           echo "\n</details>" >> report.md
-          # Post reports as comments in GitHub PRs
-          cml comment update --target=pr report.md # post to PR
+          cml comment update --target=pr report.md # Post reports as comments in GitHub PRs
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
