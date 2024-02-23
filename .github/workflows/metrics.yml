@@ -40,11 +40,11 @@ jobs:
           name: metrics
           path: tests/metrics-main/
           if_no_artifact_found: warn
-      - name: Compare performance
-        run: |
-          echo "## Model Benchmark" >> report.md
-          poetry run python tests/metrics/compareMetrics.py >> report.md
-      - name: Publish report
+      - name: Open Benchmark Report
+        run: echo "## Model Benchmark" >> report.md
+      - name: Write Benchmark Report
+        run: poetry run python tests/metrics/compareMetrics.py >> report.md
+      - name: Publish Report with CML
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
