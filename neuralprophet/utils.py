@@ -5,7 +5,7 @@ import math
 import os
 import sys
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Iterable, Optional, Union, BinaryIO, IO, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -21,19 +21,23 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("NP.utils")
 
+FILE_LIKE: TypeAlias = Union[str, os.PathLike, BinaryIO, IO[bytes]]
 
-def save(forecaster, path: str):
+def save(forecaster, path: FILE_LIKE):
     """Save a fitted Neural Prophet model to disk.
 
     Parameters:
         forecaster : np.forecaster.NeuralProphet
             input forecaster that is fitted
-        path : str
-            path and filename to be saved. filename could be any but suggested to have extension .np.
+        path : FILE_LIKE
+            Path and filename to be saved, or an in-memory buffer. Filename could be any but suggested to have extension .np.
 
     After you fitted a model, you may save the model to save_test_model.np
         >>> from neuralprophet import save
         >>> save(forecaster, "test_save_model.np")
+        >>> import io
+        >>> buffer = io.BytesIO()
+        >>> save(forecaster, buffer)
     """
     # List of attributes to remove
     attrs_to_remove_forecaster = ["trainer"]
@@ -69,13 +73,13 @@ def save(forecaster, path: str):
                 setattr(forecaster.model, attr, value)
 
 
-def load(path: str, map_location=None):
-    """retrieve a fitted model from a .np file that was saved by save.
+def load(path: FILE_LIKE, map_location=None):
+    """retrieve a fitted model from a .np file or buffer that was saved by save.
 
     Parameters
     ----------
-        path : str
-            path and filename to be saved. filename could be any but suggested to have extension .np.
+        path : FILE_LIKE
+            Path and filename to be saved, or an in-memory buffer. Filename could be any but suggested to have extension .np.
         map_location : str, optional
             specifying the location where the model should be loaded.
             If you are running on a CPU-only machine, set map_location='cpu' to map your storages to the CPU.
