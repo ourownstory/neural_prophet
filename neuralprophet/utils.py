@@ -5,7 +5,7 @@ import math
 import os
 import sys
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Iterable, Optional, Union, BinaryIO, IO, TypeAlias
+from typing import TYPE_CHECKING, Iterable, Optional, Union, BinaryIO, IO
 
 import numpy as np
 import pandas as pd
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("NP.utils")
 
-FILE_LIKE: TypeAlias = Union[str, os.PathLike, BinaryIO, IO[bytes]]
+FILE_LIKE = Union[str, os.PathLike, BinaryIO, IO[bytes]]
 
 def save(forecaster, path: FILE_LIKE):
     """Save a fitted Neural Prophet model to disk.
