@@ -457,19 +457,6 @@ class NeuralProphet:
             drop_missing=drop_missing,
         )
 
-        # Training
-        self.config_train = configure.Train(
-            quantiles=quantiles,
-            learning_rate=learning_rate,
-            epochs=epochs,
-            batch_size=batch_size,
-            loss_func=loss_func,
-            optimizer=optimizer,
-            newer_samples_weight=newer_samples_weight,
-            newer_samples_start=newer_samples_start,
-            trend_reg_threshold=trend_reg_threshold,
-        )
-
         if isinstance(collect_metrics, list):
             log.info(
                 DeprecationWarning(
@@ -497,6 +484,19 @@ class NeuralProphet:
             trend_reg_threshold=trend_reg_threshold,
             trend_global_local=trend_global_local,
             trend_local_reg=trend_local_reg,
+        )
+
+        # Training
+        self.config_train = configure.Train(
+            quantiles=quantiles,
+            learning_rate=learning_rate,
+            epochs=epochs,
+            batch_size=batch_size,
+            loss_func=loss_func,
+            optimizer=optimizer,
+            newer_samples_weight=newer_samples_weight,
+            newer_samples_start=newer_samples_start,
+            trend_reg_threshold=self.config_trend.trend_reg_threshold,
         )
 
         # Seasonality
