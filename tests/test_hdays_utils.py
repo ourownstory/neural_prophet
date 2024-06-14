@@ -16,3 +16,15 @@ def test_get_country_holidays():
 
     with pytest.raises(AttributeError):
         hdays_utils.get_country_holidays("NotSupportedCountry")
+
+
+def test_get_country_holidays_with_subdivisions():
+    # Test US holidays with a subdivision
+    us_ca_holidays = hdays_utils.get_country_holidays("US", years=2019, subdivision="CA")
+    assert issubclass(us_ca_holidays.__class__, holidays.countries.united_states.UnitedStates) is True
+    assert len(us_ca_holidays) > 0  # Assuming there are holidays specific to CA
+
+    # Test Canada holidays with a subdivision
+    ca_on_holidays = hdays_utils.get_country_holidays("CA", years=2019, subdivision="ON")
+    assert issubclass(ca_on_holidays.__class__, holidays.countries.canada.CA) is True
+    assert len(ca_on_holidays) > 0  # Assuming there are holidays specific to ON

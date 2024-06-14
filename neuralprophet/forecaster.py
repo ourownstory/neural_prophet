@@ -749,6 +749,7 @@ class NeuralProphet:
     def add_country_holidays(
         self,
         country_name: Union[str, list],
+        subdivision_name: Optional[Union[str, dict]] = None,
         lower_window: int = 0,
         upper_window: int = 0,
         regularization: Optional[float] = None,
@@ -766,6 +767,9 @@ class NeuralProphet:
         ----------
             country_name : str, list
                 name or list of names of the country
+            subdivision_name : str, dict
+                name or list of names of the subdivisions (e.g., provinces or states) or
+                a dictionary where the key is the country name and the value is a list of subdivisions
             lower_window : int
                 the lower window for all the country holidays
             upper_window : int
@@ -789,6 +793,7 @@ class NeuralProphet:
                 regularization = None
         self.config_country_holidays = configure.Holidays(
             country=country_name,
+            subdivision=subdivision_name,
             lower_window=lower_window,
             upper_window=upper_window,
             reg_lambda=regularization,
