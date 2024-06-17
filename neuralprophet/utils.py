@@ -403,16 +403,13 @@ def get_holidays_from_country(
         years = list({x.year for x in dates})
     # support multiple countries
     if isinstance(country, str):
-        country = [country]
-    # support subdivisions
-    if subdivision is not None:
-        if isinstance(subdivision, str):
-            if isinstance(country, list):
-                raise ValueError("If country_name is a list, subdivisions must be a dictionary.")
-            subdivision = {country: subdivision}
+        country = {country, None}
+    elif isinstance(country, list): 
+        country = dict(zip(country, [None]*len(country)))
+
     unique_holidays = {}
     for single_country in country:
-        subdivision = subdivision.get(single_country) if subdivision else None
+        subdivision = subdivision.get(single_country)
         holidays_country = get_country_holidays(single_country, years, subdivision)
         for date, name in holidays_country.items():
             if date not in unique_holidays:

@@ -503,16 +503,15 @@ ConfigEvents = OrderedDictType[str, Event]
 
 @dataclass
 class Holidays:
-    country: Union[str, List[str]]
+    country: Union[str, List[str], dict]
     lower_window: int
     upper_window: int
     mode: str = "additive"
-    subdivision: Optional[Union[str, dict]] = (None,)
     reg_lambda: Optional[float] = None
     holiday_names: set = field(init=False)
 
     def init_holidays(self, df=None):
-        self.holiday_names = utils.get_holidays_from_country(self.country, self.subdivision, df)
+        self.holiday_names = utils.get_holidays_from_country(self.country, df)
 
 
 ConfigCountryHolidays = Holidays
