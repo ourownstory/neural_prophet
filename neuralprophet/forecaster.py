@@ -1181,8 +1181,8 @@ class NeuralProphet:
                     quantiles=self.config_train.quantiles,
                     components=components,
                 )
-                if periods_added[df_name] > 0:
-                    fcst = fcst[:-1]
+                # if periods_added[df_name] > 0:
+                #     fcst = fcst[:-1]
             else:
                 fcst = _reshape_raw_predictions_to_forecst_df(
                     df=df_i,
@@ -1196,9 +1196,10 @@ class NeuralProphet:
                     quantiles=self.config_train.quantiles,
                     config_lagged_regressors=self.config_lagged_regressors,
                 )
-                if periods_added[df_name] > 0:
-                    fcst = fcst[: -periods_added[df_name]]
+                # if periods_added[df_name] > 0:
+                #     fcst = fcst[: -1]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
+
         df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)
         self.predict_steps = self.n_forecasts
         return df
