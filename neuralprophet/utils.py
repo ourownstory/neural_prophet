@@ -376,7 +376,7 @@ def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
 
 
 def get_holidays_from_country(
-    country: Union[str, Iterable[str]], subdivision: Optional[Union[str, dict]] = None, df=None
+    country: Union[str, Iterable[str], dict], df=None
 ):
     """
     Return all possible holiday names of given country
