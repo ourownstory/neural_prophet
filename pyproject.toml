@@ -17,6 +17,8 @@ Homepage = "https://github.com/ourownstory/neural_prophet"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
+numpy = "^1.25.0"
+pandas = "^2.0.0"
 captum = ">=0.6.0"
 holidays = ">=0.41"
 matplotlib = "^3.5.3"
@@ -33,6 +35,7 @@ kaleido = "0.2.1" # required for plotly static image export
 [tool.poetry.extras]
 plotly-resampler = ["plotly-resampler"]
 live = ["livelossplot"]
+
 
 [tool.poetry.group.dev.dependencies] # For dev involving notebooks
 ipykernel = "^6.29.2"
