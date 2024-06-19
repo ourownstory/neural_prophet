@@ -1112,7 +1112,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df: pd.DataFrame, decompose: bool = True, raw: bool = False):
+    def predict(self, df: pd.DataFrame, decompose: bool = True, raw: bool = False, auto_extend=False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -1181,8 +1181,8 @@ class NeuralProphet:
                     quantiles=self.config_train.quantiles,
                     components=components,
                 )
-                # if periods_added[df_name] > 0:
-                #     fcst = fcst[:-1]
+                if not auto_extend and periods_added[df_name] > 0:
+                    fcst = fcst[:-1]
             else:
                 fcst = _reshape_raw_predictions_to_forecst_df(
                     df=df_i,
@@ -1196,8 +1196,8 @@ class NeuralProphet:
                     quantiles=self.config_train.quantiles,
                     config_lagged_regressors=self.config_lagged_regressors,
                 )
-                # if periods_added[df_name] > 0:
-                #     fcst = fcst[: -1]
+                if not auto_extend and periods_added[df_name] > 0:
+                    fcst = fcst[: -1]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
 
         df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)
