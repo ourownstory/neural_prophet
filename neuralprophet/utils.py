@@ -836,10 +836,6 @@ def configure_trainer(
     """
     config = config.copy()
 
-    # Enable Learning rate finder if not learning rate provided
-    if config_train.learning_rate is None:
-        config["auto_lr_find"] = True
-
     # Set max number of epochs
     if hasattr(config_train, "epochs"):
         if config_train.epochs is not None:
