@@ -29,7 +29,7 @@ torchmetrics = ">=0.11.3"
 typing-extensions = "^4.5.0"
 nbformat = ">=4.2.0"
 livelossplot = { version = ">=0.5.5", optional = true }
-
+kaleido = "0.2.1" # required for plotly static image export
 [tool.poetry.extras]
 plotly-resampler = ["plotly-resampler"]
 live = ["livelossplot"]
