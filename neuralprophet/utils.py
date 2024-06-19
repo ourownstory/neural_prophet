@@ -5,7 +5,7 @@ import math
 import os
 import sys
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Iterable, Optional, Union, BinaryIO, IO
 
 import numpy as np
 import pandas as pd
@@ -21,19 +21,23 @@ if TYPE_CHECKING:
 
 log = logging.getLogger("NP.utils")
 
+FILE_LIKE = Union[str, os.PathLike, BinaryIO, IO[bytes]]
 
-def save(forecaster, path: str):
+def save(forecaster, path: FILE_LIKE):
     """Save a fitted Neural Prophet model to disk.
 
     Parameters:
         forecaster : np.forecaster.NeuralProphet
             input forecaster that is fitted
-        path : str
-            path and filename to be saved. filename could be any but suggested to have extension .np.
+        path : FILE_LIKE
+            Path and filename to be saved, or an in-memory buffer. Filename could be any but suggested to have extension .np.
 
     After you fitted a model, you may save the model to save_test_model.np
         >>> from neuralprophet import save
         >>> save(forecaster, "test_save_model.np")
+        >>> import io
+        >>> buffer = io.BytesIO()
+        >>> save(forecaster, buffer)
     """
     # List of attributes to remove
     attrs_to_remove_forecaster = ["trainer"]
@@ -69,13 +73,13 @@ def save(forecaster, path: str):
                 setattr(forecaster.model, attr, value)
 
 
-def load(path: str, map_location=None):
-    """retrieve a fitted model from a .np file that was saved by save.
+def load(path: FILE_LIKE, map_location=None):
+    """retrieve a fitted model from a .np file or buffer that was saved by save.
 
     Parameters
     ----------
-        path : str
-            path and filename to be saved. filename could be any but suggested to have extension .np.
+        path : FILE_LIKE
+            Path and filename to be saved, or an in-memory buffer. Filename could be any but suggested to have extension .np.
         map_location : str, optional
             specifying the location where the model should be loaded.
             If you are running on a CPU-only machine, set map_location='cpu' to map your storages to the CPU.
@@ -141,6 +145,50 @@ def reg_func_trend(weights, threshold=None):
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
     reg = torch.mean(torch.sum(abs_weights, dim=-1)).squeeze()
     return reg
+
+
+def reg_func_trend_glocal(trend_k0, trend_deltas, trend_local_reg):
+    """Regularization of weights to induce similarity between global and local trend
+    Parameters
+    ----------
+        # trend_k0 : torch.Tensor
+        #     Local trend intercept
+        # trend_deltas : torch.Tensor
+        #     Local trend slopes
+        # trend_local_reg : float
+        #     glocal trend regularization coefficient
+    Returns
+    -------
+        torch.Tensor
+            regularization loss
+    """
+    trend_k0_val = (trend_k0 - trend_k0.mean()).pow(2).mean()
+    trend_val = (trend_deltas - trend_deltas.mean(-2).unsqueeze(-2)).pow(2).mean()
+
+    return trend_local_reg * (trend_k0_val + trend_val)
+
+
+def reg_func_seasonality_glocal(season_params, seasonality_local_reg):
+    """Regularization of weights to induce similarity between global and local trend
+    Parameters
+    ----------
+        # season_params : torch.Tensor
+        #     Local season params
+        # seasonality_local_reg : float
+        #     glocal season regularization coefficient
+    Returns
+    -------
+        torch.Tensor
+            regularization loss
+    """
+
+    # Perform the operation on each value and store the results in a list
+    results = []
+    for key, season_params_i in season_params.items():
+        result = (season_params_i - season_params_i.mean(-2).unsqueeze(-2)).pow(2).mean()
+        results.append(result)
+
+    return seasonality_local_reg * sum(results)
 
 
 def reg_func_season(weights):
@@ -274,6 +322,12 @@ def check_for_regularization(configs: list):
         if hasattr(config, "reg_lambda"):
             if config.reg_lambda is not None:
                 reg_sum += config.reg_lambda
+        if hasattr(config, "trend_local_reg"):
+            if config.trend_local_reg is not None:
+                reg_sum += config.trend_local_reg
+        if hasattr(config, "seasonality_local_reg"):
+            if config.seasonality_local_reg is not None:
+                reg_sum += config.seasonality_local_reg
     return reg_sum > 0
 
 
@@ -492,14 +546,14 @@ def config_regressors_to_model_dims(config_regressors):
             This dictionaries' keys correspond to individual regressor and values in a dict containing the mode
             and the indices in the input dataframe corresponding to each regressor.
     """
-    if config_regressors is None:
+    if config_regressors is not None and config_regressors.regressors is None:
         return None
     else:
         additive_regressors = []
         multiplicative_regressors = []
 
-        if config_regressors is not None:
-            for regressor, configs in config_regressors.items():
+        if config_regressors is not None and config_regressors.regressors is not None:
+            for regressor, configs in config_regressors.regressors.items():
                 mode = configs.mode
                 if mode == "additive":
                     additive_regressors.append(regressor)

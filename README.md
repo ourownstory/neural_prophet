@@ -1,6 +1,6 @@
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/ourownstory/neural_prophet?logo=github)](https://github.com/ourownstory/neural_prophet/releases)
 [![Pypi_Version](https://img.shields.io/pypi/v/neuralprophet.svg)](https://pypi.python.org/pypi/neuralprophet)
-[![Python Version](https://img.shields.io/badge/python-3.7+-blue?logo=python)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-3.9+-blue?logo=python)](https://www.python.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/ourownstory/neural_prophet/actions/workflows/ci.yml/badge.svg)](https://github.com/ourownstory/neural_prophet/actions/workflows/ci.yml)
@@ -89,14 +89,17 @@ cd neural_prophet
 pip install .
 ```
 
+Note for Windows users: Please use WSL2.
+
 ## Features
 ### Model components
 * Autoregression: Autocorrelation modelling - linear or NN (AR-Net).
 * Trend: Piecewise linear trend with optional automatic changepoint detection.
 * Seasonality: Fourier terms at different periods such as yearly, daily, weekly, hourly.
 * Lagged regressors: Lagged observations (e.g temperature sensor) - linear or NN.
-* Future regressors: In advance known features (e.g. temperature forecast) - linear.
+* Future regressors: In advance known features (e.g. temperature forecast) - linear or NN.
 * Events: Country holidays & recurring custom events.
+* Global Modeling: Components can be local, global or 'glocal' (global + regularized local)
 
 
 ### Framework features
@@ -108,19 +111,13 @@ pip install .
 * Model checkpointing and validation.
 
 
-
 ### Coming soon<sup>:tm:</sup>
 
 * Cross-relation of lagged regressors.
-* Cross-relation and non-linear modelling of future regressors.
-* Static features / Time series featurization.
+* Static metadata regression for multiple series
 * Logistic growth for trend component.
-* Model bias modelling / correction with secondary model.
-* Multimodal seasonality.
 
 For a list of past changes, please refer to the [releases page](https://github.com/ourownstory/neural_prophet/releases).
-
-The vision for future development can be seen at [Development Timeline](notes/development_timeline.md) (partially outdated).
 
 ## Cite
 Please cite [NeuralProphet](https://arxiv.org/abs/2111.15397) in your publications if it helps your research:

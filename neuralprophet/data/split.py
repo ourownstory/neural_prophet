@@ -63,6 +63,7 @@ def _maybe_extend_df(
                 periods=periods_add[df_name],
                 freq=freq,
                 config_events=config_events,
+                config_regressors=config_regressors,
             )
             future_df["ID"] = df_name
             df_i = pd.concat([df_i, future_df])
@@ -115,7 +116,7 @@ def _get_maybe_extend_periods(
     while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
         nan_at_end += 1
     if max_lags > 0:
-        if config_regressors is None:
+        if config_regressors is not None and config_regressors.regressors is not None:
             # if dataframe has already been extended into future,
             # don't extend beyond n_forecasts.
             periods_add = max(0, n_forecasts - nan_at_end)
@@ -173,7 +174,9 @@ def _make_future_dataframe(
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
     if periods == 0 and n_historic_predictions is True:
-        log.warning("Not extending df into future as no periods specified." "You can call predict directly instead.")
+        log.warning(
+            "Not extending df into future as no periods specified. You can skip this and predict directly instead."
+        )
     df = df.copy(deep=True)
     _ = df_utils.infer_frequency(df, n_lags=max_lags, freq=freq)
     last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
@@ -199,11 +202,11 @@ def _make_future_dataframe(
         raise ValueError("Set either history or future to contain more than zero values.")
 
     # check for external regressors known in future
-    if model.config_regressors is not None and periods > 0:
+    if model.config_regressors.regressors is not None and periods > 0:
         if regressors_df is None:
             raise ValueError("Future values of all user specified regressors not provided")
         else:
-            for regressor in model.config_regressors.keys():
+            for regressor in model.config_regressors.regressors.keys():
                 if regressor not in regressors_df.columns:
                     raise ValueError(f"Future values of user specified regressor {regressor} not provided")
 

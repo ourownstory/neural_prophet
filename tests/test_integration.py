@@ -515,6 +515,83 @@ def test_future_reg():
         plt.show()
 
 
+def test_future_reg_NNs():
+    log.info("testing: Future Regressors modelled with NNs")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, future_regressors_model="neural_nets")
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(30, min_periods=1).mean()
+    df["C"] = df["y"].rolling(7, min_periods=1).mean()
+    df["D"] = df["y"].rolling(30, min_periods=1).mean()
+
+    regressors_df_future = pd.DataFrame(
+        data={"A": df["A"][-50:], "B": df["B"][-50:], "C": df["C"][-50:], "D": df["D"][-50:]}
+    )
+    df = df[:-50]
+    m = m.add_future_regressor(name="A")
+    m = m.add_future_regressor(name="B", mode="additive")
+    m = m.add_future_regressor(name="C", mode="multiplicative")
+    m = m.add_future_regressor(name="D", mode="multiplicative")
+    m.fit(df, freq="D")
+    future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
+    forecast = m.predict(df=future)
+    if PLOT:
+        m.plot(forecast)
+        m.plot_components(forecast)
+        m.plot_parameters()
+        plt.show()
+
+    m = NeuralProphet(
+        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, future_regressors_model="shared_neural_nets"
+    )
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(30, min_periods=1).mean()
+    df["C"] = df["y"].rolling(7, min_periods=1).mean()
+    df["D"] = df["y"].rolling(30, min_periods=1).mean()
+
+    regressors_df_future = pd.DataFrame(
+        data={"A": df["A"][-50:], "B": df["B"][-50:], "C": df["C"][-50:], "D": df["D"][-50:]}
+    )
+    df = df[:-50]
+    m = m.add_future_regressor(name="A")
+    m = m.add_future_regressor(name="B", mode="additive")
+    m = m.add_future_regressor(name="C", mode="multiplicative")
+    m = m.add_future_regressor(name="D", mode="multiplicative")
+    m.fit(df, freq="D")
+    future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
+    forecast = m.predict(df=future)
+    if PLOT:
+        m.plot(forecast)
+        m.plot_components(forecast)
+        m.plot_parameters()
+        plt.show()
+
+    m = NeuralProphet(
+        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, future_regressors_model="shared_neural_nets_coef"
+    )
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(30, min_periods=1).mean()
+    df["C"] = df["y"].rolling(7, min_periods=1).mean()
+    df["D"] = df["y"].rolling(30, min_periods=1).mean()
+
+    regressors_df_future = pd.DataFrame(
+        data={"A": df["A"][-50:], "B": df["B"][-50:], "C": df["C"][-50:], "D": df["D"][-50:]}
+    )
+    df = df[:-50]
+    m = m.add_future_regressor(name="A")
+    m = m.add_future_regressor(name="B", mode="additive")
+    m = m.add_future_regressor(name="C", mode="multiplicative")
+    m = m.add_future_regressor(name="D", mode="multiplicative")
+    m.fit(df, freq="D")
+    future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
+    forecast = m.predict(df=future)
+    if PLOT:
+        m.plot(forecast)
+        m.plot_components(forecast)
+        m.plot_parameters()
+        plt.show()
+
+
 def test_air_data():
     log.info("TEST air_passengers.csv")
     df = pd.read_csv(AIR_FILE)
@@ -1705,3 +1782,16 @@ def test_unused_future_regressors():
     m.add_future_regressor("price")
     m.add_lagged_regressor("cost")
     m.fit(df, freq="D")
+
+
+def test_fit_twice_error():
+    log.info("testing: Fit model twice error")
+    df = pd.read_csv(PEYTON_FILE, nrows=10)
+    m = NeuralProphet(
+        epochs=1,
+        batch_size=10,
+        learning_rate=1,
+    )
+    _ = m.fit(df, freq="D")
+    with pytest.raises(RuntimeError):
+        _ = m.fit(df, freq="D")

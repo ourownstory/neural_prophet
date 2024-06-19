@@ -401,7 +401,7 @@ def tabularize_univariate_datetime(
         inputs["covariates"] = covariates
 
     # get the regressors features
-    if config_regressors is not None:
+    if config_regressors is not None and config_regressors.regressors is not None:
         additive_regressors, multiplicative_regressors = make_regressors_features(df, config_regressors)
 
         regressors = OrderedDict({})
@@ -667,8 +667,8 @@ def make_regressors_features(df, config_regressors):
     multiplicative_regressors = pd.DataFrame()
 
     for reg in df.columns:
-        if reg in config_regressors:
-            mode = config_regressors[reg].mode
+        if reg in config_regressors.regressors:
+            mode = config_regressors.regressors[reg].mode
             if mode == "additive":
                 additive_regressors[reg] = df[reg]
             else:

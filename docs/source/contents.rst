@@ -7,37 +7,39 @@
 NeuralProphet
 =========================================
 
-Based on Neural Networks, inspired by `Facebook Prophet <https://github.com/facebook/prophet>`_ and `AR-Net <https://github.com/ourownstory/AR-Net>`_, built on Pytorch.
+Fusing traditional time series algorithms using standard deep learning methods, built on PyTorch, inspired by `Facebook Prophet <https://github.com/facebook/prophet>`_ and `AR-Net <https://github.com/ourownstory/AR-Net>`_.
 
 
-Links
------
-
-- `Read the paper <https://arxiv.org/abs/2111.15397?fbclid=IwAR2vCkHYiy5yuPPjWXpJgAJs-uD5NkH4liORt1ch4a6X_kmpMqagGtXyez4>`_
-- `GitHub repository <https://github.com/ourownstory/neural_prophet>`_
-
-Why NeuralProphet?
+Simple Example
 ------------------
-
-NeuralProphet changes the way time series modelling and forecasting is done:
-
-- Support for auto-regression and covariates.
-- Automatic selection of training related hyperparameters.
-- Fourier term seasonality at different periods such as yearly, daily, weekly, hourly.
-- Piecewise linear trend with optional automatic changepoint detection.
-- Plotting for forecast components, model coefficients and final predictions.
-- Support for global modeling.
-- Lagged and future regressors.
-- Sparsity of coefficients through regularization.
-- User-friendly and powerful Python package:
 
 .. code-block:: pycon
 
     >>> from neuralprophet import NeuralProphet
     >>> m = NeuralProphet()
-    >>> metrics = m.fit(your_df, freq='D')
-    >>> forecast = m.predict(your_df)
+    >>> metrics = m.fit(df)
+    >>> forecast = m.predict(df)
     >>> m.plot(forecast)
+
+Features
+------------------
+
+NeuralProphet provides many time series modeling and workflow features, in a simple package:
+
+- Support for global modeling of many time series.
+- Automatic selection of training related hyperparameters.
+- Plotting utilities for forecast components, model coefficients and final predictions.
+- Local context through Autoregression and lagged covariates.
+- Changing trends and smooth seasonality at different periods.
+- Modeling of event, holiday, and future regressor effects.
+- Many customization options, such as regularization.
+
+Resources
+-----------------
+
+- `Read the paper <https://arxiv.org/abs/2111.15397?fbclid=IwAR2vCkHYiy5yuPPjWXpJgAJs-uD5NkH4liORt1ch4a6X_kmpMqagGtXyez4>`_
+- `GitHub repository <https://github.com/ourownstory/neural_prophet>`_
+
 
 .. toctree::
     :hidden:
@@ -63,7 +65,14 @@ NeuralProphet changes the way time series modelling and forecasting is done:
 .. toctree::
     :hidden:
     :maxdepth: 1
-    :caption: The Science Behind
+    :caption: Code Documentation
+
+    NeuralProphet <code/index>
+
+.. toctree::
+    :hidden:
+    :maxdepth: 1
+    :caption: About
 
     Model Overview<science-behind/model-overview>
     Presentation<https://github.com/ourownstory/neural_prophet/raw/61f1c6d4667db19a189e15037eb230ee5e90b80c/notes/NeuralProphet_Introduction.pdf>
@@ -71,15 +80,9 @@ NeuralProphet changes the way time series modelling and forecasting is done:
 .. toctree::
     :hidden:
     :maxdepth: 1
-    :caption: API Reference
-
-    forecaster.py <code/forecaster>
-
-.. toctree::
-    :hidden:
-    :maxdepth: 1
     :caption: Community
 
-    Contribution<community/contribute>
-    GitHub <https://github.com/ourownstory/neural_prophet>
-    Slack <https://join.slack.com/t/neuralprophet/shared_invite/zt-1iyfs2pld-vtnegAX4CtYg~6E~V8miXw>
+    Contribute<community/contribute>
+    GitHub<https://github.com/ourownstory/neural_prophet>
+    Slack<https://join.slack.com/t/neuralprophet/shared_invite/zt-1iyfs2pld-vtnegAX4CtYg~6E~V8miXw>
+

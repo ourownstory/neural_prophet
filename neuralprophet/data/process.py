@@ -365,8 +365,8 @@ def _validate_column_name(
     if covariates and config_lagged_regressors is not None:
         if name in config_lagged_regressors:
             raise ValueError(f"Name {name!r} already used for an added covariate.")
-    if regressors and config_regressors is not None:
-        if name in config_regressors.keys():
+    if regressors and config_regressors.regressors is not None:
+        if name in config_regressors.regressors.keys():
             raise ValueError(f"Name {name!r} already used for an added regressor.")
 
 
@@ -411,17 +411,18 @@ def _check_dataframe(
         df=df,
         check_y=check_y,
         covariates=model.config_lagged_regressors if exogenous else None,
-        regressors=model.config_regressors if exogenous else None,
+        regressors=model.config_regressors.regressors if exogenous else None,
         events=model.config_events if exogenous else None,
         seasonalities=model.config_seasonality if exogenous else None,
         future=True if future else None,
     )
-    if model.config_regressors is not None:
+
+    if model.config_regressors.regressors is not None:
         for reg in regressors_to_remove:
             log.warning(f"Removing regressor {reg} because it is not present in the data.")
-            model.config_regressors.pop(reg)
-        if len(model.config_regressors) == 0:
-            model.config_regressors = None
+            model.config_regressors.regressors.pop(reg)
+        if model.config_regressors.regressors is not None and len(model.config_regressors.regressors) == 0:
+            model.config_regressors.regressors = None
     if model.config_lagged_regressors is not None:
         for reg in lag_regressors_to_remove:
             log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
@@ -498,9 +499,11 @@ def _handle_missing_data(
             df = df_grouped.reset_index()
             log.info(f"Added {n_missing_dates} missing dates.")
 
-    if config_regressors is not None:
+    if config_regressors is not None and config_regressors.regressors is not None:
         # drop complete row for future regressors that are NaN at the end
-        last_valid_index = df.groupby("ID")[list(config_regressors.keys())].apply(lambda x: x.last_valid_index())
+        last_valid_index = df.groupby("ID")[list(config_regressors.regressors.keys())].apply(
+            lambda x: x.last_valid_index()
+        )
         df_dropped = df.groupby("ID", group_keys=False).apply(lambda x: x.loc[: last_valid_index[x.name]])
         n_dropped = len(df) - len(df_dropped)
         if n_dropped > 0:
@@ -527,8 +530,8 @@ def _handle_missing_data(
             data_columns.append("y")
         if config_lagged_regressors is not None:
             data_columns.extend(config_lagged_regressors.keys())
-        if config_regressors is not None:
-            data_columns.extend(config_regressors.keys())
+        if config_regressors is not None and config_regressors.regressors is not None:
+            data_columns.extend(config_regressors.regressors.keys())
         if config_events is not None:
             data_columns.extend(config_events.keys())
         conditional_cols = []

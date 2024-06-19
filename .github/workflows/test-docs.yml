@@ -1,0 +1,33 @@
+name: Test build docs
+on:
+  push:
+    branches:
+      - main
+      - website
+  pull_request:
+    branches:
+      - main
+      - website
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+      - name: Install Poetry
+        uses: abatilo/actions-poetry@v2
+      - name: Setup Pandoc
+        uses: r-lib/actions/setup-pandoc@v2
+      - name: Setup Requirements
+        run: poetry install  --no-interaction --with=docs --without=dev,pytest,metrics,linters
+      - name: Build with Sphinx
+        run: poetry run sphinx-build docs/source _site
