@@ -765,7 +765,7 @@ class NeuralProphet:
         Parameters
         ----------
             country_name : str, list, dict
-                name or list of names of the country or a dictionary where the key is the country name and the value is a list of subdivisions
+                name or list of names of the country or a dictionary where the key is the country name and the value is a subdivision
             lower_window : int
                 the lower window for all the country holidays
             upper_window : int
