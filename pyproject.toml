@@ -16,7 +16,7 @@ classifiers = [
 Homepage = "https://github.com/ourownstory/neural_prophet"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.9,<=3.12"
 numpy = "^1.25.0"
 pandas = "^2.0.0"
 captum = ">=0.6.0"
