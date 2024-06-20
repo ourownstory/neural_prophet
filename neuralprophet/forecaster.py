@@ -1197,7 +1197,7 @@ class NeuralProphet:
                     config_lagged_regressors=self.config_lagged_regressors,
                 )
                 if not auto_extend and periods_added[df_name] > 0:
-                    fcst = fcst[: -1]
+                    fcst = fcst[:-1]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
 
         df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)

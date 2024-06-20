@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
+import io
 import logging
 import os
 import pathlib
-import io
 
 import pandas as pd
 import pytest
@@ -67,6 +67,7 @@ def test_save_load():
     pd.testing.assert_frame_equal(forecast, forecast2)
     pd.testing.assert_frame_equal(forecast, forecast3)
 
+
 def test_save_load_io():
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
@@ -80,13 +81,11 @@ def test_save_load_io():
     _ = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=3)
     forecast = m.predict(df=future)
-    
     # Save the model to an in-memory buffer
     log.info("testing: save to buffer")
     buffer = io.BytesIO()
     save(m, buffer)
     buffer.seek(0)  # Reset buffer position to the beginning
-    
     log.info("testing: load from buffer")
     m2 = load(buffer)
     forecast2 = m2.predict(df=future)
@@ -98,6 +97,7 @@ def test_save_load_io():
     # Check that the forecasts are the same
     pd.testing.assert_frame_equal(forecast, forecast2)
     pd.testing.assert_frame_equal(forecast, forecast3)
+
 
 # TODO: add functionality to continue training
 # def test_continue_training():
