@@ -1,6 +1,7 @@
 from typing import Iterable, Optional, Union
 
 import holidays
+import numpy as np
 
 
 def get_country_holidays(
@@ -65,13 +66,12 @@ def get_holidays_from_country(country: Union[str, Iterable[str], dict], df=None)
         years = list({x.year for x in dates})
     # support multiple countries
     if isinstance(country, str):
-        country = {country, None}
+        country = {country: None}
     elif isinstance(country, list):
         country = dict(zip(country, [None] * len(country)))
 
     unique_holidays = {}
-    for single_country in country:
-        subdivision = subdivision.get(single_country)
+    for single_country, subdivision in country.items():
         holidays_country = get_country_holidays(single_country, years, subdivision)
         for date, name in holidays_country.items():
             if date not in unique_holidays:
