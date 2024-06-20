@@ -795,9 +795,9 @@ class TimeNet(pl.LightningModule):
         scheduler.step()
 
         # Manually track the loss for the lr finder
-        self.log('train_loss', loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log('reg_loss', reg_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log("reg_loss", reg_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
         # Metrics
         if self.metrics_enabled:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
@@ -941,7 +941,7 @@ class TimeNet(pl.LightningModule):
         trend_glocal_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
         # Glocal Trend
         if self.config_trend is not None:
-            if self.config_trend.trend_global_local == "local" and self.config_trend.trend_local_reg != False:
+            if self.config_trend.trend_global_local == "local" and self.config_trend.trend_local_reg:
                 trend_glocal_loss = reg_func_trend_glocal(
                     self.trend.trend_k0, self.trend.trend_deltas, self.config_trend.trend_local_reg
                 )
@@ -950,7 +950,7 @@ class TimeNet(pl.LightningModule):
         if self.config_seasonality is not None:
             if (
                 self.config_seasonality.global_local in ["local", "glocal"]
-                and self.config_seasonality.seasonality_local_reg != False
+                and self.config_seasonality.seasonality_local_reg
             ):
                 seasonality_glocal_loss = reg_func_seasonality_glocal(
                     self.seasonality.season_params, self.config_seasonality.seasonality_local_reg
@@ -983,10 +983,9 @@ class TimeNet(pl.LightningModule):
             )
             ts = scale_y * ts + shift_y
         return ts
-    
+
     def train_dataloader(self):
         return self.train_loader
-        
 
 
 class FlatNet(nn.Module):

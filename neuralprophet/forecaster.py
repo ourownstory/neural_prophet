@@ -11,9 +11,8 @@ import pytorch_lightning as pl
 import torch
 from matplotlib import pyplot
 from matplotlib.axes import Axes
-from torch.utils.data import DataLoader
 from pytorch_lightning.tuner.tuning import Tuner
-
+from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
 from neuralprophet.data.process import (
@@ -2627,7 +2626,7 @@ class NeuralProphet:
         )
         log.debug(self.model)
         return self.model
-    
+
     def _init_train_loader(self, df, num_workers=0):
         """Executes data preparation steps and initiates training procedure.
 

@@ -34,7 +34,9 @@ class PinballLoss(_Loss):
         target = target.repeat(1, 1, len(self.quantiles))  # increase the quantile dimension of the targets
         differences = target - outputs
         base_losses = self.loss_func(outputs, target).float()  # dimensions - [n_batch, n_forecasts, no. of quantiles]
-        quantiles_tensor = torch.tensor(self.quantiles, device=target.device, dtype=torch.float32).unsqueeze(dim=0).unsqueeze(dim=0)
+        quantiles_tensor = (
+            torch.tensor(self.quantiles, device=target.device, dtype=torch.float32).unsqueeze(dim=0).unsqueeze(dim=0)
+        )
         positive_losses = quantiles_tensor * base_losses
         negative_losses = (1 - quantiles_tensor) * base_losses
         differences = differences.float()
