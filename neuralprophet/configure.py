@@ -425,6 +425,8 @@ class AR:
     ar_layers: Optional[List[int]] = None
 
     def __post_init__(self):
+        if self.ar_reg is not None and self.n_lags == 0:
+            raise ValueError("AR regularization is set, but n_lags is 0. Please set n_lags to a positive integer.")
         if self.ar_reg is not None and self.ar_reg > 0:
             if self.ar_reg < 0:
                 raise ValueError("regularization must be >= 0")
