@@ -748,7 +748,7 @@ class NeuralProphet:
 
     def add_country_holidays(
         self,
-        country_name: Union[str, list,dict],
+        country_name: Union[str, list, dict],
         lower_window: int = 0,
         upper_window: int = 0,
         regularization: Optional[float] = None,

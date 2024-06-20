@@ -15,6 +15,7 @@ import torch
 
 from neuralprophet import df_utils, np_types, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
+from neuralprophet.hdays_utils import get_holidays_from_country
 
 log = logging.getLogger("NP.config")
 
@@ -500,6 +501,7 @@ class Event:
 
 ConfigEvents = OrderedDictType[str, Event]
 
+
 @dataclass
 class Holidays:
     country: Union[str, List[str], dict]
@@ -510,48 +512,7 @@ class Holidays:
     holiday_names: set = field(init=False)
 
     def init_holidays(self, df=None):
-        self.holiday_names = self.get_holidays_from_country(self.country, df)
-
-    def get_holidays_from_country(self, country: Union[str, Iterable[str], dict], df=None):
-        """
-        Return all possible holiday names of given country
-
-        Parameters
-        ----------
-            country : str, list
-                List of country names to retrieve country specific holidays
-            subdivision : str, dict
-                a single subdivision (e.g., province or state) as a string or
-                a dictionary where the key is the country name and the value is a subdivision
-            df : pd.Dataframe
-                Dataframe from which datestamps will be retrieved from
-
-        Returns
-        -------
-            set
-                All possible holiday names of given country
-        """
-        if df is None:
-            years = np.arange(1995, 2045)
-        else:
-            dates = df["ds"].copy(deep=True)
-            years = list({x.year for x in dates})
-        # support multiple countries
-        if isinstance(country, str):
-            country = {country, None}
-        elif isinstance(country, list): 
-            country = dict(zip(country, [None]*len(country)))
-
-        unique_holidays = {}
-        for single_country in country:
-            subdivision = subdivision.get(single_country)
-            holidays_country = get_country_holidays(single_country, years, subdivision)
-            for date, name in holidays_country.items():
-                if date not in unique_holidays:
-                    unique_holidays[date] = name
-        holiday_names = unique_holidays.values()
-        
-        return set(holiday_names)
+        self.holiday_names = get_holidays_from_country(self.country, df)
 
 
 ConfigCountryHolidays = Holidays
