@@ -506,7 +506,6 @@ class Holidays:
     lower_window: int
     upper_window: int
     mode: str = "additive"
-    subdivision: Optional[Union[str, dict]] = (None,)
     reg_lambda: Optional[float] = None
     holiday_names: set = field(init=False)
 
