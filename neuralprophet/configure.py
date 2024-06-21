@@ -316,7 +316,7 @@ class Trend:
             self.trend_local_reg = 1
 
         # If Trend modelling is global.
-        if self.trend_global_local == "global" and self.trend_local_reg is True:
+        if self.trend_global_local == "global" and self.trend_local_reg:
             log.error("Trend modeling is '{}'. Setting the trend_local_reg to False".format(self.trend_global_local))
             self.trend_local_reg = False
 
@@ -403,7 +403,7 @@ class ConfigSeasonality:
             self.seasonality_local_reg = 1
 
         # If Season modelling is global.
-        if self.global_local == "global" and self.seasonality_local_reg is True:
+        if self.global_local == "global" and self.seasonality_local_reg:
             log.error(
                 "Seasonality modeling is '{}'. Setting the seasonality_local_reg to False".format(self.global_local)
             )
