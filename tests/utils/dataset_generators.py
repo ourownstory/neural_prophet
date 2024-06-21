@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from neuralprophet.time_dataset import make_country_specific_holidays_df
+from neuralprophet.hdays_utils import make_country_specific_holidays
 
 
 def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=100, y_holidays_override={}):
