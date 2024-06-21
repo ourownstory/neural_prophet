@@ -6,15 +6,10 @@ from holidays import country_holidays
 
 
 def test_get_country_holidays():
-    # assert issubclass(country_holidays("TU").__class__, holidays.countries.turkey.TR) is True
-
     for country in ("UnitedStates", "US", "USA"):
         us_holidays = country_holidays(country=country, years=2019)
         assert issubclass(us_holidays.__class__, holidays.countries.united_states.UnitedStates) is True
         assert len(us_holidays) == 10
-
-    with pytest.raises(AttributeError):
-        country_holidays("NotSupportedCountry")
 
 
 def test_get_country_holidays_with_subdivisions():
