@@ -15,7 +15,7 @@ import torch
 
 from neuralprophet import df_utils, np_types, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
-from neuralprophet.hdays_utils import get_holidays_from_country
+from neuralprophet.event_utils import get_holiday_names
 
 log = logging.getLogger("NP.config")
 
@@ -509,7 +509,7 @@ class Holidays:
     holiday_names: set = field(init=False)
 
     def init_holidays(self, df=None):
-        self.holiday_names = get_holidays_from_country(self.country, df)
+        self.holiday_names = get_holiday_names(self.country, df)
 
 
 ConfigCountryHolidays = Holidays
