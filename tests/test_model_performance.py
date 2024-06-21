@@ -11,19 +11,20 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from neuralprophet import NeuralProphet, set_random_seed
+
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
 log.parent.setLevel("WARNING")
 
 try:
-    from plotly_resampler import register_plotly_resampler, unregister_plotly_resampler
+    from plotly_resampler import unregister_plotly_resampler
 
     plotly_resampler_installed = True
 except ImportError:
     plotly_resampler_installed = False
     log.error("Importing plotly failed. Interactive plots will not work.")
 
-from neuralprophet import NeuralProphet, set_random_seed
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")

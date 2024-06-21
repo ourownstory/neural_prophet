@@ -375,7 +375,7 @@ def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
         seasonal_dims[name] = resolution
     return seasonal_dims
 
-
+  
 def config_events_to_model_dims(config_events: Optional[ConfigEvents], config_country_holidays):
     """
     Convert user specified events configurations along with country specific
