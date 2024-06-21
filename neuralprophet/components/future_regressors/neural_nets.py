@@ -33,7 +33,7 @@ class NeuralNetsFutureRegressors(FutureRegressors):
                 for i in range(self.num_hidden_layers_regressors):
                     regressor_net.append(nn.Linear(d_inputs, self.d_hidden_regressors, bias=True))
                     d_inputs = self.d_hidden_regressors
-                # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
+                # final layer has input size d_inputs and output size equal to no. of quantiles
                 regressor_net.append(nn.Linear(d_inputs, len(self.quantiles), bias=False))
                 for lay in regressor_net:
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")

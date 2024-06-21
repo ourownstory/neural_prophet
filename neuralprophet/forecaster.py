@@ -195,6 +195,8 @@ class NeuralProphet:
             Options
                 * (default) ``linear``
                 * ``neural_nets``
+                * ``shared_neural_nets``
+                * ``shared_neural_nets_coef``
 
         future_regressors_d_hidden: int
             Number of hidden layers in the neural network model for future regressors.
@@ -1192,7 +1194,7 @@ class NeuralProphet:
                     config_lagged_regressors=self.config_lagged_regressors,
                 )
                 if auto_extend and periods_added[df_name] > 0:
-                    fcst = fcst[:-periods_added[df_name]]
+                    fcst = fcst[: -periods_added[df_name]]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
 
         df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)
