@@ -375,53 +375,7 @@ def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
         seasonal_dims[name] = resolution
     return seasonal_dims
 
-
-def get_holidays_from_country(
-    country: Union[str, Iterable[str]], subdivision: Optional[Union[str, dict]] = None, df=None
-):
-    """
-    Return all possible holiday names of given country
-
-    Parameters
-    ----------
-        country : str, list
-            List of country names to retrieve country specific holidays
-        subdivision : str, dict
-            a single subdivision (e.g., province or state) as a string or
-            a dictionary where the key is the country name and the value is a subdivision
-        df : pd.Dataframe
-            Dataframe from which datestamps will be retrieved from
-
-    Returns
-    -------
-        set
-            All possible holiday names of given country
-    """
-    if df is None:
-        years = np.arange(1995, 2045)
-    else:
-        dates = df["ds"].copy(deep=True)
-        years = list({x.year for x in dates})
-    # support multiple countries
-    if isinstance(country, str):
-        country = [country]
-    # support subdivisions
-    if subdivision is not None:
-        if isinstance(subdivision, str):
-            if isinstance(country, list):
-                raise ValueError("If country_name is a list, subdivisions must be a dictionary.")
-            subdivision = {country: subdivision}
-    unique_holidays = {}
-    for single_country in country:
-        subdivision = subdivision.get(single_country) if subdivision else None
-        holidays_country = get_country_holidays(single_country, years, subdivision)
-        for date, name in holidays_country.items():
-            if date not in unique_holidays:
-                unique_holidays[date] = name
-    holiday_names = unique_holidays.values()
-    return set(holiday_names)
-
-
+  
 def config_events_to_model_dims(config_events: Optional[ConfigEvents], config_country_holidays):
     """
     Convert user specified events configurations along with country specific
