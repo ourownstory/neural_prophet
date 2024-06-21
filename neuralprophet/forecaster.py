@@ -11,6 +11,7 @@ import pytorch_lightning as pl
 import torch
 from matplotlib import pyplot
 from matplotlib.axes import Axes
+from pytorch_lightning.tuner.tuning import Tuner
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
@@ -2756,6 +2757,8 @@ class NeuralProphet:
         else:
             self.model = self._init_model()
 
+        self.model.train_loader = train_loader
+
         # Init the Trainer
         self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
@@ -2780,8 +2783,9 @@ class NeuralProphet:
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
-                lr_finder = self.trainer.tuner.lr_find(
-                    self.model,
+                tuner = Tuner(self.trainer)
+                lr_finder = tuner.lr_find(
+                    model=self.model,
                     train_dataloaders=train_loader,
                     val_dataloaders=val_loader,
                     **self.config_train.lr_finder_args,
@@ -2802,8 +2806,9 @@ class NeuralProphet:
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
-                lr_finder = self.trainer.tuner.lr_find(
-                    self.model,
+                tuner = Tuner(self.trainer)
+                lr_finder = tuner.lr_find(
+                    model=self.model,
                     train_dataloaders=train_loader,
                     **self.config_train.lr_finder_args,
                 )
@@ -2831,7 +2836,6 @@ class NeuralProphet:
 
         if not metrics_enabled:
             return None
-
         # Return metrics collected in logger as dataframe
         metrics_df = pd.DataFrame(self.metrics_logger.history)
         return metrics_df

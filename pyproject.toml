@@ -10,28 +10,29 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
 ]
 
 [tool.poetry.urls]
 Homepage = "https://github.com/ourownstory/neural_prophet"
 
 [tool.poetry.dependencies]
-python = "^3.9"
-typing-extensions = "^4.5.0"
-numpy = "^1.25.0"
-pandas = "^2.0.0"
+python = ">=3.9,<=3.12"
+numpy = ">=1.25.0,<2.0.0"
+pandas = ">=2.0.0"
+torch = ">=2.0.0"
 # Note: torch defaults to already installed version or installs CUDA version
 # If you want CPU-only torch, install that before installing neuralprophet.
-torch = "^2.0.0"
-pytorch-lightning = "^1.9.4" # TODO: move to ^2.0.0
-tensorboard = "^2.11.2"
-torchmetrics = "^1.0.0"
+pytorch-lightning = ">=2.0.0"
+tensorboard = ">=2.11.2"
+torchmetrics = ">=1.0.0"
+typing-extensions = ">=4.5.0"
 holidays = ">=0.41"
 captum = ">=0.6.0"
-matplotlib = "^3.5.3"
-plotly = "^5.13.1"
+matplotlib = ">=3.5.3"
+plotly = ">=5.13.1"
 kaleido = "0.2.1" # required for plotly static image export
-plotly-resampler = { version = "^0.9.2", python = "<3.12", optional = true }
+plotly-resampler = { version = ">=0.9.2", optional = true }
 livelossplot = { version = ">=0.5.5", optional = true }
 
 [tool.poetry.extras]
@@ -39,8 +40,8 @@ plotly-resampler = ["plotly-resampler"]
 live = ["livelossplot"]
 
 [tool.poetry.group.dev.dependencies] # For dev involving notebooks
-ipykernel = "^6.29.2"
-nbformat = "^5.8.0"
+ipykernel = ">=6.29.2"
+nbformat = ">=5.8.0"
 
 [tool.poetry.group.pytest] # pytest dev setup and CI
 optional = true

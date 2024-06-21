@@ -795,7 +795,8 @@ class TimeNet(pl.LightningModule):
         scheduler.step()
 
         # Manually track the loss for the lr finder
-        self.trainer.fit_loop.running_loss.append(loss)
+        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log("reg_loss", reg_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Metrics
         if self.metrics_enabled:
@@ -982,6 +983,9 @@ class TimeNet(pl.LightningModule):
             )
             ts = scale_y * ts + shift_y
         return ts
+
+    def train_dataloader(self):
+        return self.train_loader
 
 
 class FlatNet(nn.Module):

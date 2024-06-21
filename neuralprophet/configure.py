@@ -5,7 +5,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, List, Optional
+from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Type, Union
 
@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from neuralprophet import df_utils, np_types, utils, utils_torch
+from neuralprophet import df_utils, np_types, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 from neuralprophet.hdays_utils import get_holidays_from_country
 
