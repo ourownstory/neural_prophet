@@ -5,7 +5,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional
+from typing import Callable, Iterable, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Type, Union
 
@@ -15,6 +15,7 @@ import torch
 
 from neuralprophet import df_utils, np_types, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
+from neuralprophet.hdays_utils import get_holidays_from_country
 
 log = logging.getLogger("NP.config")
 
@@ -425,6 +426,8 @@ class AR:
     ar_layers: Optional[List[int]] = None
 
     def __post_init__(self):
+        if self.ar_reg is not None and self.n_lags == 0:
+            raise ValueError("AR regularization is set, but n_lags is 0. Please set n_lags to a positive integer.")
         if self.ar_reg is not None and self.ar_reg > 0:
             if self.ar_reg < 0:
                 raise ValueError("regularization must be >= 0")
@@ -503,7 +506,7 @@ ConfigEvents = OrderedDictType[str, Event]
 
 @dataclass
 class Holidays:
-    country: Union[str, List[str]]
+    country: Union[str, List[str], dict]
     lower_window: int
     upper_window: int
     mode: str = "additive"
@@ -511,7 +514,7 @@ class Holidays:
     holiday_names: set = field(init=False)
 
     def init_holidays(self, df=None):
-        self.holiday_names = utils.get_holidays_from_country(self.country, df)
+        self.holiday_names = get_holidays_from_country(self.country, df)
 
 
 ConfigCountryHolidays = Holidays

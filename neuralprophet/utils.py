@@ -376,41 +376,6 @@ def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
     return seasonal_dims
 
 
-def get_holidays_from_country(country: Union[str, Iterable[str]], df=None):
-    """
-    Return all possible holiday names of given country
-
-    Parameters
-    ----------
-        country : str, list
-            List of country names to retrieve country specific holidays
-        df : pd.Dataframe
-            Dataframe from which datestamps will be retrieved from
-
-    Returns
-    -------
-        set
-            All possible holiday names of given country
-    """
-    if df is None:
-        years = np.arange(1995, 2045)
-    else:
-        dates = df["ds"].copy(deep=True)
-        years = list({x.year for x in dates})
-    # support multiple countries
-    if isinstance(country, str):
-        country = [country]
-
-    unique_holidays = {}
-    for single_country in country:
-        holidays_country = get_country_holidays(single_country, years)
-        for date, name in holidays_country.items():
-            if date not in unique_holidays:
-                unique_holidays[date] = name
-    holiday_names = unique_holidays.values()
-    return set(holiday_names)
-
-
 def config_events_to_model_dims(config_events: Optional[ConfigEvents], config_country_holidays):
     """
     Convert user specified events configurations along with country specific
