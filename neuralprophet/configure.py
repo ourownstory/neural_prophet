@@ -305,17 +305,15 @@ class Trend:
             log.error("Invalid growth for global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
             self.trend_global_local = "global"
 
-        # If trend_local_reg < 0
         if self.trend_local_reg < 0:
             log.error("Invalid  negative trend_local_reg '{}'. Set to False".format(self.trend_local_reg))
             self.trend_local_reg = False
 
-        # If trend_local_reg = True
-        if self.trend_local_reg:
+        if self.trend_local_reg is True:
             log.error("trend_local_reg = True. Default trend_local_reg value set to 1")
             self.trend_local_reg = 1
 
-        # If Trend modelling is global.
+        # If Trend modelling is global but local regularization is set.
         if self.trend_global_local == "global" and self.trend_local_reg:
             log.error("Trend modeling is '{}'. Setting the trend_local_reg to False".format(self.trend_global_local))
             self.trend_local_reg = False
@@ -392,17 +390,15 @@ class ConfigSeasonality:
             }
         )
 
-        # If seasonality_local_reg < 0
         if self.seasonality_local_reg < 0:
             log.error("Invalid  negative seasonality_local_reg '{}'. Set to False".format(self.seasonality_local_reg))
             self.seasonality_local_reg = False
 
-        # If seasonality_local_reg = True
-        if self.seasonality_local_reg:
+        if self.seasonality_local_reg is True:
             log.error("seasonality_local_reg = True. Default seasonality_local_reg value set to 1")
             self.seasonality_local_reg = 1
 
-        # If Season modelling is global.
+        # If Season modelling is global but local regularization is set.
         if self.global_local == "global" and self.seasonality_local_reg:
             log.error(
                 "Seasonality modeling is '{}'. Setting the seasonality_local_reg to False".format(self.global_local)
