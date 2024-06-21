@@ -11,7 +11,7 @@ def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=
     dates = pd.date_range("%i-01-01" % (years[0]), periods=periods, freq="D")
     df = pd.DataFrame({"ds": dates, "y": y_default}, index=dates)
 
-    holidays = make_country_specific_holidays_df(years, country)
+    holidays = make_country_specific_holidays(years, country)
     for holiday_name, timestamps in holidays.items():
         df.loc[timestamps[0], "y"] = y_holidays_override.get(holiday_name, y_holiday)
 
