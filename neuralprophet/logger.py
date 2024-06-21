@@ -52,6 +52,7 @@ class ProgressBar(TQDMProgressBar):
     def __init__(self, *args, **kwargs):
         self.epochs = kwargs.pop("epochs")
         super().__init__(*args, **kwargs)
+        self.main_progress_bar = super().init_train_tqdm()
 
     def on_train_epoch_start(self, trainer: "pl.Trainer", *_) -> None:
         self.main_progress_bar.reset(self.epochs)

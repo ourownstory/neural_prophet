@@ -3,7 +3,7 @@ from collections import OrderedDict
 import torch.nn as nn
 
 from neuralprophet.components.future_regressors import FutureRegressors
-from neuralprophet.utils_torch import init_parameter, interprete_model
+from neuralprophet.utils_torch import interprete_model
 
 # from neuralprophet.utils_torch import init_parameter
 
@@ -33,8 +33,8 @@ class NeuralNetsFutureRegressors(FutureRegressors):
                 for i in range(self.num_hidden_layers_regressors):
                     regressor_net.append(nn.Linear(d_inputs, self.d_hidden_regressors, bias=True))
                     d_inputs = self.d_hidden_regressors
-                # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
-                regressor_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+                # final layer has input size d_inputs and output size equal to no. of quantiles
+                regressor_net.append(nn.Linear(d_inputs, len(self.quantiles), bias=False))
                 for lay in regressor_net:
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
                 self.regressor_nets[regressor] = regressor_net
@@ -84,8 +84,6 @@ class NeuralNetsFutureRegressors(FutureRegressors):
                 x = nn.functional.relu(x)
             x = self.regressor_nets[name][i](x)
 
-        # segment the last dimension to match the quantiles
-        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
     def all_regressors(self, regressor_inputs, mode):
@@ -123,9 +121,4 @@ class NeuralNetsFutureRegressors(FutureRegressors):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts, no_quantiles)
         """
-
-        if "additive" == mode:
-            f_r = self.all_regressors(inputs, mode="additive")
-        if "multiplicative" == mode:
-            f_r = self.all_regressors(inputs, mode="multiplicative")
-        return f_r
+        return self.all_regressors(inputs, mode)

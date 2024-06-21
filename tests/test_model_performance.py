@@ -11,13 +11,21 @@ import pandas as pd
 import plotly.graph_objects as go
 import torch
 from plotly.subplots import make_subplots
-from plotly_resampler import unregister_plotly_resampler
 
 from neuralprophet import NeuralProphet, set_random_seed
 
 log = logging.getLogger("NP.test")
 log.setLevel("INFO")
 log.parent.setLevel("INFO")
+
+try:
+    from plotly_resampler import unregister_plotly_resampler
+
+    plotly_resampler_installed = True
+except ImportError:
+    plotly_resampler_installed = False
+    log.error("Importing plotly failed. Interactive plots will not work.")
+
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
@@ -55,7 +63,8 @@ def get_system_speed():
 
 def create_metrics_plot(metrics):
     # Deactivate the resampler since it is not compatible with kaleido (image export)
-    unregister_plotly_resampler()
+    if plotly_resampler_installed:
+        unregister_plotly_resampler()
 
     # Plotly params
     prediction_color = "#2d92ff"

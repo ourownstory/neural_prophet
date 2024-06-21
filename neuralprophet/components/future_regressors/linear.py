@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 
-from neuralprophet import utils
 from neuralprophet.components.future_regressors import FutureRegressors
 from neuralprophet.utils_torch import init_parameter
 

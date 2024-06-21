@@ -11,6 +11,7 @@ import pytorch_lightning as pl
 import torch
 from matplotlib import pyplot
 from matplotlib.axes import Axes
+from pytorch_lightning.tuner.tuning import Tuner
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
@@ -195,6 +196,8 @@ class NeuralProphet:
             Options
                 * (default) ``linear``
                 * ``neural_nets``
+                * ``shared_neural_nets``
+                * ``shared_neural_nets_coef``
 
         future_regressors_d_hidden: int
             Number of hidden layers in the neural network model for future regressors.
@@ -473,19 +476,6 @@ class NeuralProphet:
             drop_missing=drop_missing,
         )
 
-        # Training
-        self.config_train = configure.Train(
-            quantiles=quantiles,
-            learning_rate=learning_rate,
-            epochs=epochs,
-            batch_size=batch_size,
-            loss_func=loss_func,
-            optimizer=optimizer,
-            newer_samples_weight=newer_samples_weight,
-            newer_samples_start=newer_samples_start,
-            trend_reg_threshold=trend_reg_threshold,
-        )
-
         if isinstance(collect_metrics, list):
             log.info(
                 DeprecationWarning(
@@ -513,6 +503,19 @@ class NeuralProphet:
             trend_reg_threshold=trend_reg_threshold,
             trend_global_local=trend_global_local,
             trend_local_reg=trend_local_reg,
+        )
+
+        # Training
+        self.config_train = configure.Train(
+            quantiles=quantiles,
+            learning_rate=learning_rate,
+            epochs=epochs,
+            batch_size=batch_size,
+            loss_func=loss_func,
+            optimizer=optimizer,
+            newer_samples_weight=newer_samples_weight,
+            newer_samples_start=newer_samples_start,
+            trend_reg_threshold=self.config_trend.trend_reg_threshold,
         )
 
         # Seasonality
@@ -762,7 +765,7 @@ class NeuralProphet:
 
     def add_country_holidays(
         self,
-        country_name: Union[str, list],
+        country_name: Union[str, list, dict],
         lower_window: int = 0,
         upper_window: int = 0,
         regularization: Optional[float] = None,
@@ -778,8 +781,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            country_name : str, list
-                name or list of names of the country
+            country_name : str, list, dict
+                name or list of names of the country or a dictionary where the key is the country name and the value is a subdivision
             lower_window : int
                 the lower window for all the country holidays
             upper_window : int
@@ -1124,7 +1127,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df: pd.DataFrame, decompose: bool = True, raw: bool = False):
+    def predict(self, df: pd.DataFrame, decompose: bool = True, raw: bool = False, auto_extend=True):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -1193,7 +1196,7 @@ class NeuralProphet:
                     quantiles=self.config_train.quantiles,
                     components=components,
                 )
-                if periods_added[df_name] > 0:
+                if auto_extend and periods_added[df_name] > 0:
                     fcst = fcst[:-1]
             else:
                 fcst = _reshape_raw_predictions_to_forecst_df(
@@ -1208,9 +1211,10 @@ class NeuralProphet:
                     quantiles=self.config_train.quantiles,
                     config_lagged_regressors=self.config_lagged_regressors,
                 )
-                if periods_added[df_name] > 0:
+                if auto_extend and periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
+
         df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)
         self.predict_steps = self.n_forecasts
         return df
@@ -2137,7 +2141,7 @@ class NeuralProphet:
             >>> df_forecast = m.get_latest_forecast(forecast)
 
         Number of steps before latest forecast could be included:
-            >>> df_forecast = m.get_latest_forecast(forecast, include_previous_forecast=3)
+            >>> df_forecast = m.get_latest_forecast(forecast, include_previous_forecasts=3)
 
         Historical data could be included, however be aware that the df could be large:
             >>> df_forecast = m.get_latest_forecast(forecast, include_history_data=True)
@@ -2771,6 +2775,8 @@ class NeuralProphet:
         else:
             self.model = self._init_model()
 
+        self.model.train_loader = train_loader
+
         # Init the Trainer
         self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
@@ -2795,8 +2801,9 @@ class NeuralProphet:
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
-                lr_finder = self.trainer.tuner.lr_find(
-                    self.model,
+                tuner = Tuner(self.trainer)
+                lr_finder = tuner.lr_find(
+                    model=self.model,
                     train_dataloaders=train_loader,
                     val_dataloaders=val_loader,
                     **self.config_train.lr_finder_args,
@@ -2817,8 +2824,9 @@ class NeuralProphet:
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
-                lr_finder = self.trainer.tuner.lr_find(
-                    self.model,
+                tuner = Tuner(self.trainer)
+                lr_finder = tuner.lr_find(
+                    model=self.model,
                     train_dataloaders=train_loader,
                     **self.config_train.lr_finder_args,
                 )
@@ -2846,7 +2854,6 @@ class NeuralProphet:
 
         if not metrics_enabled:
             return None
-
         # Return metrics collected in logger as dataframe
         metrics_df = pd.DataFrame(self.metrics_logger.history)
         return metrics_df
