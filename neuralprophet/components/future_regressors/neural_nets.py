@@ -121,9 +121,4 @@ class NeuralNetsFutureRegressors(FutureRegressors):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts, no_quantiles)
         """
-
-        if "additive" == mode:
-            f_r = self.all_regressors(inputs, mode="additive")
-        if "multiplicative" == mode:
-            f_r = self.all_regressors(inputs, mode="multiplicative")
-        return f_r
+        return self.all_regressors(inputs, mode)

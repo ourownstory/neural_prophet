@@ -66,27 +66,46 @@ def test_future_regressor_nn_shared():
         weekly_seasonality=False,
         daily_seasonality=True,
         future_regressors_model="shared_neural_nets",
-        future_regressors_d_hidden=4,  # (int)
-        future_regressors_num_hidden_layers=2,  # (int)
+        future_regressors_d_hidden=4,
+        future_regressors_num_hidden_layers=2,
         n_forecasts=3,
         n_lags=5,
         drop_missing=True,
-        # trainer_config={"accelerator": "gpu"},
     )
     df_train, df_val = m.split_df(df, freq="H", valid_p=0.2)
 
-    # Use static plotly in notebooks
-    # m.set_plotting_backend("plotly")
-
     # Add the new future regressor
     m.add_future_regressor("temperature")
-
-    # Add counrty holidays
-    m.add_country_holidays("IT", mode="additive", lower_window=-1, upper_window=1)
 
     metrics = m.fit(
         df_train, validation_df=df_val, freq="H", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
     )
 
 
-test_future_regressor_nn_shared()
+def test_future_regressor_nn_shared_coef():
+    log.info("future regressor with NN")
+
+    df = pd.read_csv(TUTORIAL_FILE, nrows=NROWS)
+
+    m = NeuralProphet(
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=True,
+        future_regressors_model="shared_neural_nets_coef",
+        future_regressors_d_hidden=4,
+        future_regressors_num_hidden_layers=2,
+        n_forecasts=3,
+        n_lags=5,
+        drop_missing=True,
+    )
+    df_train, df_val = m.split_df(df, freq="H", valid_p=0.2)
+
+    # Add the new future regressor
+    m.add_future_regressor("temperature")
+
+    metrics = m.fit(
+        df_train, validation_df=df_val, freq="H", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
+    )
+
+
+test_future_regressor_nn_shared_coef()
