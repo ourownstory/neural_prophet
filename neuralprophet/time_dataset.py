@@ -659,6 +659,13 @@ def add_event_features_to_df(
         np.array
             All multiplicative event features (both user specified and country specific)
     """
+
+    def normalize_holiday_name(name):
+        # Handle cases like "Independence Day (observed)" -> "Independence Day"
+        if "(observed)" in name:
+            return name.replace(" (observed)", "")
+        return name
+
     # create all additional user specified offest events
     additive_events_names = []
     multiplicative_events_names = []
@@ -685,6 +692,7 @@ def add_event_features_to_df(
         mode = config.mode
         for holiday in config_country_holidays.holiday_names:
             feature = pd.Series(np.zeros(df.shape[0], dtype=np.float32))
+            holiday = normalize_holiday_name(holiday)
             if holiday in country_holidays_dict.keys():
                 dates = country_holidays_dict[holiday]
                 feature[df.ds.isin(dates)] = 1.0
