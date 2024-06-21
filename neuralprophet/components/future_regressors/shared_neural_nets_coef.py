@@ -68,7 +68,7 @@ class SharedNeuralNetsCoefFutureRegressors(FutureRegressors):
         regressor_index = self.regressors_dims[name]["regressor_index"]
         return reg_attributions[:, regressor_index].unsqueeze(-1)
 
-    def regressors_net(self, regressor_inputs, mode):
+    def regressors(self, regressor_inputs, mode):
         """Compute single regressor component.
         Parameters
         ----------
@@ -106,4 +106,4 @@ class SharedNeuralNetsCoefFutureRegressors(FutureRegressors):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts, no_quantiles)
         """
-        return self.regressors_net(inputs, mode)
+        return self.regressors(inputs, mode)
