@@ -1272,6 +1272,13 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     frequencies, distribution = get_freq_dist(df["ds"])
     argmax_frequency = frequencies[np.argmax(distribution)]
 
+    if np.isnan(argmax_frequency):
+        if freq == "auto" or freq is None:
+            log.warning("The auto-frequency feature is not able to detect the frequency. Please define it manually.")
+            raise ValueError("Cannot infer frequency")
+        else:
+            return freq
+
     # exception - monthly df (28, 29, 30 or 31 days freq)
     MONTHLY_FREQUENCIES = [2.4192e15, 2.5056e15, 2.5920e15, 2.6784e15]
     if argmax_frequency in MONTHLY_FREQUENCIES:
