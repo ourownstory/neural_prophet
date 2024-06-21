@@ -5,7 +5,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, Iterable, List, Optional
+from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Type, Union
 
@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from neuralprophet import df_utils, np_types, utils, utils_torch
+from neuralprophet import df_utils, np_types, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 from neuralprophet.hdays_utils import get_holidays_from_country
 
@@ -311,12 +311,12 @@ class Trend:
             self.trend_local_reg = False
 
         # If trend_local_reg = True
-        if self.trend_local_reg:
+        if self.trend_local_reg is True:
             log.error("trend_local_reg = True. Default trend_local_reg value set to 1")
             self.trend_local_reg = 1
 
         # If Trend modelling is global.
-        if self.trend_global_local == "global" and self.trend_local_reg:
+        if self.trend_global_local == "global" and self.trend_local_reg is True:
             log.error("Trend modeling is '{}'. Setting the trend_local_reg to False".format(self.trend_global_local))
             self.trend_local_reg = False
 
@@ -398,12 +398,12 @@ class ConfigSeasonality:
             self.seasonality_local_reg = False
 
         # If seasonality_local_reg = True
-        if self.seasonality_local_reg:
+        if self.seasonality_local_reg is True:
             log.error("seasonality_local_reg = True. Default seasonality_local_reg value set to 1")
             self.seasonality_local_reg = 1
 
         # If Season modelling is global.
-        if self.global_local == "global" and self.seasonality_local_reg:
+        if self.global_local == "global" and self.seasonality_local_reg is True:
             log.error(
                 "Seasonality modeling is '{}'. Setting the seasonality_local_reg to False".format(self.global_local)
             )

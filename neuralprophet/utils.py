@@ -5,7 +5,7 @@ import math
 import os
 import sys
 from collections import OrderedDict
-from typing import IO, TYPE_CHECKING, BinaryIO, Iterable, Optional, Union
+from typing import IO, TYPE_CHECKING, BinaryIO, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,6 @@ import pytorch_lightning as pl
 import torch
 
 from neuralprophet import utils_torch
-from neuralprophet.hdays_utils import get_country_holidays
 from neuralprophet.logger import ProgressBar
 
 if TYPE_CHECKING:
