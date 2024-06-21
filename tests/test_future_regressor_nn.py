@@ -14,6 +14,8 @@ log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
+PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
+
 TUTORIAL_FILE = "https://github.com/ourownstory/neuralprophet-data/raw/main/kaggle-energy/datasets/tutorial04.csv"
 NROWS = 1028
 EPOCHS = 2
@@ -23,7 +25,92 @@ LR = 1.0
 PLOT = False
 
 
-def test_future_regressor_nn():
+def test_future_reg_nn():
+    log.info("testing: Future Regressors modelled with NNs")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, future_regressors_model="neural_nets")
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(30, min_periods=1).mean()
+    df["C"] = df["y"].rolling(7, min_periods=1).mean()
+    df["D"] = df["y"].rolling(30, min_periods=1).mean()
+
+    regressors_df_future = pd.DataFrame(
+        data={"A": df["A"][-50:], "B": df["B"][-50:], "C": df["C"][-50:], "D": df["D"][-50:]}
+    )
+    df = df[:-50]
+    m = m.add_future_regressor(name="A")
+    m = m.add_future_regressor(name="B", mode="additive")
+    m = m.add_future_regressor(name="C", mode="multiplicative")
+    m = m.add_future_regressor(name="D", mode="multiplicative")
+    m.fit(df, freq="D")
+    future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
+    forecast = m.predict(df=future)
+    if PLOT:
+        m.plot(forecast)
+        m.plot_components(forecast)
+        m.plot_parameters()
+        plt.show()
+
+
+def test_future_reg_nn_shared():
+    log.info("testing: Future Regressors modelled with NNs shared")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
+    m = NeuralProphet(
+        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, future_regressors_model="shared_neural_nets"
+    )
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(30, min_periods=1).mean()
+    df["C"] = df["y"].rolling(7, min_periods=1).mean()
+    df["D"] = df["y"].rolling(30, min_periods=1).mean()
+
+    regressors_df_future = pd.DataFrame(
+        data={"A": df["A"][-50:], "B": df["B"][-50:], "C": df["C"][-50:], "D": df["D"][-50:]}
+    )
+    df = df[:-50]
+    m = m.add_future_regressor(name="A")
+    m = m.add_future_regressor(name="B", mode="additive")
+    m = m.add_future_regressor(name="C", mode="multiplicative")
+    m = m.add_future_regressor(name="D", mode="multiplicative")
+    m.fit(df, freq="D")
+    future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
+    forecast = m.predict(df=future)
+    if PLOT:
+        m.plot(forecast)
+        m.plot_components(forecast)
+        m.plot_parameters()
+        plt.show()
+
+
+def test_future_reg_nn_shared_coef():
+    log.info("testing: Future Regressors modelled with NNs shared coef")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
+    m = NeuralProphet(
+        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, future_regressors_model="shared_neural_nets_coef"
+    )
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(30, min_periods=1).mean()
+    df["C"] = df["y"].rolling(7, min_periods=1).mean()
+    df["D"] = df["y"].rolling(30, min_periods=1).mean()
+
+    regressors_df_future = pd.DataFrame(
+        data={"A": df["A"][-50:], "B": df["B"][-50:], "C": df["C"][-50:], "D": df["D"][-50:]}
+    )
+    df = df[:-50]
+    m = m.add_future_regressor(name="A")
+    m = m.add_future_regressor(name="B", mode="additive")
+    m = m.add_future_regressor(name="C", mode="multiplicative")
+    m = m.add_future_regressor(name="D", mode="multiplicative")
+    m.fit(df, freq="D")
+    future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
+    forecast = m.predict(df=future)
+    if PLOT:
+        m.plot(forecast)
+        m.plot_components(forecast)
+        m.plot_parameters()
+        plt.show()
+
+
+def test_future_regressor_nn_2():
     log.info("future regressor with NN")
 
     df = pd.read_csv(TUTORIAL_FILE, nrows=NROWS)
@@ -56,8 +143,8 @@ def test_future_regressor_nn():
     )
 
 
-def test_future_regressor_nn_shared():
-    log.info("future regressor with NN")
+def test_future_regressor_nn_shared_2():
+    log.info("future regressor with NN shared 2")
 
     df = pd.read_csv(TUTORIAL_FILE, nrows=NROWS)
 
@@ -82,8 +169,8 @@ def test_future_regressor_nn_shared():
     )
 
 
-def test_future_regressor_nn_shared_coef():
-    log.info("future regressor with NN")
+def test_future_regressor_nn_shared_coef_2():
+    log.info("future regressor with NN shared coef 2")
 
     df = pd.read_csv(TUTORIAL_FILE, nrows=NROWS)
 
@@ -108,4 +195,4 @@ def test_future_regressor_nn_shared_coef():
     )
 
 
-test_future_regressor_nn_shared_coef()
+test_future_reg_nn()
