@@ -5,6 +5,7 @@ import os
 import pathlib
 
 import pandas as pd
+from matplotlib import pyplot as plt
 
 from neuralprophet import NeuralProphet
 
@@ -16,8 +17,8 @@ DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 
-TUTORIAL_FILE = "https://github.com/ourownstory/neuralprophet-data/raw/main/kaggle-energy/datasets/tutorial04.csv"
-NROWS = 1028
+ENERGY_TEMP_DAILY_FILE = os.path.join(DATA_DIR, "tutorial04_kaggle_energy_daily_temperature.csv")
+NROWS = 512
 EPOCHS = 2
 BATCH_SIZE = 128
 LR = 1.0
@@ -113,9 +114,12 @@ def test_future_reg_nn_shared_coef():
 def test_future_regressor_nn_2():
     log.info("future regressor with NN")
 
-    df = pd.read_csv(TUTORIAL_FILE, nrows=NROWS)
+    df = pd.read_csv(ENERGY_TEMP_DAILY_FILE, nrows=NROWS)
 
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=True,
@@ -127,7 +131,7 @@ def test_future_regressor_nn_2():
         drop_missing=True,
         # trainer_config={"accelerator": "gpu"},
     )
-    df_train, df_val = m.split_df(df, freq="H", valid_p=0.2)
+    df_train, df_val = m.split_df(df, freq="D", valid_p=0.2)
 
     # Use static plotly in notebooks
     # m.set_plotting_backend("plotly")
@@ -139,16 +143,20 @@ def test_future_regressor_nn_2():
     m.add_country_holidays("IT", mode="additive", lower_window=-1, upper_window=1)
 
     metrics = m.fit(
-        df_train, validation_df=df_val, freq="H", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
+        df_train, validation_df=df_val, freq="D", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
     )
+    log.debug(f"Metrics: {metrics}")
 
 
 def test_future_regressor_nn_shared_2():
     log.info("future regressor with NN shared 2")
 
-    df = pd.read_csv(TUTORIAL_FILE, nrows=NROWS)
+    df = pd.read_csv(ENERGY_TEMP_DAILY_FILE, nrows=NROWS)
 
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=True,
@@ -159,22 +167,23 @@ def test_future_regressor_nn_shared_2():
         n_lags=5,
         drop_missing=True,
     )
-    df_train, df_val = m.split_df(df, freq="H", valid_p=0.2)
+    df_train, df_val = m.split_df(df, freq="D", valid_p=0.2)
 
     # Add the new future regressor
     m.add_future_regressor("temperature")
 
     metrics = m.fit(
-        df_train, validation_df=df_val, freq="H", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
+        df_train, validation_df=df_val, freq="D", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
     )
+    log.debug(f"Metrics: {metrics}")
 
 
 # def test_future_regressor_nn_shared_coef_2():
 #     log.info("future regressor with NN shared coef 2")
-
-#     df = pd.read_csv(TUTORIAL_FILE, nrows=NROWS)
+#     df = pd.read_csv(ENERGY_TEMP_DAILY_FILE, nrows=NROWS)
 
 #     m = NeuralProphet(
+# epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR,
 #         yearly_seasonality=False,
 #         weekly_seasonality=False,
 #         daily_seasonality=True,
@@ -185,11 +194,11 @@ def test_future_regressor_nn_shared_2():
 #         n_lags=5,
 #         drop_missing=True,
 #     )
-#     df_train, df_val = m.split_df(df, freq="H", valid_p=0.2)
+#     df_train, df_val = m.split_df(df, freq="D", valid_p=0.2)
 
 #     # Add the new future regressor
 #     m.add_future_regressor("temperature")
 
 #     metrics = m.fit(
-#         df_train, validation_df=df_val, freq="H", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
+#         df_train, validation_df=df_val, freq="D", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
 #     )
