@@ -44,7 +44,7 @@ def get_country_holidays(
 
 def get_holidays_from_country(country: Union[str, Iterable[str], dict], df=None):
     """
-    Return all possible holiday names of given country
+    Return all possible holiday names of given countries
 
     Parameters
     ----------
@@ -85,28 +85,31 @@ def get_holidays_from_country(country: Union[str, Iterable[str], dict], df=None)
 
 def make_country_specific_holidays(year_list, country):
     """
-    Make dataframe of country specific holidays for given years and countries
+    Create dict of holiday names and dates for given years and countries
     Parameters
     ----------
         year_list : list
             List of years
-        country : str, list
-            List of country names
+        country : str, list, dict
+            List of country names and optional subdivisions
     Returns
     -------
         dict
             holiday names as keys and dates as values
     """
     # iterate over countries and get holidays for each country
-    # convert to list if not already
+
     if isinstance(country, str):
-        country = [country]
+        country = {country: None}
+    elif isinstance(country, list):
+        country = dict(zip(country, [None] * len(country)))
+
     country_specific_holidays = {}
-    for single_country in country:
-        single_country_specific_holidays = get_country_holidays(single_country, year_list)
+    for single_country, subdivision in country.items():
+        single_country_specific_holidays = get_country_holidays(single_country, year_list, subdivision)
         # only add holiday if it is not already in the dict
         country_specific_holidays.update(single_country_specific_holidays)
-    country_specific_holidays_dict = defaultdict(list)
+    holidays_dates = defaultdict(list)
     for date, holiday in country_specific_holidays.items():
-        country_specific_holidays_dict[holiday].append(pd.to_datetime(date))
-    return country_specific_holidays_dict
+        holidays_dates[holiday].append(pd.to_datetime(date))
+    return holidays_dates
