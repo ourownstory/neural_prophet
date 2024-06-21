@@ -789,7 +789,6 @@ class NeuralProphet:
                 regularization = None
         self.config_country_holidays = configure.Holidays(
             country=country_name,
-            subdivision=subdivision_name,
             lower_window=lower_window,
             upper_window=upper_window,
             reg_lambda=regularization,
