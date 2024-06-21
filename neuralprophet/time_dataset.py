@@ -1,5 +1,5 @@
 import logging
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from datetime import datetime
 from typing import Optional
 
@@ -10,7 +10,7 @@ from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure, utils
 from neuralprophet.df_utils import get_max_num_lags
-from neuralprophet.hdays_utils import get_country_holidays
+from neuralprophet.hdays_utils import make_country_specific_holidays
 
 log = logging.getLogger("NP.time_dataset")
 
@@ -531,35 +531,6 @@ def fourier_series_t(t, period, series_order):
     return features
 
 
-def make_country_specific_holidays_df(year_list, country):
-    """
-    Make dataframe of country specific holidays for given years and countries
-    Parameters
-    ----------
-        year_list : list
-            List of years
-        country : str, list
-            List of country names
-    Returns
-    -------
-        pd.DataFrame
-            Containing country specific holidays df with columns 'ds' and 'holiday'
-    """
-    # iterate over countries and get holidays for each country
-    # convert to list if not already
-    if isinstance(country, str):
-        country = [country]
-    country_specific_holidays = {}
-    for single_country in country:
-        single_country_specific_holidays = get_country_holidays(single_country, year_list)
-        # only add holiday if it is not already in the dict
-        country_specific_holidays.update(single_country_specific_holidays)
-    country_specific_holidays_dict = defaultdict(list)
-    for date, holiday in country_specific_holidays.items():
-        country_specific_holidays_dict[holiday].append(pd.to_datetime(date))
-    return country_specific_holidays_dict
-
-
 def _create_event_offset_features(event, config, feature, additive_events, multiplicative_events):
     """
     Create event offset features for the given event, config and feature
@@ -623,7 +594,7 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
     # create all country specific holidays
     if config_country_holidays is not None:
         year_list = list({x.year for x in df.ds})
-        country_holidays_dict = make_country_specific_holidays_df(year_list, config_country_holidays.country)
+        country_holidays_dict = make_country_specific_holidays(year_list, config_country_holidays.country)
         for holiday in config_country_holidays.holiday_names:
             feature = pd.Series([0.0] * df.shape[0])
             if holiday in country_holidays_dict.keys():
