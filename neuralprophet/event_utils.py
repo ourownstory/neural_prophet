@@ -1,31 +1,10 @@
 from collections import defaultdict
 from typing import Iterable, Union
 
+import holidays
 import numpy as np
 import pandas as pd
 from holidays import country_holidays
-
-# def get_country_holidays(country: str, years: Optional[Union[int, Iterable[int]]] = None):
-#     """
-#     Helper function to get holidays for a country.
-
-#     Parameters
-#     ----------
-#         country : str
-#             Country name to retrieve country specific holidays
-#         years : int, list
-#             Year or list of years to retrieve holidays for
-
-#     Returns
-#     -------
-#         set
-#             All possible holiday dates and names of given country
-
-#     """
-#     # For compatibility with Turkey as "TU" cases.
-#     country = "TUR" if country == "TU" else country
-#     holiday_dict = country_holidays(country=country, years=years, expand=True, observed=False)
-#     return holiday_dict
 
 
 def get_holiday_names(country: Union[str, Iterable[str]], df=None):
@@ -65,8 +44,8 @@ def get_all_holidays(years, country):
     ----------
         year_list : list
             List of years
-        country : str, list
-            List of country names
+        country : str, list, dict
+            List of country names and optional subdivisions
     Returns
     -------
         pd.DataFrame
@@ -74,15 +53,18 @@ def get_all_holidays(years, country):
     """
     # convert to list if not already
     if isinstance(country, str):
-        country = [country]
+        country = {country: None}
+    elif isinstance(country, list):
+        country = dict(zip(country, [None] * len(country)))
+
     all_holidays = defaultdict(list)
     # iterate over countries and get holidays for each country
-    for single_country in country:
+    for single_country, subdivision in country.items():
         # For compatibility with Turkey as "TU" cases.
         single_country = "TUR" if single_country == "TU" else single_country
         # get dict of dates and their holiday name
         single_country_specific_holidays = country_holidays(
-            country=single_country, years=years, expand=True, observed=False
+            country=single_country, subdiv=subdivision, years=years, expand=True, observed=False
         )
         # invert order - for given holiday, store list of dates
         for date, name in single_country_specific_holidays.items():

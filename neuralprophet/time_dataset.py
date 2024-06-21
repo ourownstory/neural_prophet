@@ -58,7 +58,7 @@ class TimeDataset(Dataset):
             self.df = self.df.drop("index", axis=1)
         df_names = list(np.unique(df.loc[:, "ID"].values))
         assert len(df_names) == 1
-        assert type(df_names[0]) is str
+        assert isinstance(df_names[0], str)
         self.df_name = df_names[0]
 
         self.meta = OrderedDict({})
@@ -749,7 +749,7 @@ def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequen
     if prediction_frequency is None:
         return mask
     else:
-        assert type(prediction_frequency) is dict
+        assert isinstance(prediction_frequency, dict)
 
     timestamps = pd.to_datetime(df.loc[:, "ds"])
     filter_masks = []
