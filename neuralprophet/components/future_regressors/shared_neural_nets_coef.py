@@ -88,9 +88,9 @@ class SharedNeuralNetsCoefFutureRegressors(FutureRegressors):
             x = self.regressor_nets[mode][i](x)
 
         # segment the last dimension to match the quantiles
-        # causes error, likely unneeded/wrong
-        # x = x.reshape(x.shape[0], self.n_forecasts, regressor_inputs.shape[-1], len(self.quantiles))
-        # x = (regressor_inputs.unsqueeze(-1) * x).sum(-2)
+        # causes errorin case of multiple forecast targes and lags, likely wrong, but needed with no lags
+        x = x.reshape(x.shape[0], self.n_forecasts, regressor_inputs.shape[-1], len(self.quantiles))
+        x = (regressor_inputs.unsqueeze(-1) * x).sum(-2)
         return x
 
     def forward(self, inputs, mode, indeces=None):

@@ -87,7 +87,7 @@ class SharedNeuralNetsFutureRegressors(FutureRegressors):
             x = self.regressor_nets[mode][i](x)
 
         # segment the last dimension to match the quantiles
-        # x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles)) # causes error, likely unneeded
+        # x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles)) # causes error in case of multiple forecast targes, possibly unneeded/wrong
         return x
 
     def forward(self, inputs, mode, indeces=None):

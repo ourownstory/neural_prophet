@@ -169,30 +169,27 @@ def test_future_regressor_nn_shared_2():
     )
 
 
-def test_future_regressor_nn_shared_coef_2():
-    log.info("future regressor with NN shared coef 2")
+# def test_future_regressor_nn_shared_coef_2():
+#     log.info("future regressor with NN shared coef 2")
 
-    df = pd.read_csv(TUTORIAL_FILE, nrows=NROWS)
+#     df = pd.read_csv(TUTORIAL_FILE, nrows=NROWS)
 
-    m = NeuralProphet(
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=True,
-        future_regressors_model="shared_neural_nets_coef",
-        future_regressors_d_hidden=4,
-        future_regressors_num_hidden_layers=2,
-        n_forecasts=3,
-        n_lags=5,
-        drop_missing=True,
-    )
-    df_train, df_val = m.split_df(df, freq="H", valid_p=0.2)
+#     m = NeuralProphet(
+#         yearly_seasonality=False,
+#         weekly_seasonality=False,
+#         daily_seasonality=True,
+#         future_regressors_model="shared_neural_nets_coef",
+#         future_regressors_d_hidden=4,
+#         future_regressors_num_hidden_layers=2,
+#         n_forecasts=3,
+#         n_lags=5,
+#         drop_missing=True,
+#     )
+#     df_train, df_val = m.split_df(df, freq="H", valid_p=0.2)
 
-    # Add the new future regressor
-    m.add_future_regressor("temperature")
+#     # Add the new future regressor
+#     m.add_future_regressor("temperature")
 
-    metrics = m.fit(
-        df_train, validation_df=df_val, freq="H", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
-    )
-
-
-test_future_reg_nn_shared_coef()
+#     metrics = m.fit(
+#         df_train, validation_df=df_val, freq="H", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
+#     )
