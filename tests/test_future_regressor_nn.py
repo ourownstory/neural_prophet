@@ -193,6 +193,3 @@ def test_future_regressor_nn_shared_coef_2():
     metrics = m.fit(
         df_train, validation_df=df_val, freq="H", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
     )
-
-
-test_future_reg_nn()
