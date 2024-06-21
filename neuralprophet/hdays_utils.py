@@ -41,7 +41,6 @@ def get_country_holidays(
 
     return holiday_obj
 
-
 def get_holidays_from_country(country: Union[str, Iterable[str], dict], df=None):
     """
     Return all possible holiday names of given countries
