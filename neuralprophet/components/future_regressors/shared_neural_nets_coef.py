@@ -33,8 +33,8 @@ class SharedNeuralNetsCoefFutureRegressors(FutureRegressors):
                 for i in range(self.num_hidden_layers_regressors):
                     regressor_net.append(nn.Linear(d_inputs, self.d_hidden_regressors, bias=True))
                     d_inputs = self.d_hidden_regressors
-                # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
-                regressor_net.append(nn.Linear(d_inputs, size_i * self.n_forecasts * len(self.quantiles), bias=False))
+                # final layer has input size d_inputs and output size equal to no. of quantiles
+                regressor_net.append(nn.Linear(d_inputs, size_i * len(self.quantiles), bias=False))
                 for lay in regressor_net:
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
                 self.regressor_nets[net_i] = regressor_net
@@ -68,7 +68,7 @@ class SharedNeuralNetsCoefFutureRegressors(FutureRegressors):
         regressor_index = self.regressors_dims[name]["regressor_index"]
         return reg_attributions[:, regressor_index].unsqueeze(-1)
 
-    def regressors_net(self, regressor_inputs, mode):
+    def regressors(self, regressor_inputs, mode):
         """Compute single regressor component.
         Parameters
         ----------
@@ -88,6 +88,7 @@ class SharedNeuralNetsCoefFutureRegressors(FutureRegressors):
             x = self.regressor_nets[mode][i](x)
 
         # segment the last dimension to match the quantiles
+        # causes errorin case of multiple forecast targes and lags, likely wrong, but needed with no lags
         x = x.reshape(x.shape[0], self.n_forecasts, regressor_inputs.shape[-1], len(self.quantiles))
         x = (regressor_inputs.unsqueeze(-1) * x).sum(-2)
         return x
@@ -105,9 +106,4 @@ class SharedNeuralNetsCoefFutureRegressors(FutureRegressors):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts, no_quantiles)
         """
-
-        if "additive" == mode:
-            f_r = self.regressors_net(inputs, mode="additive")
-        if "multiplicative" == mode:
-            f_r = self.regressors_net(inputs, mode="multiplicative")
-        return f_r
+        return self.regressors(inputs, mode)
