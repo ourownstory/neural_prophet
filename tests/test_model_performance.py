@@ -243,7 +243,7 @@ def test_EnergyPriceDaily():
 
 
 def test_EnergyDailyDeep():
-    ### Temporary Test for on-the-fly sampling - very time consuming!
+    # Temporary Test for on-the-fly sampling - very time consuming!
 
     df = pd.read_csv(ENERGY_PRICE_DAILY_FILE)
     df = df[df["ds"] < "2018-01-01"]

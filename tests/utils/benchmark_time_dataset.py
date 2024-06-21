@@ -5,7 +5,6 @@ import time
 from itertools import product
 
 import pandas as pd
-import pytest
 import torch.utils.benchmark as benchmark
 from torch.utils.data import DataLoader
 
@@ -388,7 +387,6 @@ def peyton_minus_regressors(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season
 # print(f"#### Time: {toc - tic:0.4f} for test_asymmetrical_quantiles")
 
 
-############################33333
 # t0 = benchmark.Timer(
 # stmt='test_uncertainty_estimation_yosemite_temps(x)',
 # setup='from __main__ import test_uncertainty_estimation_yosemite_temps',

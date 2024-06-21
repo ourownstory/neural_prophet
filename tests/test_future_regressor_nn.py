@@ -5,6 +5,7 @@ import os
 import pathlib
 
 import pandas as pd
+from matplotlib import pyplot as plt
 
 from neuralprophet import NeuralProphet
 
@@ -141,6 +142,7 @@ def test_future_regressor_nn_2():
     metrics = m.fit(
         df_train, validation_df=df_val, freq="H", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
     )
+    log.debug(f"Metrics: {metrics}")
 
 
 def test_future_regressor_nn_shared_2():
@@ -167,11 +169,11 @@ def test_future_regressor_nn_shared_2():
     metrics = m.fit(
         df_train, validation_df=df_val, freq="H", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
     )
+    log.debug(f"Metrics: {metrics}")
 
 
 # def test_future_regressor_nn_shared_coef_2():
 #     log.info("future regressor with NN shared coef 2")
-
 #     df = pd.read_csv(TUTORIAL_FILE, nrows=NROWS)
 
 #     m = NeuralProphet(

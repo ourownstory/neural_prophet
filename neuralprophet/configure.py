@@ -15,7 +15,6 @@ import torch
 
 from neuralprophet import df_utils, np_types, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
-from neuralprophet.event_utils import get_holiday_names
 from neuralprophet.hdays_utils import get_holidays_from_country
 
 log = logging.getLogger("NP.config")
