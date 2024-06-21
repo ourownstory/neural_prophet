@@ -26,13 +26,13 @@ torch = ">=2.0.0"
 pytorch-lightning = ">=2.0.0"
 tensorboard = ">=2.11.2"
 torchmetrics = ">=1.0.0"
+typing-extensions = ">=4.5.0"
 holidays = ">=0.41"
 captum = ">=0.6.0"
 matplotlib = ">=3.5.3"
 plotly = ">=5.13.1"
 kaleido = "0.2.1" # required for plotly static image export
-typing-extensions = ">=4.5.0"
-plotly-resampler = { version = ">=0.9.2", python = "<3.10", optional = true }
+plotly-resampler = { version = ">=0.9.2", optional = true }
 livelossplot = { version = ">=0.5.5", optional = true }
 
 [tool.poetry.extras]
