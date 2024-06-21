@@ -350,7 +350,6 @@ def test_glocal_seasonality_reg():
             learning_rate=LR,
             season_global_local="local",
             yearly_seasonality_glocal_mode="global",
-            glocal_seasonality_reg=coef_i,
         )
 
         m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="global")
@@ -372,7 +371,7 @@ def test_trend_local_reg_if_global():
     df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
-    for coef_i in [-30, 0, False, True]:
+    for _ in [-30, 0, False, True]:
         m = NeuralProphet(
             n_forecasts=1,
             epochs=EPOCHS,
