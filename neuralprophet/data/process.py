@@ -333,17 +333,12 @@ def _validate_column_name(
     """
     reserved_names = [
         "trend",
-        "additive_terms",
         "daily",
         "weekly",
         "yearly",
         "events",
         "holidays",
-        "zeros",
-        "extra_regressors_additive",
         "yhat",
-        "extra_regressors_multiplicative",
-        "multiplicative_terms",
         "ID",
         "y_scaled",
         "ds",
