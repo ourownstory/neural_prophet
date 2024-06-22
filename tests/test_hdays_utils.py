@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import holidays
-import pytest
 from holidays import country_holidays
 
 
