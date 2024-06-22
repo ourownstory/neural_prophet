@@ -63,7 +63,7 @@ def get_all_holidays(years, country):
         single_country = "TUR" if single_country == "TU" else single_country
         # get dict of dates and their holiday name
         single_country_specific_holidays = country_holidays(
-            country=single_country, subdiv=subdivision, years=years, expand=True, observed=False
+            country=single_country, subdiv=subdivision, years=years, expand=True, observed=False, language="en"
         )
         # invert order - for given holiday, store list of dates
         for date, name in single_country_specific_holidays.items():

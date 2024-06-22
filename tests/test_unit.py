@@ -1008,6 +1008,7 @@ def test_multiple_countries():
     holiday_names = m.model.config_holidays.holiday_names
     assert "Independence Day" in holiday_names
     assert "Christmas Day" in holiday_names
+    assert "Erster Weihnachtstag" not in holiday_names
     assert "Neujahr" not in holiday_names
 
 
