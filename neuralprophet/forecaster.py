@@ -962,7 +962,7 @@ class NeuralProphet:
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
-        if self.fitted:
+        if self.fitted and not continue_training:
             raise RuntimeError("Model has been fitted already. Please initialize a new model to fit again.")
 
         # Configuration
@@ -2645,23 +2645,23 @@ class NeuralProphet:
             torch DataLoader
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        # if not self.fitted:
-        self.config_normalization.init_data_params(
-            df=df,
-            config_lagged_regressors=self.config_lagged_regressors,
-            config_regressors=self.config_regressors,
-            config_events=self.config_events,
-            config_seasonality=self.config_seasonality,
-        )
+        if not self.fitted:
+            self.config_normalization.init_data_params(
+                df=df,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+                config_events=self.config_events,
+                config_seasonality=self.config_seasonality,
+            )
 
         df = _normalize(df=df, config_normalization=self.config_normalization)
-        # if not self.fitted:
-        if self.config_trend.changepoints is not None:
-            # scale user-specified changepoint times
-            df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
+        if not self.fitted:
+            if self.config_trend.changepoints is not None:
+                # scale user-specified changepoint times
+                df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
 
-            df_normalized = _normalize(df=df_aux, config_normalization=self.config_normalization)
-            self.config_trend.changepoints = df_normalized["t"].values  # type: ignore
+                df_normalized = _normalize(df=df_aux, config_normalization=self.config_normalization)
+                self.config_trend.changepoints = df_normalized["t"].values  # type: ignore
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
@@ -2740,6 +2740,13 @@ class NeuralProphet:
             pd.DataFrame
                 metrics
         """
+        # Test
+        if continue_training:
+            checkpoint_path = self.metrics_logger.checkpoint_path
+            print(checkpoint_path)
+            checkpoint = torch.load(checkpoint_path)
+            print(checkpoint.keys())
+
         # Set up data the training dataloader
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         train_loader = self._init_train_loader(df, num_workers)
@@ -2748,12 +2755,20 @@ class NeuralProphet:
         # Internal flag to check if validation is enabled
         validation_enabled = df_val is not None
 
-        # Init the model, if not continue from checkpoint
+        # Load model and optimizer state from checkpoint if continue_training is True
         if continue_training:
-            raise NotImplementedError(
-                "Continuing training from checkpoint is not implemented yet. This feature is planned for one of the \
-                    upcoming releases."
-            )
+            checkpoint_path = self.metrics_logger.checkpoint_path
+            checkpoint = torch.load(checkpoint_path)
+            self.model = self._init_model()
+            # TODO: fix size mismatch for trend.trend_changepoints_t: copying a param with shape torch.Size([11]) from checkpoint, the shape in current model is torch.Size([12]).
+            self.model.load_state_dict(checkpoint["state_dict"], strict=False)
+            self.optimizer.load_state_dict(checkpoint["optimizer_states"][0])
+            self.trainer.current_epoch = checkpoint["epoch"] + 1
+            if "lr_schedulers" in checkpoint:
+                self.lr_scheduler.load_state_dict(checkpoint["lr_schedulers"][0])
+            print(f"Resuming training from epoch {self.trainer.current_epoch}")
+            # TODO: remove print, checkpoint['lr_schedulers']
+            print(f"Resuming training from epoch {self.trainer.current_epoch}")
         else:
             self.model = self._init_model()
 
