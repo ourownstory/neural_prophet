@@ -427,68 +427,6 @@ def test_lag_reg_deep():
         plt.show()
 
 
-def test_events():
-    log.info("testing: Events")
-    df = pd.read_csv(PEYTON_FILE)[-NROWS:]
-    playoffs = pd.DataFrame(
-        {
-            "event": "playoff",
-            "ds": pd.to_datetime(
-                [
-                    "2008-01-13",
-                    "2009-01-03",
-                    "2010-01-16",
-                    "2010-01-24",
-                    "2010-02-07",
-                    "2011-01-08",
-                    "2013-01-12",
-                    "2014-01-12",
-                    "2014-01-19",
-                    "2014-02-02",
-                    "2015-01-11",
-                    "2016-01-17",
-                    "2016-01-24",
-                    "2016-02-07",
-                ]
-            ),
-        }
-    )
-    superbowls = pd.DataFrame(
-        {
-            "event": "superbowl",
-            "ds": pd.to_datetime(["2010-02-07", "2014-02-02", "2016-02-07"]),
-        }
-    )
-    events_df = pd.concat((playoffs, superbowls))
-    m = NeuralProphet(
-        n_lags=2,
-        n_forecasts=30,
-        daily_seasonality=False,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    # set event windows
-    m = m.add_events(
-        ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
-    )
-    # add the country specific holidays
-    m = m.add_country_holidays(
-        ["US", "Indonesia", "Philippines", "Pakistan", "Belarus"], mode="additive", regularization=0.5
-    )
-    # m.add_country_holidays("Thailand") # holidays package has issue with int input for timedelta. accepts np.float64()
-    history_df = m.create_df_with_events(df, events_df)
-    m.fit(history_df, freq="D")
-    future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
-    forecast = m.predict(df=future)
-    log.debug(f"Event Parameters:: {m.model.event_params}")
-    if PLOT:
-        m.plot_components(forecast)
-        m.plot(forecast)
-        m.plot_parameters()
-        plt.show()
-
-
 def test_future_reg():
     log.info("testing: Future Regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)

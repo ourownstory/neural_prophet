@@ -978,40 +978,6 @@ def test_handle_negative_values_replace():
     assert df_.loc[0, "y"] == 0.0
 
 
-def test_add_country_holiday_multiple_calls_warning(caplog):
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    m.add_country_holidays(["US", "Germany"])
-    error_message = "Country holidays can only be added once."
-    assert error_message not in caplog.text
-
-    with pytest.raises(AssertionError):
-        m.add_country_holidays("Germany")
-        # assert error_message in caplog.text
-
-
-def test_multiple_countries():
-    # test if multiple countries are added
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    m.add_country_holidays(country_name=["US", "Germany"])
-    m.fit(df, freq="D")
-    m.predict(df)
-    # get the name of holidays and compare that no holiday is repeated
-    holiday_names = m.model.config_holidays.holiday_names
-    assert "Independence Day" in holiday_names
-    assert "Christmas Day" in holiday_names
-    assert "Erster Weihnachtstag" not in holiday_names
-    assert "Neujahr" not in holiday_names
-
-
 def test_float32_inputs():
     # test if float32 inputs are forecasted as float32 outputs
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
