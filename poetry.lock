@@ -896,7 +896,7 @@ files = [
 devel = ["colorama", "json-spec", "jsonschema", "pylint", "pytest", "pytest-benchmark", "pytest-cache", "validictory"]
 
 [[package]]
-name = "file"
+name = "filelock"
 version = "3.15.4"
 description = "A platform independent file lock."
 optional = false
@@ -4259,4 +4259,4 @@ plotly-resampler = ["plotly-resampler"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "d08c423b7a0c27143741287c01f7b597d7af8f45c4c4108194af7be93f442e54"
+content-hash = "7c8e2b1178f0498721e849f427703bfcda1ecba529d25bcd93f5a00a5daedbe2"
