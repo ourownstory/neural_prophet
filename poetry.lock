@@ -896,7 +896,7 @@ files = [
 devel = ["colorama", "json-spec", "jsonschema", "pylint", "pytest", "pytest-benchmark", "pytest-cache", "validictory"]
 
 [[package]]
-name = "filelock"
+name = "file"
 version = "3.15.4"
 description = "A platform independent file lock."
 optional = false
@@ -4258,10 +4258,5 @@ plotly-resampler = ["plotly-resampler"]
 
 [metadata]
 lock-version = "2.0"
-<<<<<<< HEAD
 python-versions = ">=3.9,<3.13"
 content-hash = "d08c423b7a0c27143741287c01f7b597d7af8f45c4c4108194af7be93f442e54"
-=======
-python-versions = ">=3.9,<=3.13"
-content-hash = "548ba24b8460a79ec563ee453e04ee4625aed2986de4668e80ccd659142e3b56"
->>>>>>> bug/make_tests_deterministic
