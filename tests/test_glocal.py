@@ -5,6 +5,7 @@ import os
 import pathlib
 
 import pandas as pd
+import pytest
 
 from neuralprophet import NeuralProphet
 
@@ -490,7 +491,7 @@ def test_glocal_seasonality_reg():
     df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
-    for coef_i in [-30, 0, False, True]:
+    for coef_i in [0, 1.5, False, True]:
         m = NeuralProphet(
             n_forecasts=1,
             epochs=EPOCHS,
@@ -499,6 +500,24 @@ def test_glocal_seasonality_reg():
             season_global_local="local",
             yearly_seasonality_glocal_mode="global",
             seasonality_local_reg=coef_i,
+        )
+
+        m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="global")
+        train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
+        m.fit(train_df)
+        future = m.make_future_dataframe(test_df, n_historic_predictions=True)
+        forecast = m.predict(future)
+        metrics = m.test(test_df)
+
+    with pytest.raises(AssertionError, match="Invalid seasonality_local_reg"):
+        m = NeuralProphet(
+            n_forecasts=1,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            learning_rate=LR,
+            season_global_local="local",
+            yearly_seasonality_glocal_mode="global",
+            seasonality_local_reg=-324,
         )
 
         m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="global")
