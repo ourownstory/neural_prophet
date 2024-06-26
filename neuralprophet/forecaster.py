@@ -435,11 +435,9 @@ class NeuralProphet:
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
         prediction_frequency: Optional[dict] = None,
-        deterministic=False,
     ):
         self.config = locals()
         self.config.pop("self")
-        self.deterministic = deterministic
 
         # General
         self.name = "NeuralProphet"
@@ -907,6 +905,7 @@ class NeuralProphet:
         checkpointing: bool = False,
         continue_training: bool = False,
         num_workers: int = 0,
+        deterministic: bool = False,
     ):
         """Train, and potentially evaluate model.
 
@@ -1071,6 +1070,7 @@ class NeuralProphet:
                 checkpointing_enabled=checkpointing,
                 continue_training=continue_training,
                 num_workers=num_workers,
+                deterministic=deterministic,
             )
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
@@ -1095,6 +1095,7 @@ class NeuralProphet:
                 checkpointing_enabled=checkpointing,
                 continue_training=continue_training,
                 num_workers=num_workers,
+                deterministic=deterministic,
             )
 
         # Show training plot
@@ -2716,6 +2717,7 @@ class NeuralProphet:
         checkpointing_enabled: bool = False,
         continue_training=False,
         num_workers=0,
+        deterministic: bool = False,
     ):
         """
         Execute model training procedure for a configured number of epochs.
@@ -2773,7 +2775,7 @@ class NeuralProphet:
             metrics_enabled=metrics_enabled,
             checkpointing_enabled=checkpointing_enabled,
             num_batches_per_epoch=len(train_loader),
-            deterministic=self.deterministic,
+            deterministic=deterministic,
         )
 
         # Tune hyperparams and train

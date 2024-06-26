@@ -134,12 +134,12 @@ def create_metrics_plot(metrics):
 
 def test_PeytonManning():
     df = pd.read_csv(PEYTON_FILE)
-    m = NeuralProphet(deterministic=True)
+    m = NeuralProphet()
     df_train, df_test = m.split_df(df=df, freq="D", valid_p=0.1)
 
     system_speed, std = get_system_speed()
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="D")  # , early_stopping=True)
+    metrics = m.fit(df_train, validation_df=df_test, freq="D", deterministic=True)  # , early_stopping=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
@@ -160,13 +160,17 @@ def test_YosemiteTemps():
         changepoints_range=0.9,
         n_changepoints=30,
         weekly_seasonality=False,
-        deterministic=True,
     )
     df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.1)
 
     system_speed, std = get_system_speed()
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="5min")  # , early_stopping=True)
+    metrics = m.fit(
+        df_train,
+        validation_df=df_test,
+        freq="5min",
+        deterministic=True,
+    )  # , early_stopping=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
@@ -181,12 +185,12 @@ def test_YosemiteTemps():
 
 def test_AirPassengers():
     df = pd.read_csv(AIR_FILE)
-    m = NeuralProphet(seasonality_mode="multiplicative", deterministic=True)
+    m = NeuralProphet(seasonality_mode="multiplicative")
     df_train, df_test = m.split_df(df=df, freq="MS", valid_p=0.1)
 
     system_speed, std = get_system_speed()
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="MS")  # , early_stopping=True)
+    metrics = m.fit(df_train, validation_df=df_test, freq="MS", deterministic=True)  # , early_stopping=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
@@ -210,7 +214,6 @@ def test_EnergyPriceDaily():
         weekly_seasonality=True,
         daily_seasonality=False,
         n_lags=14,
-        deterministic=True,
     )
     m.add_lagged_regressor("temp", n_lags=3)
     m.add_future_regressor("temperature")
@@ -219,7 +222,12 @@ def test_EnergyPriceDaily():
 
     system_speed, std = get_system_speed()
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="D")  # , early_stopping=True)
+    metrics = m.fit(
+        df_train,
+        validation_df=df_test,
+        freq="D",
+        deterministic=True,
+    )  # , early_stopping=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
