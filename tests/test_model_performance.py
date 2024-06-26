@@ -138,6 +138,7 @@ def test_PeytonManning():
     m = NeuralProphet(
         # learning_rate=0.01,
         # epochs=3,
+        deterministic=True
     )
     df_train, df_test = m.split_df(df=df, freq="D", valid_p=0.1)
 
@@ -166,6 +167,7 @@ def test_YosemiteTemps():
         changepoints_range=0.9,
         n_changepoints=30,
         weekly_seasonality=False,
+        deterministic=True,
     )
     df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.1)
 
@@ -190,6 +192,7 @@ def test_AirPassengers():
         # learning_rate=0.01,
         # epochs=3,
         seasonality_mode="multiplicative",
+        deterministic=True,
     )
     df_train, df_test = m.split_df(df=df, freq="MS", valid_p=0.1)
 
@@ -221,6 +224,7 @@ def test_EnergyPriceDaily():
         weekly_seasonality=True,
         daily_seasonality=False,
         n_lags=14,
+        deterministic=True,
     )
     m.add_lagged_regressor("temp", n_lags=3)
     m.add_future_regressor("temperature")
