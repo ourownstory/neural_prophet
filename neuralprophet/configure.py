@@ -390,12 +390,10 @@ class ConfigSeasonality:
             }
         )
 
-        if self.seasonality_local_reg < 0:
-            log.error("Invalid  negative seasonality_local_reg '{}'. Set to False".format(self.seasonality_local_reg))
-            self.seasonality_local_reg = False
+        assert self.seasonality_local_reg >= 0, "Invalid seasonality_local_reg '{}'.".format(self.seasonality_local_reg)
 
         if self.seasonality_local_reg is True:
-            log.error("seasonality_local_reg = True. Default seasonality_local_reg value set to 1")
+            log.warning("seasonality_local_reg = True. Default seasonality_local_reg value set to 1")
             self.seasonality_local_reg = 1
 
         # If Season modelling is global but local regularization is set.
