@@ -139,7 +139,7 @@ def test_PeytonManning():
 
     system_speed, std = get_system_speed()
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="D")  # , early_stopping=True)
+    metrics = m.fit(df_train, validation_df=df_test, freq="D", deterministic=True)  # , early_stopping=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
@@ -165,7 +165,12 @@ def test_YosemiteTemps():
 
     system_speed, std = get_system_speed()
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="5min")  # , early_stopping=True)
+    metrics = m.fit(
+        df_train,
+        validation_df=df_test,
+        freq="5min",
+        deterministic=True,
+    )  # , early_stopping=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
@@ -185,7 +190,7 @@ def test_AirPassengers():
 
     system_speed, std = get_system_speed()
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="MS")  # , early_stopping=True)
+    metrics = m.fit(df_train, validation_df=df_test, freq="MS", deterministic=True)  # , early_stopping=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
@@ -217,7 +222,12 @@ def test_EnergyPriceDaily():
 
     system_speed, std = get_system_speed()
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="D")  # , early_stopping=True)
+    metrics = m.fit(
+        df_train,
+        validation_df=df_test,
+        freq="D",
+        deterministic=True,
+    )  # , early_stopping=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
