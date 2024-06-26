@@ -395,7 +395,7 @@ class ConfigSeasonality:
             self.seasonality_local_reg = False
 
         if self.seasonality_local_reg is True:
-            log.error("seasonality_local_reg = True. Default seasonality_local_reg value set to 1")
+            log.warning("seasonality_local_reg = True. Default seasonality_local_reg value set to 1")
             self.seasonality_local_reg = 1
 
         # If Season modelling is global but local regularization is set.
