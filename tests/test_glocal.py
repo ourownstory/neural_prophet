@@ -273,7 +273,7 @@ def test_adding_new_global_seasonality():
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
     log.debug(
         f"forecast = {forecast}, metrics= {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets= {forecast_seasonal_componets}"
-
+    )
 
 
 def test_adding_new_local_seasonality():
@@ -297,6 +297,7 @@ def test_adding_new_local_seasonality():
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
     log.debug(
         f"forecast = {forecast}, metrics= {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets= {forecast_seasonal_componets}"
+    )
 
 
 def test_trend_local_reg():
@@ -343,7 +344,6 @@ def test_glocal_seasonality_reg():
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
     for coef_i in [0, 1.5, False, True]:
-
         m = NeuralProphet(
             n_forecasts=1,
             epochs=EPOCHS,

@@ -4259,4 +4259,4 @@ plotly-resampler = ["plotly-resampler"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "7c8e2b1178f0498721e849f427703bfcda1ecba529d25bcd93f5a00a5daedbe2"
+content-hash = "a3b767eec027be911e9499276840e4740231a7fff6e5658c2f38a36b00e72451"
