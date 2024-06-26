@@ -1694,13 +1694,13 @@ test = ["click (==8.1.7)", "coverage (==7.3.1)", "pytest (==7.4.0)", "pytest-cov
 
 [[package]]
 name = "lightning-utilities"
-version = "0.11.2"
+version = "0.11.3.post0"
 description = "Lightning toolbox for across the our ecosystem."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "lightning-utilities-0.11.2.tar.gz", hash = "sha256:adf4cf9c5d912fe505db4729e51d1369c6927f3a8ac55a9dff895ce5c0da08d9"},
-    {file = "lightning_utilities-0.11.2-py3-none-any.whl", hash = "sha256:541f471ed94e18a28d72879338c8c52e873bb46f4c47644d89228faeb6751159"},
+    {file = "lightning_utilities-0.11.3.post0-py3-none-any.whl", hash = "sha256:2aec1d067e5ab61a8978f879998850a97f9a3764ee54aade329552706b0d189b"},
+    {file = "lightning_utilities-0.11.3.post0.tar.gz", hash = "sha256:7485fad0e3c5607a6bde4507935689c553a2c91325de2127b4bb8171a601e236"},
 ]
 
 [package.dependencies]
@@ -4259,4 +4259,4 @@ plotly-resampler = ["plotly-resampler"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<=3.13"
-content-hash = "548ba24b8460a79ec563ee453e04ee4625aed2986de4668e80ccd659142e3b56"
+content-hash = "9b88d1985e17192fe1334a1002a9cbc0a1c88c669e302548d5854edacd6193ff"
