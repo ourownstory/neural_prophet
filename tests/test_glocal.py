@@ -5,6 +5,7 @@ import os
 import pathlib
 
 import pandas as pd
+import pytest
 
 from neuralprophet import NeuralProphet
 
@@ -272,7 +273,7 @@ def test_adding_new_global_seasonality():
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
     log.debug(
         f"forecast = {forecast}, metrics= {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets= {forecast_seasonal_componets}"
-    )
+
 
 
 def test_adding_new_local_seasonality():
@@ -296,7 +297,6 @@ def test_adding_new_local_seasonality():
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
     log.debug(
         f"forecast = {forecast}, metrics= {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets= {forecast_seasonal_componets}"
-    )
 
 
 def test_trend_local_reg():
@@ -327,12 +327,12 @@ def test_trend_local_reg():
         metrics = m.test(test_df)
         forecast_trend = m.predict_trend(test_df)
         forecast_seasonal_componets = m.predict_seasonal_components(test_df)
-        log.debug(
-            f"forecast = {forecast}, metrics= {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets= {forecast_seasonal_componets}"
+        log.info(
+            f"forecast = {forecast}, metrics = {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets = {forecast_seasonal_componets}"
         )
 
 
-def test_seasonality_local_reg():
+def test_glocal_seasonality_reg():
     # SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
@@ -342,7 +342,8 @@ def test_seasonality_local_reg():
     df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
-    for _ in [-30, 0, False, True]:
+    for coef_i in [0, 1.5, False, True]:
+
         m = NeuralProphet(
             n_forecasts=1,
             epochs=EPOCHS,
@@ -350,6 +351,26 @@ def test_seasonality_local_reg():
             learning_rate=LR,
             season_global_local="local",
             yearly_seasonality_glocal_mode="global",
+            seasonality_local_reg=coef_i,
+        )
+
+        m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="global")
+        train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
+        m.fit(train_df)
+        future = m.make_future_dataframe(test_df, n_historic_predictions=True)
+        forecast = m.predict(future)
+        metrics = m.test(test_df)
+        log.info(f"forecast = {forecast}, metrics = {metrics}")
+
+    with pytest.raises(AssertionError, match="Invalid seasonality_local_reg"):
+        m = NeuralProphet(
+            n_forecasts=1,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            learning_rate=LR,
+            season_global_local="local",
+            yearly_seasonality_glocal_mode="global",
+            seasonality_local_reg=-324,
         )
 
         m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="global")
