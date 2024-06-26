@@ -435,9 +435,11 @@ class NeuralProphet:
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
         prediction_frequency: Optional[dict] = None,
+        deterministic=False,
     ):
         self.config = locals()
         self.config.pop("self")
+        self.deterministic = deterministic
 
         # General
         self.name = "NeuralProphet"
@@ -2771,6 +2773,7 @@ class NeuralProphet:
             metrics_enabled=metrics_enabled,
             checkpointing_enabled=checkpointing_enabled,
             num_batches_per_epoch=len(train_loader),
+            deterministic=self.deterministic,
         )
 
         # Tune hyperparams and train
