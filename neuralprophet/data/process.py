@@ -333,18 +333,18 @@ def _validate_column_name(
     """
     reserved_names = [
         "trend",
-        "additive_terms",
         "daily",
         "weekly",
         "yearly",
         "events",
         "holidays",
-        "zeros",
-        "extra_regressors_additive",
         "yhat",
-        "extra_regressors_multiplicative",
-        "multiplicative_terms",
         "ID",
+        "y_scaled",
+        "ds",
+        "t",
+        "y",
+        "index",
     ]
     rn_l = [n + "_lower" for n in reserved_names]
     rn_u = [n + "_upper" for n in reserved_names]
@@ -434,14 +434,14 @@ def _check_dataframe(
 
 def _handle_missing_data(
     df: pd.DataFrame,
-    freq: Optional[str],
+    freq: str,
     n_lags: int,
     n_forecasts: int,
     config_missing,
-    config_regressors: Optional[ConfigFutureRegressors],
-    config_lagged_regressors: Optional[ConfigLaggedRegressors],
-    config_events: Optional[ConfigEvents],
-    config_seasonality: Optional[ConfigSeasonality],
+    config_regressors: Optional[ConfigFutureRegressors] = None,
+    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+    config_events: Optional[ConfigEvents] = None,
+    config_seasonality: Optional[ConfigSeasonality] = None,
     predicting: bool = False,
 ) -> pd.DataFrame:
     """
@@ -618,12 +618,13 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
         predict_mode=predict_mode,
         n_lags=model.n_lags,
         n_forecasts=model.n_forecasts,
+        prediction_frequency=prediction_frequency,
         predict_steps=model.predict_steps,
         config_seasonality=model.config_seasonality,
         config_events=model.config_events,
         config_country_holidays=model.config_country_holidays,
-        config_lagged_regressors=model.config_lagged_regressors,
         config_regressors=model.config_regressors,
+        config_lagged_regressors=model.config_lagged_regressors,
         config_missing=model.config_missing,
-        prediction_frequency=prediction_frequency,
+        # config_train=model.config_train, # no longer needed since JIT tabularization.
     )

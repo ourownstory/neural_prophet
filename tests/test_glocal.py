@@ -10,8 +10,8 @@ import pytest
 from neuralprophet import NeuralProphet
 
 log = logging.getLogger("NP.test")
-log.setLevel("DEBUG")
-log.parent.setLevel("WARNING")
+log.setLevel("ERROR")
+log.parent.setLevel("ERROR")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
@@ -188,6 +188,8 @@ def test_wrong_option_global_local_modeling():
     df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
+    prev_level = log.parent.getEffectiveLevel()
+    log.parent.setLevel("CRITICAL")
     m = NeuralProphet(
         n_forecasts=2,
         n_lags=10,
@@ -198,6 +200,7 @@ def test_wrong_option_global_local_modeling():
         season_global_local="glocsl",
         trend_global_local="glocsl",
     )
+    log.parent.setLevel(prev_level)
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
@@ -205,9 +208,8 @@ def test_wrong_option_global_local_modeling():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
-
-    log.info(
-        f"forecast = {forecast}, metrics = {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets = {forecast_seasonal_componets}"
+    log.debug(
+        f"forecast = {forecast}, metrics= {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets= {forecast_seasonal_componets}"
     )
 
 
@@ -237,9 +239,8 @@ def test_different_seasonality_modeling():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
-
-    log.info(
-        f"forecast = {forecast}, metrics = {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets = {forecast_seasonal_componets}"
+    log.debug(
+        f"forecast = {forecast}, metrics= {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets= {forecast_seasonal_componets}"
     )
 
 
@@ -270,8 +271,8 @@ def test_adding_new_global_seasonality():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
-    log.info(
-        f"forecast = {forecast}, metrics = {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets = {forecast_seasonal_componets}"
+    log.debug(
+        f"forecast = {forecast}, metrics= {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets= {forecast_seasonal_componets}"
     )
 
 
@@ -294,8 +295,8 @@ def test_adding_new_local_seasonality():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
-    log.info(
-        f"forecast = {forecast}, metrics = {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets = {forecast_seasonal_componets}"
+    log.debug(
+        f"forecast = {forecast}, metrics= {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets= {forecast_seasonal_componets}"
     )
 
 
@@ -343,7 +344,6 @@ def test_glocal_seasonality_reg():
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
     for coef_i in [0, 1.5, False, True]:
-
         m = NeuralProphet(
             n_forecasts=1,
             epochs=EPOCHS,
@@ -379,6 +379,7 @@ def test_glocal_seasonality_reg():
         future = m.make_future_dataframe(test_df, n_historic_predictions=True)
         forecast = m.predict(future)
         metrics = m.test(test_df)
+        log.debug(f"forecast = {forecast}, metrics= {metrics}")
 
 
 def test_trend_local_reg_if_global():
@@ -391,7 +392,7 @@ def test_trend_local_reg_if_global():
     df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
-    for coef_i in [-30, 0, False, True]:
+    for _ in [-30, 0, False, True]:
         m = NeuralProphet(
             n_forecasts=1,
             epochs=EPOCHS,
@@ -408,6 +409,6 @@ def test_trend_local_reg_if_global():
         metrics = m.test(test_df)
         forecast_trend = m.predict_trend(test_df)
         forecast_seasonal_componets = m.predict_seasonal_components(test_df)
-        log.info(
-            f"forecast = {forecast}, metrics = {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets = {forecast_seasonal_componets}"
+        log.debug(
+            f"forecast = {forecast}, metrics= {metrics}, forecast_trend = {forecast_trend}, forecast_seasonal_componets= {forecast_seasonal_componets}"
         )
