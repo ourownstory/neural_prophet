@@ -1014,7 +1014,6 @@ class TimeNet(pl.LightningModule):
         if self.config_regressors is not None and self.config_regressors.regressors is not None:
             for name, config in self.config_regressors.regressors.items():
                 regressor_component = self.future_regressors
-                print(regressor_component)
                 if config.mode == "additive":
                     if (
                         hasattr(regressor_component, "regressor_params")
@@ -1027,7 +1026,7 @@ class TimeNet(pl.LightningModule):
                             weights = [
                                 layer.weight.data.cpu().numpy() for layer in layers if isinstance(layer, nn.Linear)
                             ]
-                            coef = np.mean(weights, axis=0)
+                            coef = np.concatenate(weights, axis=None)
                 elif hasattr(regressor_component, "regressor_params") and config.mode == "multiplicative":
                     if "multiplicative" in regressor_component.regressor_params:
                         coef = regressor_component.regressor_params["multiplicative"].data.cpu().numpy()
@@ -1037,7 +1036,7 @@ class TimeNet(pl.LightningModule):
                             weights = [
                                 layer.weight.data.cpu().numpy() for layer in layers if isinstance(layer, nn.Linear)
                             ]
-                            coef = np.mean(weights, axis=0)
+                            coef = np.concatenate(weights, axis=None)
                 coef_avg = calculate_average_weight(coef)
                 coefficients.append({"regressor": name, "regressor_mode": config.mode, "coef": coef_avg})
 
