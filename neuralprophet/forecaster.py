@@ -199,13 +199,10 @@ class NeuralProphet:
                 * ``shared_neural_nets``
                 * ``shared_neural_nets_coef``
 
-        future_regressors_d_hidden: int
-            Number of hidden layers in the neural network model for future regressors.
-            Ignored if ``future_regressors_model`` is ``linear``.
+        future_regressors_layers: list of int
+            array of hidden layer dimensions of the future regressor nets. Specifies number of hidden layers (number of entries)
+            and layer dimension (list entry).
 
-        future_regressors_num_hidden_layers: int
-            Dimension of hidden layers in the neural network model for future regressors.
-            Ignored if ``future_regressors_model`` is ``linear``.
 
         COMMENT
         AR Config
@@ -424,8 +421,7 @@ class NeuralProphet:
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
         seasonality_local_reg: Optional[Union[bool, float]] = False,
         future_regressors_model: np_types.FutureRegressorsModel = "linear",
-        future_regressors_d_hidden: int = 4,
-        future_regressors_num_hidden_layers: int = 2,
+        future_regressors_layers: Optional[list] = [4,4],
         n_forecasts: int = 1,
         n_lags: int = 0,
         ar_layers: Optional[list] = [],
@@ -541,8 +537,7 @@ class NeuralProphet:
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
         self.config_regressors = configure.ConfigFutureRegressors(
             model=future_regressors_model,
-            d_hidden=future_regressors_d_hidden,
-            num_hidden_layers=future_regressors_num_hidden_layers,
+            regressors_layers=future_regressors_layers,
         )  # Optional[configure.ConfigFutureRegressors] = None
 
         # set during fit()
