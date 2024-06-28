@@ -421,7 +421,7 @@ class NeuralProphet:
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
         seasonality_local_reg: Optional[Union[bool, float]] = False,
         future_regressors_model: np_types.FutureRegressorsModel = "linear",
-        future_regressors_layers: Optional[list] = [4,4],
+        future_regressors_layers: Optional[list] = [4, 4],
         n_forecasts: int = 1,
         n_lags: int = 0,
         ar_layers: Optional[list] = [],
