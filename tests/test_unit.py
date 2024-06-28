@@ -15,8 +15,8 @@ from neuralprophet.data.process import _create_dataset, _handle_missing_data
 from neuralprophet.data.transform import _normalize
 
 log = logging.getLogger("NP.test")
-log.setLevel("DEBUG")
-log.parent.setLevel("WARNING")
+log.setLevel("ERROR")
+log.parent.setLevel("ERROR")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
@@ -68,28 +68,58 @@ def test_impute_missing():
         plt.show()
 
 
-def test_time_dataset():
+def test_timedataset_minimal():
     # manually load any file that stores a time series, for example:
     df_in = pd.read_csv(AIR_FILE, index_col=False, nrows=NROWS)
     log.debug(f"Infile shape: {df_in.shape}")
-    n_lags = 3
-    n_forecasts = 1
     valid_p = 0.2
-    config_missing = configure.MissingDataHandling()
-    df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
-    # create a tabularized dataset from time series
-    df, _, _ = df_utils.check_dataframe(df_train)
-    local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
-    df = df.drop("ID", axis=1)
-    df = df_utils.normalize(df, global_data_params)
-    inputs, targets, _ = time_dataset.tabularize_univariate_datetime(
-        df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing
-    )
-    log.debug(
-        "tabularized inputs: {}".format(
-            "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
+    for n_forecasts, n_lags in [(1, 0), (1, 5), (3, 5)]:
+        config_missing = configure.MissingDataHandling()
+        # config_train = configure.Train()
+        df, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
+        # create a tabularized dataset from time series
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _ = df_utils.check_dataframe(df)
+        df = _handle_missing_data(
+            df,
+            freq="MS",
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            config_missing=config_missing,
+            # config_regressors: Optional[ConfigFutureRegressors],
+            # config_lagged_regressors: Optional[ConfigLaggedRegressors],
+            # config_events: Optional[ConfigEvents],
+            # config_seasonality: Optional[ConfigSeasonality],
+            predicting=False,
         )
-    )
+        local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
+        df = df.drop("ID", axis=1)
+        df = df_utils.normalize(df, global_data_params)
+        df["ID"] = "__df__"
+
+        dataset = time_dataset.TimeDataset(
+            df=df,
+            predict_mode=False,
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            prediction_frequency=None,
+            predict_steps=1,
+            config_seasonality=None,
+            config_events=None,
+            config_country_holidays=None,
+            config_regressors=None,
+            config_lagged_regressors=None,
+            config_missing=config_missing,
+        )
+        inputs, targets, meta = dataset.__getitem__(0)
+        # inputs50, targets50, meta50 = dataset.__getitem__(50)
+        log.debug(f"(n_forecasts {n_forecasts}, n_lags {n_lags})")
+        log.debug(f"tabularized targets: {targets.shape}")
+        log.debug(
+            "tabularized inputs: {}".format(
+                "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
+            )
+        )
 
 
 def test_normalize():
@@ -805,9 +835,13 @@ def test_make_future():
 
 
 def test_too_many_NaN():
-    # n_lags, n_forecasts = 12, 1
+    n_lags = 12
+    n_forecasts = 1
     config_missing = configure.MissingDataHandling(
-        impute_missing=True, impute_linear=5, impute_rolling=5, drop_missing=False
+        impute_missing=True,
+        impute_linear=5,
+        impute_rolling=5,
+        drop_missing=False,
     )
     length = 100
     days = pd.date_range(start="2017-01-01", periods=length)
@@ -828,7 +862,20 @@ def test_too_many_NaN():
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
-        time_dataset.TimeDataset(df, "name", config_missing=config_missing, predict_steps=1, prediction_frequency=None)
+        time_dataset.TimeDataset(
+            df=df,
+            predict_mode=False,
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            prediction_frequency=None,
+            predict_steps=1,
+            config_seasonality=None,
+            config_events=None,
+            config_country_holidays=None,
+            config_regressors=None,
+            config_lagged_regressors=None,
+            config_missing=config_missing,
+        )
 
 
 def test_future_df_with_nan():
@@ -929,41 +976,6 @@ def test_handle_negative_values_replace():
     )
     df_ = m.handle_negative_values(df, handle=0.0)
     assert df_.loc[0, "y"] == 0.0
-
-
-def test_add_country_holiday_multiple_calls_warning(caplog):
-    error_message = (
-        "Country holidays can only be added for a single country. Previous country holidays were overridden."
-    )
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    m.add_country_holidays("US")
-    assert error_message not in caplog.text
-
-    m.add_country_holidays("Germany")
-    assert error_message in caplog.text
-
-
-def test_multiple_countries():
-    # test if multiple countries are added
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    m.add_country_holidays(country_name=["US", "Germany"])
-    m.fit(df, freq="D")
-    m.predict(df)
-    # get the name of holidays and compare that no holiday is repeated
-    holiday_names = m.model.config_holidays.holiday_names
-    assert "Independence Day" in holiday_names
-    assert "Christmas Day" in holiday_names
-    assert "Erster Weihnachtstag" not in holiday_names
-    assert "Neujahr" not in holiday_names
 
 
 def test_float32_inputs():

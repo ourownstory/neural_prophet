@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+from lightning_fabric.utilities.seed import seed_everything
 
 from neuralprophet import utils_torch
 from neuralprophet.logger import ProgressBar
@@ -710,6 +711,7 @@ def set_random_seed(seed: int = 0):
     """
     np.random.seed(seed)
     torch.manual_seed(seed)
+    seed_everything(seed, workers=True)
 
 
 def set_logger_level(logger, log_level, include_handlers=False):
@@ -818,6 +820,7 @@ def configure_trainer(
     metrics_enabled: bool = False,
     checkpointing_enabled: bool = False,
     num_batches_per_epoch: int = 100,
+    deterministic: bool = False,
 ):
     """
     Configures the PyTorch Lightning trainer.
@@ -887,6 +890,8 @@ def configure_trainer(
         config["logger"] = metrics_logger
     else:
         config["logger"] = False
+
+    config["deterministic"] = deterministic
 
     # Configure callbacks
     callbacks = []
