@@ -5,6 +5,7 @@ from functools import reduce
 from typing import Dict, List, Optional, Union
 
 import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -988,6 +989,98 @@ class TimeNet(pl.LightningModule):
 
     def train_dataloader(self):
         return self.train_loader
+
+    def get_future_and_event_regressor_coefficients(self):
+        """
+        Retrieves the coefficients for future regressors and events.
+
+        Note: The average weight calculation is performed to get a single representative
+        value of the coefficient for a given regressor when there are multiple forecasts
+        or hidden layers.
+
+        Returns
+        -------
+            pd.DataFrame: A DataFrame containing the following columns:
+                - regressor: Name of the regressor or event.
+                - regressor_mode: Mode of the regressor ('additive' or 'multiplicative').
+                - coef: Coefficient value for the regressor.
+        """
+        coefficients = []
+
+        # Helper function to calculate the average weight
+        def calculate_average_weight(weight):
+            if weight.ndim == 2:
+                return weight.mean(axis=0).mean(axis=0)
+            elif weight.ndim == 1:
+                return weight.mean(axis=0)
+            else:
+                return weight
+
+        # Future Regressors
+        if self.config_regressors is not None and self.config_regressors.regressors is not None:
+            for name, config in self.config_regressors.regressors.items():
+                regressor_component = self.future_regressors
+                if config.mode == "additive":
+                    if (
+                        hasattr(regressor_component, "regressor_params")
+                        and "additive" in regressor_component.regressor_params
+                    ):
+                        coef = regressor_component.regressor_params["additive"].data.cpu().numpy()
+                    else:
+                        if hasattr(regressor_component, "regressor_nets"):
+                            layers = regressor_component.regressor_nets[name]
+                            weights = [
+                                layer.weight.data.cpu().numpy() for layer in layers if isinstance(layer, nn.Linear)
+                            ]
+                            coef = np.concatenate(weights, axis=None)
+                elif hasattr(regressor_component, "regressor_params") and config.mode == "multiplicative":
+                    if "multiplicative" in regressor_component.regressor_params:
+                        coef = regressor_component.regressor_params["multiplicative"].data.cpu().numpy()
+                    else:
+                        if hasattr(regressor_component, "regressor_nets"):
+                            layers = regressor_component.regressor_nets[name]
+                            weights = [
+                                layer.weight.data.cpu().numpy() for layer in layers if isinstance(layer, nn.Linear)
+                            ]
+                            coef = np.concatenate(weights, axis=None)
+                coef_avg = calculate_average_weight(coef)
+                coefficients.append({"regressor": name, "regressor_mode": config.mode, "coef": coef_avg})
+
+        # Event Regressors
+        if self.config_events is not None:
+            for event, event_config in self.config_events.items():
+                if event_config.mode == "additive" and "additive" in self.event_params:
+                    coef = self.event_params["additive"].data.cpu().numpy()
+                elif event_config.mode == "multiplicative" and "multiplicative" in self.event_params:
+                    coef = self.event_params["multiplicative"].data.cpu().numpy()
+                coef_avg = calculate_average_weight(coef)
+                coefficients.append({"regressor": event, "regressor_mode": event_config.mode, "coef": coef_avg})
+
+        return pd.DataFrame(coefficients)
+
+    def get_lagged_regressor_coefficients(self):
+        """
+        Retrieves the coefficients for lagged regressors, mapped to their corresponding lags.
+
+        Returns
+        -------
+            pd.DataFrame: A DataFrame containing the following columns:
+                - regressor: Name of the regressor.
+                - lag: The specific lag associated with the coefficient.
+                - coef: Coefficient value for the regressor at the specific lag.
+        """
+        coefficients = []
+
+        # Lagged Regressors
+        if self.config_lagged_regressors is not None:
+            for name, config in self.config_lagged_regressors.items():
+                for layer in self.covar_net:
+                    if isinstance(layer, nn.Linear):
+                        weight = layer.weight.data.cpu().numpy()
+                        for i, coef in enumerate(weight[0]):
+                            coefficients.append({"regressor": name, "lag": i + 1, "coef": coef})
+
+        return pd.DataFrame(coefficients)
 
 
 class FlatNet(nn.Module):
