@@ -992,6 +992,10 @@ class TimeNet(pl.LightningModule):
         """
         Retrieves the coefficients for future regressors and events.
 
+        Note: The average weight calculation is performed to get a single representative
+        value of the coefficient for a given regressor when there are multiple forecasts
+        or hidden layers.
+
         Returns
         -------
             pd.DataFrame: A DataFrame containing the following columns:
