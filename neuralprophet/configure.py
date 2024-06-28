@@ -478,8 +478,8 @@ class Regressor:
 @dataclass
 class ConfigFutureRegressors:
     model: str
-    d_hidden: int
-    num_hidden_layers: int
+    regressors_layers: Optional[List[int]]
+
     regressors: OrderedDict = field(init=False)  # contains RegressorConfig objects
 
     def __post_init__(self):

@@ -124,8 +124,7 @@ def test_future_regressor_nn_2():
         weekly_seasonality=False,
         daily_seasonality=True,
         future_regressors_model="neural_nets",  # 'linear' default or 'neural_nets'
-        future_regressors_d_hidden=4,  # (int)
-        future_regressors_num_hidden_layers=2,  # (int)
+        future_regressors_layers=[4, 4],
         n_forecasts=3,
         n_lags=5,
         drop_missing=True,
@@ -161,8 +160,7 @@ def test_future_regressor_nn_shared_2():
         weekly_seasonality=False,
         daily_seasonality=True,
         future_regressors_model="shared_neural_nets",
-        future_regressors_d_hidden=4,
-        future_regressors_num_hidden_layers=2,
+        future_regressors_layers=[4, 4],
         n_forecasts=3,
         n_lags=5,
         drop_missing=True,
@@ -187,8 +185,7 @@ def test_future_regressor_nn_shared_2():
 #         weekly_seasonality=False,
 #         daily_seasonality=True,
 #         future_regressors_model="shared_neural_nets_coef",
-#         future_regressors_d_hidden=4,
-#         future_regressors_num_hidden_layers=2,
+#         future_regressors_layers=[4, 4],
 #         n_forecasts=3,
 #         n_lags=5,
 #         drop_missing=True,

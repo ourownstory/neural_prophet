@@ -21,18 +21,16 @@ class NeuralNetsFutureRegressors(FutureRegressors):
         if self.regressors_dims is not None:
             # Regresors params
             self.regressor_nets = nn.ModuleDict({})
-            # TO DO: if no hidden layers, then just a as legacy
-            self.d_hidden_regressors = config.d_hidden
-            self.num_hidden_layers_regressors = config.num_hidden_layers
+            self.regressors_layers = config.regressors_layers
             # one net per regressor. to be adapted to combined network
             for regressor in self.regressors_dims.keys():
                 # Nets for both additive and multiplicative regressors
                 regressor_net = nn.ModuleList()
                 # This will be later 1 + static covariates
                 d_inputs = 1
-                for i in range(self.num_hidden_layers_regressors):
-                    regressor_net.append(nn.Linear(d_inputs, self.d_hidden_regressors, bias=True))
-                    d_inputs = self.d_hidden_regressors
+                for d_hidden_i in self.regressors_layers:
+                    regressor_net.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+                    d_inputs = d_hidden_i
                 # final layer has input size d_inputs and output size equal to no. of quantiles
                 regressor_net.append(nn.Linear(d_inputs, len(self.quantiles), bias=False))
                 for lay in regressor_net:
@@ -79,7 +77,7 @@ class NeuralNetsFutureRegressors(FutureRegressors):
                 Forecast component of dims (batch, n_forecasts, num_quantiles)
         """
         x = regressor_input
-        for i in range(self.num_hidden_layers_regressors + 1):
+        for i in range(len(self.regressors_layers) + 1):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.regressor_nets[name][i](x)
