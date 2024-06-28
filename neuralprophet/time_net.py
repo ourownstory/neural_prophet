@@ -988,20 +988,16 @@ class TimeNet(pl.LightningModule):
     def train_dataloader(self):
         return self.train_loader
 
-    def get_regressor_coefficients(self):
+    def get_future_and_event_regressor_coefficients(self):
         """
-        Retrieves the coefficients for future regressors, lagged regressors, and events.
-
-        Note: The average weight calculation is performed to get a single representative
-        value of the coefficient for a given regressor when there are multiple forecasts
-        or hidden layers.
+        Retrieves the coefficients for future regressors and events.
 
         Returns
         -------
             pd.DataFrame: A DataFrame containing the following columns:
-                - regressor: Name of the regressor.
+                - regressor: Name of the regressor or event.
                 - regressor_mode: Mode of the regressor ('additive' or 'multiplicative').
-                - coef: Average coefficient value for the regressor.
+                - coef: Coefficient value for the regressor.
         """
         coefficients = []
 
@@ -1018,28 +1014,32 @@ class TimeNet(pl.LightningModule):
         if self.config_regressors is not None and self.config_regressors.regressors is not None:
             for name, config in self.config_regressors.regressors.items():
                 regressor_component = self.future_regressors
-                if config.mode == "additive" and "additive" in regressor_component.regressor_params:
-                    coef = regressor_component.regressor_params["additive"].data.cpu().numpy()
-                elif config.mode == "multiplicative" and "multiplicative" in regressor_component.regressor_params:
-                    coef = regressor_component.regressor_params["multiplicative"].data.cpu().numpy()
-                else:
-                    coef = [None]
+                print(regressor_component)
+                if config.mode == "additive":
+                    if (
+                        hasattr(regressor_component, "regressor_params")
+                        and "additive" in regressor_component.regressor_params
+                    ):
+                        coef = regressor_component.regressor_params["additive"].data.cpu().numpy()
+                    else:
+                        if hasattr(regressor_component, "regressor_nets"):
+                            layers = regressor_component.regressor_nets[name]
+                            weights = [
+                                layer.weight.data.cpu().numpy() for layer in layers if isinstance(layer, nn.Linear)
+                            ]
+                            coef = np.mean(weights, axis=0)
+                elif hasattr(regressor_component, "regressor_params") and config.mode == "multiplicative":
+                    if "multiplicative" in regressor_component.regressor_params:
+                        coef = regressor_component.regressor_params["multiplicative"].data.cpu().numpy()
+                    else:
+                        if hasattr(regressor_component, "regressor_nets"):
+                            layers = regressor_component.regressor_nets[name]
+                            weights = [
+                                layer.weight.data.cpu().numpy() for layer in layers if isinstance(layer, nn.Linear)
+                            ]
+                            coef = np.mean(weights, axis=0)
                 coef_avg = calculate_average_weight(coef)
                 coefficients.append({"regressor": name, "regressor_mode": config.mode, "coef": coef_avg})
-
-        # Lagged Regressors
-        if self.config_lagged_regressors is not None:
-            for name, config in self.config_lagged_regressors.items():
-                layer_weights = []
-                for layer in self.covar_net:
-                    if isinstance(layer, nn.Linear):
-                        layer_weights.append(layer.weight.data.cpu().numpy())
-                if layer_weights:
-                    avg_weight = np.mean(layer_weights, axis=0)
-                else:
-                    avg_weight = [None]
-                coef_avg = calculate_average_weight(avg_weight)
-                coefficients.append({"regressor": name, "regressor_mode": "additive", "coef": coef_avg})
 
         # Event Regressors
         if self.config_events is not None:
@@ -1048,10 +1048,32 @@ class TimeNet(pl.LightningModule):
                     coef = self.event_params["additive"].data.cpu().numpy()
                 elif event_config.mode == "multiplicative" and "multiplicative" in self.event_params:
                     coef = self.event_params["multiplicative"].data.cpu().numpy()
-                else:
-                    coef = [None]
                 coef_avg = calculate_average_weight(coef)
                 coefficients.append({"regressor": event, "regressor_mode": event_config.mode, "coef": coef_avg})
+
+        return pd.DataFrame(coefficients)
+
+    def get_lagged_regressor_coefficients(self):
+        """
+        Retrieves the coefficients for lagged regressors, mapped to their corresponding lags.
+
+        Returns
+        -------
+            pd.DataFrame: A DataFrame containing the following columns:
+                - regressor: Name of the regressor.
+                - lag: The specific lag associated with the coefficient.
+                - coef: Coefficient value for the regressor at the specific lag.
+        """
+        coefficients = []
+
+        # Lagged Regressors
+        if self.config_lagged_regressors is not None:
+            for name, config in self.config_lagged_regressors.items():
+                for layer in self.covar_net:
+                    if isinstance(layer, nn.Linear):
+                        weight = layer.weight.data.cpu().numpy()
+                        for i, coef in enumerate(weight[0]):
+                            coefficients.append({"regressor": name, "lag": i + 1, "coef": coef})
 
         return pd.DataFrame(coefficients)
 
