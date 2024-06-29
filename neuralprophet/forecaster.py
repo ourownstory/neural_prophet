@@ -2654,6 +2654,7 @@ class NeuralProphet:
                 config_seasonality=self.config_seasonality,
             )
 
+        print("Changepoints:", self.config_trend.changepoints)
         df = _normalize(df=df, config_normalization=self.config_normalization)
         if not self.fitted:
             if self.config_trend.changepoints is not None:
@@ -2746,11 +2747,10 @@ class NeuralProphet:
             print(checkpoint_path)
             checkpoint = torch.load(checkpoint_path)
             print(checkpoint.keys())
-
-        # Set up data the training dataloader
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        train_loader = self._init_train_loader(df, num_workers)
-        dataset_size = len(df)  # train_loader.dataset
+            print("Current model trend changepoints:", self.model.trend.trend_changepoints_t)
+            # self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_path)
+            # self.model.load_state_dict(checkpoint["state_dict"], strict=False)
+            print(self.model.train_loader)
 
         # Internal flag to check if validation is enabled
         validation_enabled = df_val is not None
@@ -2759,20 +2759,55 @@ class NeuralProphet:
         if continue_training:
             checkpoint_path = self.metrics_logger.checkpoint_path
             checkpoint = torch.load(checkpoint_path)
-            self.model = self._init_model()
-            # TODO: fix size mismatch for trend.trend_changepoints_t: copying a param with shape torch.Size([11]) from checkpoint, the shape in current model is torch.Size([12]).
-            self.model.load_state_dict(checkpoint["state_dict"], strict=False)
-            self.optimizer.load_state_dict(checkpoint["optimizer_states"][0])
-            self.trainer.current_epoch = checkpoint["epoch"] + 1
-            if "lr_schedulers" in checkpoint:
-                self.lr_scheduler.load_state_dict(checkpoint["lr_schedulers"][0])
-            print(f"Resuming training from epoch {self.trainer.current_epoch}")
-            # TODO: remove print, checkpoint['lr_schedulers']
-            print(f"Resuming training from epoch {self.trainer.current_epoch}")
-        else:
-            self.model = self._init_model()
 
-        self.model.train_loader = train_loader
+            # Load model state
+            self.model.load_state_dict(checkpoint["state_dict"])
+
+            # Adjust epochs
+            additional_epochs = 10
+            previous_epochs = self.config_train.epochs  # Get the number of epochs already trained
+            new_total_epochs = previous_epochs + additional_epochs
+            self.config_train.epochs = new_total_epochs
+
+            # Reinitialize optimizer with loaded model parameters
+            optimizer = torch.optim.AdamW(self.model.parameters())
+
+            # Load optimizer state
+            if "optimizer_states" in checkpoint and checkpoint["optimizer_states"]:
+                optimizer.load_state_dict(checkpoint["optimizer_states"][0])
+
+            self.config_train.optimizer = optimizer
+
+            # Calculate total steps and steps already taken
+            steps_per_epoch = len(self.model.train_loader)
+            total_steps = steps_per_epoch * new_total_epochs
+            steps_taken = steps_per_epoch * previous_epochs
+
+            # Create new scheduler with updated total steps
+            self.config_train.scheduler = torch.optim.lr_scheduler.OneCycleLR(
+                optimizer=optimizer,
+                total_steps=total_steps,
+                max_lr=10,
+                pct_start=(total_steps - steps_taken) / total_steps,  # Adjust the percentage of remaining steps
+            )
+
+            # Manually update the scheduler's step count
+            for _ in range(steps_taken):
+                self.config_train.scheduler.step()
+
+            print(f"Scheduler: {self.config_train.scheduler}")
+            print(
+                f"Total steps: {total_steps}, Steps taken: {steps_taken}, Remaining steps: {total_steps - steps_taken}"
+            )
+
+        else:
+            # Set up data the training dataloader
+            df, _, _, _ = df_utils.prep_or_copy_df(df)
+            train_loader = self._init_train_loader(df, num_workers)
+            dataset_size = len(df)  # train_loader.dataset
+
+            self.model = self._init_model()
+            self.model.train_loader = train_loader
 
         # Init the Trainer
         self.trainer, checkpoint_callback = utils.configure_trainer(
@@ -2785,8 +2820,14 @@ class NeuralProphet:
             progress_bar_enabled=progress_bar_enabled,
             metrics_enabled=metrics_enabled,
             checkpointing_enabled=checkpointing_enabled,
-            num_batches_per_epoch=len(train_loader),
+            num_batches_per_epoch=len(self.model.train_loader),
         )
+
+        # TODO: find out why scheduler not updated
+        if continue_training:
+            self.trainer.lr_schedulers = [
+                {"scheduler": self.config_train.scheduler, "interval": "step", "frequency": 1}
+            ]
 
         # Tune hyperparams and train
         if validation_enabled:
@@ -2812,7 +2853,7 @@ class NeuralProphet:
             start = time.time()
             self.trainer.fit(
                 self.model,
-                train_loader,
+                self.model.train_loader,
                 val_loader,
                 ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
@@ -2834,7 +2875,7 @@ class NeuralProphet:
             start = time.time()
             self.trainer.fit(
                 self.model,
-                train_loader,
+                self.model.train_loader,
                 ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
 
