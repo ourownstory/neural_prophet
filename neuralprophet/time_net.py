@@ -63,6 +63,7 @@ class TimeNet(pl.LightningModule):
         num_seasonalities_modelled: int = 1,
         num_seasonalities_modelled_dict: dict = None,
         meta_used_in_model: bool = False,
+        continue_training: bool = False,
     ):
         """
         Parameters
@@ -305,6 +306,9 @@ class TimeNet(pl.LightningModule):
             )
         else:
             self.config_regressors.regressors = None
+
+        # Continued training
+        self.continue_training = continue_training
 
     @property
     def ar_weights(self) -> torch.Tensor:
@@ -863,12 +867,19 @@ class TimeNet(pl.LightningModule):
         optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
 
         # Scheduler
-        lr_scheduler = self._scheduler(
-            optimizer,
-            max_lr=self.learning_rate,
-            total_steps=self.trainer.estimated_stepping_batches,
-            **self.config_train.scheduler_args,
-        )
+        if self.continue_training:
+            # Update initial learning rate to the last learning rate for continued training
+            last_lr = optimizer.param_groups[0]["lr"]
+            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+            for param_group in optimizer.param_groups:
+                param_group["initial_lr"] = last_lr
+        else:
+            lr_scheduler = self._scheduler(
+                optimizer,
+                max_lr=self.learning_rate,
+                total_steps=self.trainer.estimated_stepping_batches,
+                **self.config_train.scheduler_args,
+            )
 
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 

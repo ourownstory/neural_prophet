@@ -2741,19 +2741,14 @@ class NeuralProphet:
             pd.DataFrame
                 metrics
         """
-        # Test
-        if continue_training:
-            checkpoint_path = self.metrics_logger.checkpoint_path
-            print(checkpoint_path)
-            checkpoint = torch.load(checkpoint_path)
-            print(checkpoint.keys())
-            print("Current model trend changepoints:", self.model.trend.trend_changepoints_t)
-            # self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_path)
-            # self.model.load_state_dict(checkpoint["state_dict"], strict=False)
-            print(self.model.train_loader)
 
         # Internal flag to check if validation is enabled
         validation_enabled = df_val is not None
+
+        # Set up data the training dataloader
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        train_loader = self._init_train_loader(df, num_workers)
+        dataset_size = len(df)  # train_loader.dataset
 
         # Load model and optimizer state from checkpoint if continue_training is True
         if continue_training:
@@ -2763,8 +2758,11 @@ class NeuralProphet:
             # Load model state
             self.model.load_state_dict(checkpoint["state_dict"])
 
+            # Set continue_training flag in model to update scheduler correctly
+            self.model.continue_training = True
+
             # Adjust epochs
-            additional_epochs = 10
+            additional_epochs = 50
             previous_epochs = self.config_train.epochs  # Get the number of epochs already trained
             new_total_epochs = previous_epochs + additional_epochs
             self.config_train.epochs = new_total_epochs
@@ -2778,34 +2776,7 @@ class NeuralProphet:
 
             self.config_train.optimizer = optimizer
 
-            # Calculate total steps and steps already taken
-            steps_per_epoch = len(self.model.train_loader)
-            total_steps = steps_per_epoch * new_total_epochs
-            steps_taken = steps_per_epoch * previous_epochs
-
-            # Create new scheduler with updated total steps
-            self.config_train.scheduler = torch.optim.lr_scheduler.OneCycleLR(
-                optimizer=optimizer,
-                total_steps=total_steps,
-                max_lr=10,
-                pct_start=(total_steps - steps_taken) / total_steps,  # Adjust the percentage of remaining steps
-            )
-
-            # Manually update the scheduler's step count
-            for _ in range(steps_taken):
-                self.config_train.scheduler.step()
-
-            print(f"Scheduler: {self.config_train.scheduler}")
-            print(
-                f"Total steps: {total_steps}, Steps taken: {steps_taken}, Remaining steps: {total_steps - steps_taken}"
-            )
-
         else:
-            # Set up data the training dataloader
-            df, _, _, _ = df_utils.prep_or_copy_df(df)
-            train_loader = self._init_train_loader(df, num_workers)
-            dataset_size = len(df)  # train_loader.dataset
-
             self.model = self._init_model()
             self.model.train_loader = train_loader
 
@@ -2823,11 +2794,9 @@ class NeuralProphet:
             num_batches_per_epoch=len(self.model.train_loader),
         )
 
-        # TODO: find out why scheduler not updated
         if continue_training:
-            self.trainer.lr_schedulers = [
-                {"scheduler": self.config_train.scheduler, "interval": "step", "frequency": 1}
-            ]
+            print("setting up optimizers again")
+            # self.trainer.strategy.setup_optimizers(self.trainer)
 
         # Tune hyperparams and train
         if validation_enabled:
