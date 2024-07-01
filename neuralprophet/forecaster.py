@@ -978,7 +978,7 @@ class NeuralProphet:
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
-        if self.fitted:
+        if self.fitted and not continue_training:
             raise RuntimeError("Model has been fitted already. Please initialize a new model to fit again.")
 
         # Configuration
@@ -1067,6 +1067,10 @@ class NeuralProphet:
 
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
+
+        if continue_training and self.metrics_logger.checkpoint_path is None:
+            log.error("Continued training requires checkpointing in model.")
+
         self.max_lags = df_utils.get_max_num_lags(
             n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors
         )
@@ -2666,23 +2670,24 @@ class NeuralProphet:
             torch DataLoader
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)  # TODO: Can this call be avoided?
-        # if not self.fitted:
-        self.config_normalization.init_data_params(
-            df=df,
-            config_lagged_regressors=self.config_lagged_regressors,
-            config_regressors=self.config_regressors,
-            config_events=self.config_events,
-            config_seasonality=self.config_seasonality,
-        )
+        if not self.fitted:
+            self.config_normalization.init_data_params(
+                df=df,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+                config_events=self.config_events,
+                config_seasonality=self.config_seasonality,
+            )
 
+        print("Changepoints:", self.config_trend.changepoints)
         df = _normalize(df=df, config_normalization=self.config_normalization)
-        # if not self.fitted:
-        if self.config_trend.changepoints is not None:
-            # scale user-specified changepoint times
-            df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
+        if not self.fitted:
+            if self.config_trend.changepoints is not None:
+                # scale user-specified changepoint times
+                df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
 
-            df_normalized = _normalize(df=df_aux, config_normalization=self.config_normalization)
-            self.config_trend.changepoints = df_normalized["t"].values  # type: ignore
+                df_normalized = _normalize(df=df_aux, config_normalization=self.config_normalization)
+                self.config_trend.changepoints = df_normalized["t"].values  # type: ignore
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
@@ -2770,12 +2775,36 @@ class NeuralProphet:
         # Internal flag to check if validation is enabled
         validation_enabled = df_val is not None
 
-        # Init the model, if not continue from checkpoint
+        # Load model and optimizer state from checkpoint if continue_training is True
         if continue_training:
-            raise NotImplementedError(
-                "Continuing training from checkpoint is not implemented yet. This feature is planned for one of the \
-                    upcoming releases."
-            )
+            checkpoint_path = self.metrics_logger.checkpoint_path
+            checkpoint = torch.load(checkpoint_path)
+
+            # Load model state
+            self.model.load_state_dict(checkpoint["state_dict"])
+
+            # Set continue_training flag in model to update scheduler correctly
+            self.model.continue_training = True
+
+            previous_epoch = checkpoint["epoch"]
+            # Adjust epochs
+            if self.config_train.epochs:
+                additional_epochs = self.config_train.epochs
+            else:
+                additional_epochs = previous_epoch
+            # Get the number of epochs already trained
+            new_total_epochs = previous_epoch + additional_epochs
+            self.config_train.epochs = new_total_epochs
+
+            # Reinitialize optimizer with loaded model parameters
+            optimizer = torch.optim.AdamW(self.model.parameters())
+
+            # Load optimizer state
+            if "optimizer_states" in checkpoint and checkpoint["optimizer_states"]:
+                optimizer.load_state_dict(checkpoint["optimizer_states"][0])
+
+            self.config_train.optimizer = optimizer
+
         else:
             self.model = self._init_model()
 
@@ -2859,8 +2888,12 @@ class NeuralProphet:
 
         if not metrics_enabled:
             return None
+
         # Return metrics collected in logger as dataframe
-        metrics_df = pd.DataFrame(self.metrics_logger.history)
+        if self.metrics_logger.history is not None:
+            metrics_df = pd.DataFrame(self.metrics_logger.history)
+        else:
+            metrics_df = pd.DataFrame()
         return metrics_df
 
     def restore_trainer(self, accelerator: Optional[str] = None):

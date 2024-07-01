@@ -101,17 +101,16 @@ def test_save_load_io():
     pd.testing.assert_frame_equal(forecast, forecast3)
 
 
-# TODO: add functionality to continue training
-# def test_continue_training():
-#     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-#     m = NeuralProphet(
-#         epochs=EPOCHS,
-#         batch_size=BATCH_SIZE,
-#         learning_rate=LR,
-#         n_lags=6,
-#         n_forecasts=3,
-#         n_changepoints=0,
-#     )
-#     metrics = m.fit(df, freq="D")
-#     metrics2 = m.fit(df, freq="D", continue_training=True)
-#     assert metrics1["Loss"].sum() >= metrics2["Loss"].sum()
+def test_continue_training():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=6,
+        n_forecasts=3,
+        n_changepoints=0,
+    )
+    metrics = m.fit(df, checkpointing=True, freq="D")
+    metrics2 = m.fit(df, freq="D", continue_training=True)
+    assert metrics["Loss"].min() >= metrics2["Loss"].min()
