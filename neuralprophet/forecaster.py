@@ -2888,8 +2888,12 @@ class NeuralProphet:
 
         if not metrics_enabled:
             return None
+
         # Return metrics collected in logger as dataframe
-        metrics_df = pd.DataFrame(self.metrics_logger.history)
+        if self.metrics_logger.history is not None:
+            metrics_df = pd.DataFrame(self.metrics_logger.history)
+        else:
+            metrics_df = pd.DataFrame()
         return metrics_df
 
     def restore_trainer(self, accelerator: Optional[str] = None):
