@@ -367,9 +367,16 @@ class NeuralProphet:
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
         prediction_frequency: dict
-            periodic interval in which forecasts should be made.
-            More than one item only allowed for {"daily-hour": x, "weekly-day": y"} to forecast on a specific hour of a
-            specific day of week.
+            Set a periodic interval in which forecasts should be made.
+
+            By default, a model creates predictions for all possible prediction origins in dataset.
+            (e.g. for a hourly dataset, at each hour, each day, for all days in dataset)
+            Setting `prediction_frequency` allows to make forecasts only at a specific, periodically repeating point in time (prediction origin).
+            (e.g. {"daily-hour": 12} sets the model to predict only at noon, and no other hour)
+
+
+            Currently, only one item in dict is supported, except for the specific combination of
+            {"daily-hour": x, "weekly-day": y"} to predict at a specific hour of a specific day of week.
 
             Key: str
                 periodicity of the predictions to be made.
@@ -377,11 +384,20 @@ class NeuralProphet:
                 forecast origin of the predictions to be made, e.g. 7 for 7am in case of 'daily-hour'.
 
             Options
-                * ``'hourly-minute'``: forecast once per hour at a specified minute
-                * ``'daily-hour'``: forecast once per day at a specified hour
-                * ``'weekly-day'``: forecast once per week at a specified day
-                * ``'monthly-day'``: forecast once per month at a specified day
-                * ``'yearly-month'``: forecast once per year at a specified month
+                * ``'hourly-minute'``: forecast once per hour at a specified minute in range [0, 59]
+                * ``'daily-hour'``: forecast once per day at a specified hour in range [0, 23]
+                * ``'weekly-day'``: forecast once per week at a specified day in range [0, 6]
+                * ``'monthly-day'``: forecast once per month at a specified day in range [1, 31]
+                * ``'yearly-month'``: forecast once per year at a specified month in range [1, 12]
+
+            Note
+            ----
+            This filter is applied to both model training and prediction.
+
+            Note
+            ----
+            The forecast/prediction origin set refers to the last observation's timestamp, not the first forecast target.
+            In the special case where no auto-regression or lagged regressors are used, the forecast origin and forecast target are identical.
     """
 
     model: time_net.TimeNet
@@ -577,10 +593,8 @@ class NeuralProphet:
         lagged_reg_layers = self.config_model.lagged_reg_layers
 
         if n_lags == 0 or n_lags is None:
-            n_lags = 0
-            log.warning(
-                "Please, set n_lags to a value greater than 0 or to the options 'scalar' or 'auto'. No lags will be "
-                + "added to regressors when n_lags = 0 or n_lags is None"
+            raise ValueError(
+                f"Received n_lags {n_lags} for lagged regressor {names}. Please set n_lags > 0 or use options 'scalar' or 'auto'."
             )
         if n_lags == "auto":
             if self.n_lags is not None and self.n_lags > 0:
@@ -779,10 +793,11 @@ class NeuralProphet:
                 ``additive`` (default) or ``multiplicative``.
         """
         if self.fitted:
-            raise Exception("Country must be specified prior to model fitting.")
+            raise AssertionError("Country must be specified prior to model fitting.")
         if self.config_country_holidays:
-            log.warning(
-                "Country holidays can only be added for a single country. Previous country holidays were overridden."
+            raise AssertionError(
+                "Country holidays can only be added once. Previous country holidays will be overridden."
+                "If adding multiple countries, please add as list. "
             )
 
         if regularization is not None:
@@ -905,6 +920,7 @@ class NeuralProphet:
         checkpointing: bool = False,
         continue_training: bool = False,
         num_workers: int = 0,
+        deterministic: bool = False,
     ):
         """Train, and potentially evaluate model.
 
@@ -995,18 +1011,18 @@ class NeuralProphet:
                 ]
             )
             if reg_enabled:
-                log.warning(
+                log.info(
                     "Early stopping is enabled, but regularization only starts after half the number of configured \
                         epochs. If you see no impact of the regularization, turn off the early_stopping or reduce the \
                         number of epochs to train for."
                 )
 
         if progress == "plot" and metrics is False:
-            log.warning("Progress plot requires metrics to be enabled. Enabling the default metrics.")
+            log.info("Progress plot requires metrics to be enabled. Enabling the default metrics.")
             metrics = utils_metrics.get_metrics(True)
 
         if not self.config_normalization.global_normalization:
-            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
+            log.info("When Global modeling with local normalization, metrics are displayed in normalized scale.")
 
         if minimal:
             checkpointing = False
@@ -1055,7 +1071,9 @@ class NeuralProphet:
         if continue_training and self.metrics_logger.checkpoint_path is None:
             log.error("Continued training requires checkpointing in model.")
 
-        self.max_lags = df_utils.get_max_num_lags(self.config_lagged_regressors, self.n_lags)
+        self.max_lags = df_utils.get_max_num_lags(
+            n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors
+        )
         if self.max_lags == 0 and self.n_forecasts > 1:
             self.n_forecasts = 1
             self.predict_steps = 1
@@ -1073,6 +1091,7 @@ class NeuralProphet:
                 checkpointing_enabled=checkpointing,
                 continue_training=continue_training,
                 num_workers=num_workers,
+                deterministic=deterministic,
             )
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
@@ -1097,6 +1116,7 @@ class NeuralProphet:
                 checkpointing_enabled=checkpointing,
                 continue_training=continue_training,
                 num_workers=num_workers,
+                deterministic=deterministic,
             )
 
         # Show training plot
@@ -1109,7 +1129,7 @@ class NeuralProphet:
             # Only display the plot if the session is interactive, eg. do not show in github actions since it
             # causes an error in the Windows and MacOS environment
             if matplotlib.is_interactive():
-                fig
+                fig.show()
 
         self.fitted = True
         return metrics_df
@@ -1243,7 +1263,7 @@ class NeuralProphet:
         val_metrics_df = pd.DataFrame(val_metrics)
         # TODO Check whether supported by Lightning
         if not self.config_normalization.global_normalization:
-            log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
+            log.info("Note that the metrics are displayed in normalized scale because of local normalization.")
         return val_metrics_df
 
     def split_df(self, df: pd.DataFrame, freq: str = "auto", valid_p: float = 0.2, local_split: bool = False):
@@ -1870,15 +1890,19 @@ class NeuralProphet:
         df_seasonal = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dataset = time_dataset.TimeDataset(
-                df_i,
-                name=df_name,
-                config_seasonality=self.config_seasonality,
-                # n_lags=0,
-                # n_forecasts=1,
-                predict_steps=self.predict_steps,
+                df=df_i,
                 predict_mode=True,
-                config_missing=self.config_missing,
+                n_lags=0,
+                n_forecasts=1,
                 prediction_frequency=self.prediction_frequency,
+                predict_steps=self.predict_steps,
+                config_seasonality=self.config_seasonality,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_regressors=self.config_regressors,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_missing=self.config_missing,
+                # config_train=self.config_train, # no longer needed since JIT tabularization.
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
@@ -2212,8 +2236,8 @@ class NeuralProphet:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
                 raise Exception(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be \
-                        plotted."
+                    "Many time series are present in the pd.DataFrame (more than one ID)."
+                    "Please, especify ID to be plotted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
@@ -2221,7 +2245,7 @@ class NeuralProphet:
         if len(self.config_train.quantiles) > 1:
             log.warning(
                 "Plotting latest forecasts when uncertainty estimation enabled"
-                " plots the forecasts only for the median quantile."
+                " plots only the median quantile forecasts."
             )
         if plot_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
@@ -2274,10 +2298,7 @@ class NeuralProphet:
         plotting_backend: Optional[str] = None,
     ):
         args = locals()
-        log.warning(
-            "plot_last_forecast() has been renamed to plot_latest_forecast() and is therefore deprecated. "
-            "Please use plot_latst_forecast() in the future"
-        )
+        log.error("plot_last_forecast() is deprecated." "Please use plot_latest_forecast().")
 
         return NeuralProphet.plot_latest_forecast(**args)
 
@@ -2351,8 +2372,8 @@ class NeuralProphet:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
                 raise Exception(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be \
-                        plotted."
+                    "Multiple time series are present in the pd.DataFrame (more than one ID)."
+                    "Please, especify ID to be plotted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
@@ -2378,8 +2399,8 @@ class NeuralProphet:
         if self.model.config_seasonality is not None:
             if self.model.config_seasonality.global_local in ["local", "glocal"] and df_name is None:
                 raise Exception(
-                    "df_name parameter is required for multiple time series and local modeling of at least one \
-                        component."
+                    "df_name parameter is required for multiple time series "
+                    "and local modeling of at least one component."
                 )
 
         # Validate components to be plotted
@@ -2648,7 +2669,7 @@ class NeuralProphet:
         -------
             torch DataLoader
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)  # TODO: Can this call be avoided?
         if not self.fitted:
             self.config_normalization.init_data_params(
                 df=df,
@@ -2719,6 +2740,7 @@ class NeuralProphet:
         checkpointing_enabled: bool = False,
         continue_training=False,
         num_workers=0,
+        deterministic: bool = False,
     ):
         """
         Execute model training procedure for a configured number of epochs.
@@ -2745,14 +2767,13 @@ class NeuralProphet:
             pd.DataFrame
                 metrics
         """
+        # Set up data the training dataloader
+        df, _, _, _ = df_utils.prep_or_copy_df(df)  # TODO: Can this call be removed?
+        train_loader = self._init_train_loader(df, num_workers)
+        dataset_size = len(df)  # train_loader.dataset
 
         # Internal flag to check if validation is enabled
         validation_enabled = df_val is not None
-
-        # Set up data the training dataloader
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        train_loader = self._init_train_loader(df, num_workers)
-        dataset_size = len(df)  # train_loader.dataset
 
         # Load model and optimizer state from checkpoint if continue_training is True
         if continue_training:
@@ -2786,7 +2807,8 @@ class NeuralProphet:
 
         else:
             self.model = self._init_model()
-            self.model.train_loader = train_loader
+
+        self.model.train_loader = train_loader
 
         # Init the Trainer
         self.trainer, checkpoint_callback = utils.configure_trainer(
@@ -2799,12 +2821,9 @@ class NeuralProphet:
             progress_bar_enabled=progress_bar_enabled,
             metrics_enabled=metrics_enabled,
             checkpointing_enabled=checkpointing_enabled,
-            num_batches_per_epoch=len(self.model.train_loader),
+            num_batches_per_epoch=len(train_loader),
+            deterministic=deterministic,
         )
-
-        if continue_training:
-            print("setting up optimizers again")
-            # self.trainer.strategy.setup_optimizers(self.trainer)
 
         # Tune hyperparams and train
         if validation_enabled:
@@ -2823,14 +2842,14 @@ class NeuralProphet:
                     val_dataloaders=val_loader,
                     **self.config_train.lr_finder_args,
                 )
-                # Estimate the optimat learning rate from the loss curve
+                # Estimate the optimal learning rate from the loss curve
                 assert lr_finder is not None
                 _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
                 self.model.learning_rate = lr_suggestion
             start = time.time()
             self.trainer.fit(
                 self.model,
-                self.model.train_loader,
+                train_loader,
                 val_loader,
                 ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
@@ -2846,13 +2865,13 @@ class NeuralProphet:
                     **self.config_train.lr_finder_args,
                 )
                 assert lr_finder is not None
-                # Estimate the optimat learning rate from the loss curve
+                # Estimate the optimal learning rate from the loss curve
                 _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
                 self.model.learning_rate = lr_suggestion
             start = time.time()
             self.trainer.fit(
                 self.model,
-                self.model.train_loader,
+                train_loader,
                 ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
 

@@ -1,234 +1,110 @@
 import logging
 from collections import OrderedDict
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 import torch
+from numpy.lib.stride_tricks import sliding_window_view
 from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure, utils
 from neuralprophet.df_utils import get_max_num_lags
-from neuralprophet.hdays_utils import make_country_specific_holidays
+from neuralprophet.event_utils import get_all_holidays
 
 log = logging.getLogger("NP.time_dataset")
-
-
-class GlobalTimeDataset(Dataset):
-    def __init__(self, df, **kwargs):
-        """Initialize Timedataset from time-series df.
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
-                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
-            **kwargs : dict
-                Identical to :meth:`tabularize_univariate_datetime`
-        """
-        # # TODO (future): vectorize
-        timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
-        self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
-        self.length = sum(timedataset.length for timedataset in timedatasets)
-
-    def __len__(self):
-        return self.length
-
-    def __getitem__(self, idx):
-        return self.combined_timedataset[idx]
 
 
 class TimeDataset(Dataset):
     """Create a PyTorch dataset of a tabularized time-series"""
 
-    def __init__(self, df, name, **kwargs):
+    def __init__(
+        self,
+        df,
+        predict_mode,
+        n_lags,
+        n_forecasts,
+        prediction_frequency,
+        predict_steps,
+        config_seasonality,
+        config_events,
+        config_country_holidays,
+        config_regressors,
+        config_lagged_regressors,
+        config_missing,
+    ):
         """Initialize Timedataset from time-series df.
         Parameters
         ----------
             df : pd.DataFrame
                 Time series data
-            name : str
-                Name of time-series
-            **kwargs : dict
-                Identical to :meth:`tabularize_univariate_datetime`
         """
-        self.name = name
-        self.length = None
-        self.inputs = OrderedDict({})
-        self.targets = None
+        # Outcome after a call to init (summary):
+        # - add events and holidays columns to df
+        # - calculated the number of usable samples (accounting for nan and filters)
+        # - creates mapping of sample index to df index
+
+        # Context Notes
+        # Currently done to df before it arrives here:
+        # -> fit calls prep_or_copy_df, _check_dataframe, and _handle_missing_data, passes to _train
+        # -> _train calls prep_or_copy_df, then passes to init_train_loader, which returns the train_loader
+        # -> init_train_loader calls prep_or_copy_df, _normalize, _create_dataset (returns TimeDataset), returns dataset wrapped in DataLoader
+        # ->_create_dataset calls prep_or_copy_df, then returns GlobalTimeDataset
+        # Future TODO: integrate some of these preprocessing steps happening outside?
+
+        self.df = df.reset_index(drop=True)  # Needed for index based operations in __getitem__
+        if "index" in list(self.df.columns):  # should not be the case
+            self.df = self.df.drop("index", axis=1)
+        df_names = list(np.unique(df.loc[:, "ID"].values))
+        assert len(df_names) == 1
+        assert isinstance(df_names[0], str)
+        self.df_name = df_names[0]
+
         self.meta = OrderedDict({})
-        self.two_level_inputs = [
-            "seasonalities",
-            "covariates",
-            "events",
-            "regressors",
-        ]
-        inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
-        self.init_after_tabularized(inputs, targets)
-        self.filter_samples_after_init(kwargs["prediction_frequency"])
-        self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
+        self.meta["df_name"] = self.df_name
 
-    def drop_nan_after_init(self, df, predict_steps, drop_missing):
-        """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
-        Parameters
-        ----------
-            drop_missing : bool
-                whether to automatically drop missing samples from the data
-            predict_steps : int
-                number of steps to predict
-        """
-        nan_idx = []
-        # NaNs in inputs
-        for key, data in self.inputs.items():
-            if isinstance(data, torch.Tensor):
-                nans = torch.where(torch.isnan(data))[0].tolist()
-                if len(nans) > 0:
-                    nan_idx += nans
-            elif isinstance(data, dict):
-                for subkey, subdata in data.items():
-                    nans = torch.where(torch.isnan(subdata))[0].tolist()
-                    if len(nans) > 0:
-                        nan_idx += nans
+        self.predict_mode = predict_mode
+        self.n_lags = n_lags
+        self.n_forecasts = n_forecasts
+        self.prediction_frequency = prediction_frequency
+        self.predict_steps = predict_steps  # currently unused
+        self.config_seasonality = config_seasonality
+        self.config_events = config_events
+        self.config_country_holidays = config_country_holidays
+        self.config_regressors = config_regressors
+        self.config_lagged_regressors = config_lagged_regressors
+        self.config_missing = config_missing
 
-        # NaNs in targets that are not inserted for prediction at the end
-        nans = torch.where(torch.isnan(self.targets))[0].tolist()
-        if len(nans) > 0:
-            for idx in nans:
-                if idx not in nan_idx and idx < len(self) - predict_steps:
-                    nan_idx.append(idx)
+        self.max_lags = get_max_num_lags(n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors)
+        if self.max_lags == 0:
+            assert self.n_forecasts == 1
+        self.two_level_inputs = ["seasonalities", "covariates", "events", "regressors"]
 
-        nan_idx = list(set(nan_idx))
-        nan_idx.sort()
-        if drop_missing and len(nan_idx) > 0:
-            log.warning(f"{len(nan_idx)} samples with missing values were dropped from the data. ")
-            for key, data in self.inputs.items():
-                if key not in ["time", "lags"]:  # "time_lagged"
-                    for name, features in data.items():
-                        self.inputs[key][name] = np.delete(self.inputs[key][name], nan_idx, 0)
-                else:
-                    self.inputs[key] = np.delete(self.inputs[key], nan_idx, 0)
-            self.targets = np.delete(self.targets, nan_idx, 0)
-            self.length = self.inputs["time"].shape[0]
-        if not drop_missing and len(nan_idx) > 0:
-            raise ValueError(
-                "Inputs/targets with missing values detected. "
-                "Please either adjust imputation parameters, or set 'drop_missing' to True to drop those samples."
-            )
+        # Preprocessing of events and holidays features (added to self.df)
+        (
+            self.df,
+            self.additive_event_and_holiday_names,
+            self.multiplicative_event_and_holiday_names,
+        ) = add_event_features_to_df(
+            self.df,
+            self.config_events,
+            self.config_country_holidays,
+        )
+        # pre-sort additive/multiplicative regressors
+        self.additive_regressors_names, self.multiplicative_regressors_names = sort_regressor_names(
+            self.config_regressors
+        )
 
-    @staticmethod
-    def _split_nested_dict(inputs):
-        """Split nested dict into list of dicts.
-        Parameters
-        ----------
-            inputs : ordered dict
-                Nested dict to be split.
-        Returns
-        -------
-            list of dicts
-                List of dicts with same keys as inputs.
-        """
-
-        def split_dict(inputs, index):
-            return {k: v[index] if not isinstance(v, dict) else split_dict(v, index) for k, v in inputs.items()}
-
-        length = next(iter(inputs.values())).shape[0]
-        return [split_dict(inputs, i) for i in range(length)]
-
-    def init_after_tabularized(self, inputs, targets=None):
-        """Create Timedataset with data.
-        Parameters
-        ----------
-            inputs : ordered dict
-                Identical to returns from :meth:`tabularize_univariate_datetime`
-            targets : np.array, float
-                Identical to returns from :meth:`tabularize_univariate_datetime`
-        """
-        inputs_dtype = {
-            "time": torch.float,
-            "timestamps": np.datetime64,
-            "seasonalities": torch.float,
-            "events": torch.float,
-            "lags": torch.float,
-            "covariates": torch.float,
-            "regressors": torch.float,
-        }
-        targets_dtype = torch.float
-        self.length = inputs["time"].shape[0]
-
-        for key, data in inputs.items():
-            if key in self.two_level_inputs:
-                self.inputs[key] = OrderedDict({})
-                for name, features in data.items():
-                    if features.dtype != np.float32:
-                        features = features.astype(np.float32, copy=False)
-
-                    tensor = torch.from_numpy(features)
-
-                    if tensor.dtype != inputs_dtype[key]:
-                        self.inputs[key][name] = tensor.to(
-                            dtype=inputs_dtype[key]
-                        )  # this can probably be removed, but was included in the previous code
-                    else:
-                        self.inputs[key][name] = tensor
-            else:
-                if key == "timestamps":
-                    self.inputs[key] = data
-                else:
-                    self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
-        self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
-        self.meta["df_name"] = self.name
-        self.samples = self._split_nested_dict(self.inputs)
-
-    def filter_samples_after_init(
-        self,
-        prediction_frequency=None,
-    ):
-        """Filters samples from the dataset based on the forecast frequency.
-        Parameters
-        ----------
-            prediction_frequency : int
-                periodic interval in which forecasts should be made.
-            Note
-            ----
-            E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily
-            resolution).
-        """
-        if prediction_frequency is None or prediction_frequency == 1:
-            return
-        # Only the first target timestamp is of interest for filtering
-        timestamps = pd.to_datetime([sample["timestamps"][0] for sample in self.samples])
-        masks = []
-        for key, value in prediction_frequency.items():
-            if key == "daily-hour":
-                mask = timestamps.hour == value + 1  # because prediction starts one step after origin
-            elif key == "weekly-day":
-                mask = timestamps.dayofweek == value + 1
-            elif key == "monthly-day":
-                mask = timestamps.day == value + 1
-            elif key == "yearly-month":
-                mask = timestamps.month == value + 1
-            elif key == "hourly-minute":
-                mask = timestamps.minute == value + 1
-            else:
-                raise ValueError(f"Invalid prediction frequency: {key}")
-            masks.append(mask)
-        mask = np.ones((len(timestamps),), dtype=bool)
-        for m in masks:
-            mask = mask & m
-        self.samples = [self.samples[i] for i in range(len(self.samples)) if mask[i]]
-
-        # Exact timestamps are not needed anymore
-        self.inputs.pop("timestamps")
-        for sample in self.samples:
-            sample.pop("timestamps")
-        self.length = len(self.samples)
+        # Construct index map
+        self.sample2index_map, self.length = self.create_sample2index_map(self.df)
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
         Parameters
         ----------
             index : int
-                Sample location in dataset
+                Sample location in dataset, starting at 0, maximum at length-1
         Returns
         -------
         OrderedDict
@@ -249,52 +125,338 @@ class TimeDataset(Dataset):
                 each with features (np.array, float) of dims: (num_samples, n_lags)
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
+        OrderedDict
+            Meta information: static information about the local dataset
         """
-        sample = self.samples[index]
-        targets = self.targets[index]
-        meta = self.meta
-        return sample, targets, meta
+        # Convert dataset sample index to valid dataframe positional index
+        # - sample index is any index up to len(dataset)
+        # - dataframe positional index is given by position of first target in dataframe for given sample index
+        df_index = self.sample_index_to_df_index(index)
+
+        # Tabularize - extract features from dataframe at given target index position
+        inputs, target = tabularize_univariate_datetime_single_index(
+            df=self.df,
+            origin_index=df_index,
+            predict_mode=self.predict_mode,
+            n_lags=self.n_lags,
+            max_lags=self.max_lags,
+            n_forecasts=self.n_forecasts,
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
+            additive_event_and_holiday_names=self.additive_event_and_holiday_names,
+            multiplicative_event_and_holiday_names=self.multiplicative_event_and_holiday_names,
+            additive_regressors_names=self.additive_regressors_names,
+            multiplicative_regressors_names=self.multiplicative_regressors_names,
+        )
+        return inputs, target, self.meta
 
     def __len__(self):
         """Overrides Parent class method to get data length."""
         return self.length
 
+    def sample_index_to_df_index(self, sample_index):
+        """Translates a single outer sample to dataframe index"""
+        return self.sample2index_map[sample_index]
 
-def tabularize_univariate_datetime(
-    df,
-    predict_mode=False,
-    n_lags=0,
-    n_forecasts=1,
-    predict_steps=1,
-    config_seasonality: Optional[configure.ConfigSeasonality] = None,
-    config_events: Optional[configure.ConfigEvents] = None,
-    config_country_holidays=None,
-    config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
-    config_regressors: Optional[configure.ConfigFutureRegressors] = None,
-    config_missing=None,
-    prediction_frequency=None,
+    def create_sample2index_map(self, df):
+        """creates mapping of sample index to corresponding df index at prediction origin.
+        (prediction origin: last observation before forecast / future period starts).
+        return created mapping to sample2index_map and number of samples.
+        """
+
+        # Limit target range due to input lags and number of forecasts
+        df_length = len(df)
+        origin_start_end_mask = create_origin_start_end_mask(
+            df_length=df_length, max_lags=self.max_lags, n_forecasts=self.n_forecasts
+        )
+
+        # Prediction Frequency
+        # Filter missing samples and prediction frequency (does not actually drop, but creates indexmapping)
+        prediction_frequency_mask = create_prediction_frequency_filter_mask(df, self.prediction_frequency)
+
+        # Combine prediction origin masks
+        valid_prediction_mask = np.logical_and(prediction_frequency_mask, origin_start_end_mask)
+
+        # Create NAN-free index mapping of sample index to df index
+        nan_mask = create_nan_mask(
+            df=df,
+            predict_mode=self.predict_mode,
+            max_lags=self.max_lags,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_lagged_regressors=self.config_lagged_regressors,
+            future_regressor_names=self.additive_regressors_names + self.multiplicative_regressors_names,
+            event_names=self.additive_event_and_holiday_names + self.multiplicative_event_and_holiday_names,
+        )  # boolean array where NAN are False
+
+        # Filter NAN
+        valid_sample_mask = np.logical_and(valid_prediction_mask, nan_mask)
+        n_clean_data_samples = sum(valid_prediction_mask)
+        n_real_data_samples = sum(valid_sample_mask)
+        nan_samples_to_drop = n_clean_data_samples - n_real_data_samples
+        if nan_samples_to_drop > 0 and not self.config_missing.drop_missing:
+            raise ValueError(
+                f"NANs found. {nan_samples_to_drop} samples affected. Set `drop_missing` to `True` to drop these samples."
+            )
+
+        # Convert boolean valid_sample to list of the positinal index of all true/one entries
+        #   e.g. [0,0,1,1,0,1,0] -> [2,3,5]
+        index_range = np.arange(0, df_length)
+        sample_index_2_df_origin_index = index_range[valid_sample_mask]
+
+        num_samples = np.sum(valid_sample_mask)
+        assert len(sample_index_2_df_origin_index) == num_samples
+
+        return sample_index_2_df_origin_index, num_samples
+
+
+class GlobalTimeDataset(TimeDataset):
+    def __init__(
+        self,
+        df,
+        predict_mode,
+        n_lags,
+        n_forecasts,
+        prediction_frequency,
+        predict_steps,
+        config_seasonality,
+        config_events,
+        config_country_holidays,
+        config_regressors,
+        config_lagged_regressors,
+        config_missing,
+    ):
+        """Initialize Timedataset from time-series df.
+        Parameters
+        ----------
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
+                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
+
+        """
+        self.df_names = sorted(list(np.unique(df.loc[:, "ID"].values)))
+        self.datasets = OrderedDict({})
+        for df_name in self.df_names:
+            self.datasets[df_name] = TimeDataset(
+                df=df[df["ID"] == df_name],
+                predict_mode=predict_mode,
+                n_lags=n_lags,
+                n_forecasts=n_forecasts,
+                prediction_frequency=prediction_frequency,
+                predict_steps=predict_steps,
+                config_seasonality=config_seasonality,
+                config_events=config_events,
+                config_country_holidays=config_country_holidays,
+                config_regressors=config_regressors,
+                config_lagged_regressors=config_lagged_regressors,
+                config_missing=config_missing,
+            )
+        self.length = sum(dataset.length for (name, dataset) in self.datasets.items())
+        global_sample_to_local_ID = []
+        global_sample_to_local_sample = []
+        for name, dataset in self.datasets.items():
+            global_sample_to_local_ID.append(np.full(shape=dataset.length, fill_value=name))
+            global_sample_to_local_sample.append(np.arange(dataset.length))
+        self.global_sample_to_local_ID = np.concatenate(global_sample_to_local_ID)
+        self.global_sample_to_local_sample = np.concatenate(global_sample_to_local_sample)
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        """Overrides parent class method to get an item at index.
+        Parameters
+        ----------
+            index : int
+                Sample location in dataset, starting at 0
+        """
+        df_name = self.global_sample_to_local_ID[idx]
+        local_pos = self.global_sample_to_local_sample[idx]
+        return self.datasets[df_name].__getitem__(local_pos)
+
+
+def get_sample_targets(df, origin_index, n_forecasts, max_lags, predict_mode):
+    if predict_mode:
+        return torch.zeros((n_forecasts, 1), dtype=torch.float32)
+    else:
+        if n_forecasts == 1:
+            if max_lags == 0:
+                targets = df.at[origin_index, "y_scaled"]
+            if max_lags > 0:
+                targets = df.at[origin_index + 1, "y_scaled"]
+            targets = np.expand_dims(targets, 0)
+            targets = np.expand_dims(targets, 1)  # extra dimension at end for quantiles:median
+        else:
+            # Note: df.loc is inclusive of slice end, while df.iloc is not.
+            targets = df.loc[origin_index + 1 : origin_index + n_forecasts, "y_scaled"].values
+            targets = np.expand_dims(targets, 1)  # extra dimension at end for quantiles:median
+        return torch.as_tensor(targets, dtype=torch.float32)
+
+
+def get_sample_lagged_regressors(df, origin_index, config_lagged_regressors):
+    lagged_regressors = OrderedDict({})
+    # Future TODO: optimize this computation for many lagged_regressors
+    for name in df.columns:
+        if name in config_lagged_regressors:
+            covar_lags = config_lagged_regressors[name].n_lags
+            assert covar_lags > 0
+            # Note: df.loc is inclusive of slice end, while df.iloc is not.
+            lagged_regressors[name] = df.loc[origin_index - covar_lags + 1 : origin_index, name].values
+            lagged_regressors[name] = torch.as_tensor(lagged_regressors[name], dtype=torch.float32)
+    return lagged_regressors
+
+
+def get_sample_seasonalities(df, origin_index, n_forecasts, max_lags, n_lags, config_seasonality):
+    # TODO: precompute and save fourier features and only tabularize / slide windows when calling __getitem_
+    seasonalities = OrderedDict({})
+    if max_lags == 0:
+        dates = pd.Series(df.at[origin_index, "ds"])
+    else:
+        # Note: df.loc is inclusive of slice end, while df.iloc is not.
+        dates = pd.Series(df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "ds"].values)
+    # Seasonality features
+    for name, period in config_seasonality.periods.items():
+        if period.resolution > 0:
+            if config_seasonality.computation == "fourier":
+                # Compute Fourier series components with the specified frequency and order.
+                # convert to days since epoch
+                t = np.array((dates - datetime(1900, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
+                # features: Matrix with dims (length len(dates), 2*resolution)
+                features = np.column_stack(
+                    [np.sin(2.0 * (i + 1) * np.pi * t / period.period) for i in range(period.resolution)]
+                    + [np.cos(2.0 * (i + 1) * np.pi * t / period.period) for i in range(period.resolution)]
+                )
+            else:
+                raise NotImplementedError
+            if period.condition_name is not None:
+                # multiply seasonality features with condition mask/values
+                if max_lags == 0:
+                    condition_values = pd.Series(df.at[origin_index, period.condition_name]).values[:, np.newaxis]
+                else:
+                    condition_values = df.loc[
+                        origin_index - n_lags + 1 : origin_index + n_forecasts, period.condition_name
+                    ].values[:, np.newaxis]
+                features = features * condition_values
+            seasonalities[name] = torch.as_tensor(features, dtype=torch.float32)
+    return seasonalities
+
+
+def get_sample_future_regressors(
+    df, origin_index, n_forecasts, max_lags, n_lags, additive_regressors_names, multiplicative_regressors_names
 ):
-    """Create a tabular dataset from univariate timeseries for supervised forecasting.
+    regressors = OrderedDict({})
+    if max_lags == 0:
+        if len(additive_regressors_names) > 0:
+            features = df.loc[origin_index, additive_regressors_names].values
+            regressors["additive"] = torch.as_tensor(
+                np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
+            )
+        if len(multiplicative_regressors_names) > 0:
+            features = df.loc[origin_index, multiplicative_regressors_names].values
+            regressors["multiplicative"] = torch.as_tensor(
+                np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
+            )
+    else:
+        if len(additive_regressors_names) > 0:
+            features = df.loc[origin_index + 1 - n_lags : origin_index + n_forecasts, additive_regressors_names].values
+            regressors["additive"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
+        if len(multiplicative_regressors_names) > 0:
+            features = df.loc[
+                origin_index + 1 - n_lags : origin_index + n_forecasts, multiplicative_regressors_names
+            ].values
+            regressors["multiplicative"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
+    return regressors
+
+
+def get_sample_future_events(
+    df,
+    origin_index,
+    n_forecasts,
+    max_lags,
+    n_lags,
+    additive_event_and_holiday_names,
+    multiplicative_event_and_holiday_names,
+):
+    events = OrderedDict({})
+    if max_lags == 0:
+        # forecasts are at origin_index
+        if len(additive_event_and_holiday_names) > 0:
+            features = df.loc[origin_index, additive_event_and_holiday_names].values
+            events["additive"] = torch.as_tensor(
+                np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
+            )
+        if len(multiplicative_event_and_holiday_names) > 0:
+            features = df.loc[origin_index, multiplicative_event_and_holiday_names].values
+            events["multiplicative"] = torch.as_tensor(
+                np.expand_dims(np.array(features, dtype=np.float32), axis=0), dtype=torch.float32
+            )
+    else:
+        # forecasts are at origin_index + 1 up to origin_index + n_forecasts
+        if len(additive_event_and_holiday_names) > 0:
+            features = df.loc[
+                origin_index + 1 - n_lags : origin_index + n_forecasts, additive_event_and_holiday_names
+            ].values
+            events["additive"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
+
+        if len(multiplicative_event_and_holiday_names) > 0:
+            features = df.loc[
+                origin_index + 1 - n_lags : origin_index + n_forecasts, multiplicative_event_and_holiday_names
+            ].values
+            events["multiplicative"] = torch.as_tensor(np.array(features, dtype=np.float32), dtype=torch.float32)
+    return events
+
+
+def log_input_shapes(inputs):
+    tabularized_input_shapes_str = ""
+    for key, value in inputs.items():
+        if key in [
+            "seasonalities",
+            "covariates",
+            "events",
+            "regressors",
+        ]:
+            for name, period_features in value.items():
+                tabularized_input_shapes_str += f"    {name} {key} {period_features.shape}\n"
+        else:
+            tabularized_input_shapes_str += f"    {key} {value.shape} \n"
+    log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
+
+
+def tabularize_univariate_datetime_single_index(
+    df: pd.DataFrame,
+    origin_index: int,
+    predict_mode: bool = False,
+    n_lags: int = 0,
+    max_lags: int = 0,
+    n_forecasts: int = 1,
+    config_seasonality: Optional[configure.ConfigSeasonality] = None,
+    config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
+    additive_event_and_holiday_names: List[str] = [],
+    multiplicative_event_and_holiday_names: List[str] = [],
+    additive_regressors_names: List[str] = [],
+    multiplicative_regressors_names: List[str] = [],
+):
+    """Create a tabular data sample from timeseries dataframe, used for mini-batch creation.
     Note
     ----
-    Data must have no gaps.
-    If data contains missing values, they are ignored for the creation of the dataset.
-    Parameters
+    Data must have no gaps for sample extracted at given index position.
     ----------
         df : pd.DataFrame
             Sequence of observations with original ``ds``, ``y`` and normalized ``t``, ``y_scaled`` columns
-        config_seasonality : configure.ConfigSeasonality
-            Configuration for seasonalities
-        n_lags : int
-            Number of lagged values of series to include as model inputs (aka AR-order)
+        origin_index: int:
+            dataframe index position of last observed lag before forecast starts.
         n_forecasts : int
             Number of steps to forecast into future
+        n_lags : int
+            Number of lagged values of series to include as model inputs (aka AR-order)
+        config_seasonality : configure.ConfigSeasonality
+            Configuration for seasonalities
+        config_lagged_regressors : configure.ConfigLaggedRegressors
+            Configurations for lagged regressors
         config_events : configure.ConfigEvents
             User specified events, each with their upper, lower windows (int) and regularization
         config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
-        config_lagged_regressors : configure.ConfigLaggedRegressors
-            Configurations for lagged regressors
         config_regressors : configure.ConfigFutureRegressors
             Configuration for regressors
         predict_mode : bool
@@ -321,167 +483,85 @@ def tabularize_univariate_datetime(
                 * ``regressors`` (OrderedDict), regressors,
                 each with features (np.array, float) of dims: (num_samples, n_lags)
         np.array, float
-            Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
+            Targets to be predicted of same length as each of the model inputs, dims: (n_forecasts, 1)
     """
-    max_lags = get_max_num_lags(config_lagged_regressors, n_lags)
-    n_samples = len(df) - max_lags + 1 - n_forecasts
-    # data is stored in OrderedDict
+    # TODO: pre-process all type conversions (e.g. torch.float32) in __init__
+    # Note: if max_lags == 0, then n_forecasts == 1
+
+    # sample features are stored and returned in OrderedDict
     inputs = OrderedDict({})
 
-    def _stride_time_features_for_forecasts(x):
-        window_size = n_lags + n_forecasts
+    targets = get_sample_targets(
+        df=df, origin_index=origin_index, n_forecasts=n_forecasts, max_lags=max_lags, predict_mode=predict_mode
+    )
 
-        if x.ndim == 1:
-            shape = (n_samples, window_size)
-        else:
-            shape = (n_samples, window_size) + x.shape[1:]
+    # TIME: the time at each sample's lags and forecasts
+    if max_lags == 0:
+        t = df.at[origin_index, "t"]
+        inputs["time"] = torch.tensor(np.expand_dims(t, 0), dtype=torch.float32)
+    else:
+        # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
+        # Note: df.loc is inclusive of slice end, while df.iloc is not.
+        t = df.loc[origin_index - n_lags + 1 : origin_index + n_forecasts, "t"].values
+        inputs["time"] = torch.as_tensor(t, dtype=torch.float32)
 
-        stride = x.strides[0]
-        strides = (stride, stride) + x.strides[1:]
-        start_index = max_lags - n_lags
-        return np.lib.stride_tricks.as_strided(x[start_index:], shape=shape, strides=strides)
+    # LAGS: From y-series, extract preceeding n_lags steps up to and including origin_index
+    if n_lags >= 1 and "y_scaled" in df.columns:
+        # Note: df.loc is inclusive of slice end, while df.iloc is not.
+        lags = df.loc[origin_index - n_lags + 1 : origin_index, "y_scaled"].values
+        inputs["lags"] = torch.as_tensor(lags, dtype=torch.float32)
 
-    def _stride_future_time_features_for_forecasts(x):
-        return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=x.dtype)
-
-    def _stride_lagged_features(df_col_name, feature_dims):
-        # only for case where max_lags > 0
-        assert feature_dims >= 1
-        series = df.loc[:, df_col_name].values
-        # Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
-        return np.array(
-            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float32
+    # COVARIATES / LAGGED REGRESSORS: Lagged regressor inputs: analogous to LAGS
+    if config_lagged_regressors is not None:  # and max_lags > 0:
+        inputs["covariates"] = get_sample_lagged_regressors(
+            df=df, origin_index=origin_index, config_lagged_regressors=config_lagged_regressors
         )
 
-    def _stride_timestamps_for_forecasts(x):
-        # only for case where n_lags > 0
-        if x.dtype != np.float64:
-            dtype = np.datetime64
-        else:
-            dtype = np.float64
-        return np.array([x[i + max_lags : i + max_lags + n_forecasts] for i in range(n_samples)], dtype=dtype)
-
-    # time is the time at each forecast step
-    t = df.loc[:, "t"].values
-    if max_lags == 0:
-        assert n_forecasts == 1
-        time = np.expand_dims(t, 1)
-    else:
-        time = _stride_time_features_for_forecasts(t)
-    inputs["time"] = time  # contains n_lags + n_forecasts
-
-    if prediction_frequency is not None:
-        ds = df.loc[:, "ds"].values
-        if max_lags == 0:  # is it rather n_lags?
-            timestamps = np.expand_dims(ds, 1)
-        else:
-            timestamps = _stride_timestamps_for_forecasts(ds)
-        inputs["timestamps"] = timestamps
-
+    # SEASONALITIES_
     if config_seasonality is not None:
-        seasonalities = seasonal_features_from_dates(df, config_seasonality)
-        for name, features in seasonalities.items():
-            if max_lags == 0:
-                seasonalities[name] = np.expand_dims(features, axis=1)
-            else:
-                # stride into num_forecast at dim=1 for each sample, just like we did with time
-                seasonalities[name] = _stride_time_features_for_forecasts(features)
-        inputs["seasonalities"] = seasonalities
+        inputs["seasonalities"] = get_sample_seasonalities(
+            df=df,
+            origin_index=origin_index,
+            n_forecasts=n_forecasts,
+            max_lags=max_lags,
+            n_lags=n_lags,
+            config_seasonality=config_seasonality,
+        )
 
-    if n_lags > 0 and "y" in df.columns:
-        inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
+    # FUTURE REGRESSORS: get the future regressors features
+    # create numpy array of values of additive and multiplicative regressors, at correct indexes
+    # features dims: (n_forecasts, n_features)
+    any_future_regressors = 0 < len(additive_regressors_names + multiplicative_regressors_names)
+    if any_future_regressors:  # if config_regressors.regressors is not None:
+        inputs["regressors"] = get_sample_future_regressors(
+            df=df,
+            origin_index=origin_index,
+            n_forecasts=n_forecasts,
+            max_lags=max_lags,
+            n_lags=n_lags,
+            additive_regressors_names=additive_regressors_names,
+            multiplicative_regressors_names=multiplicative_regressors_names,
+        )
 
-    if config_lagged_regressors is not None and max_lags > 0:
-        covariates = OrderedDict({})
-        for covar in df.columns:
-            if covar in config_lagged_regressors:
-                assert config_lagged_regressors[covar].n_lags > 0
-                window = config_lagged_regressors[covar].n_lags
-                covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
-        inputs["covariates"] = covariates
+    # FUTURE EVENTS: get the events features
+    # create numpy array of values of additive and multiplicative events, at correct indexes
+    # features dims: (n_forecasts, n_features)
+    any_events = 0 < len(additive_event_and_holiday_names + multiplicative_event_and_holiday_names)
+    if any_events:
+        inputs["events"] = get_sample_future_events(
+            df=df,
+            origin_index=origin_index,
+            n_forecasts=n_forecasts,
+            max_lags=max_lags,
+            n_lags=n_lags,
+            additive_event_and_holiday_names=additive_event_and_holiday_names,
+            multiplicative_event_and_holiday_names=multiplicative_event_and_holiday_names,
+        )
 
-    # get the regressors features
-    if config_regressors is not None and config_regressors.regressors is not None:
-        additive_regressors, multiplicative_regressors = make_regressors_features(df, config_regressors)
-
-        regressors = OrderedDict({})
-        if max_lags == 0:
-            if additive_regressors is not None:
-                regressors["additive"] = np.expand_dims(additive_regressors, axis=1)
-            if multiplicative_regressors is not None:
-                regressors["multiplicative"] = np.expand_dims(multiplicative_regressors, axis=1)
-        else:
-            if additive_regressors is not None:
-                additive_regressor_feature_windows = []
-                # additive_regressor_feature_windows_lagged = []
-                for i in range(0, additive_regressors.shape[1]):
-                    # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    stride = _stride_time_features_for_forecasts(additive_regressors[:, i])
-                    additive_regressor_feature_windows.append(stride)
-                additive_regressors = np.dstack(additive_regressor_feature_windows)
-                regressors["additive"] = additive_regressors
-
-            if multiplicative_regressors is not None:
-                multiplicative_regressor_feature_windows = []
-                for i in range(0, multiplicative_regressors.shape[1]):
-                    stride = _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
-                    multiplicative_regressor_feature_windows.append(stride)
-                multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
-                regressors["multiplicative"] = multiplicative_regressors
-        inputs["regressors"] = regressors
-
-    # get the events features
-    if config_events is not None or config_country_holidays is not None:
-        additive_events, multiplicative_events = make_events_features(df, config_events, config_country_holidays)
-
-        events = OrderedDict({})
-        if max_lags == 0:
-            if additive_events is not None:
-                events["additive"] = np.expand_dims(additive_events, axis=1)
-            if multiplicative_events is not None:
-                events["multiplicative"] = np.expand_dims(multiplicative_events, axis=1)
-        else:
-            if additive_events is not None:
-                additive_event_feature_windows = []
-                for i in range(0, additive_events.shape[1]):
-                    # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    additive_event_feature_windows.append(_stride_time_features_for_forecasts(additive_events[:, i]))
-                additive_events = np.dstack(additive_event_feature_windows)
-                events["additive"] = additive_events
-
-            if multiplicative_events is not None:
-                multiplicative_event_feature_windows = []
-                # multiplicative_event_feature_windows_lagged = []
-                for i in range(0, multiplicative_events.shape[1]):
-                    # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    multiplicative_event_feature_windows.append(
-                        _stride_time_features_for_forecasts(multiplicative_events[:, i])
-                    )
-                multiplicative_events = np.dstack(multiplicative_event_feature_windows)
-                events["multiplicative"] = multiplicative_events
-        inputs["events"] = events
-
-    if predict_mode:
-        targets = np.empty_like(time[:, n_lags:])
-        targets = np.nan_to_num(targets)
-    else:
-        targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)
-
-    tabularized_input_shapes_str = ""
-    for key, value in inputs.items():
-        if key in [
-            "seasonalities",
-            "covariates",
-            "events",
-            "regressors",
-        ]:
-            for name, period_features in value.items():
-                tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
-        else:
-            tabularized_input_shapes_str += f"    {key} {value.shape} \n"
-    log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
-
-    return inputs, targets, config_missing.drop_missing
+    # ONLY FOR DEBUGGING
+    # if log.level == 0:
+    #     log_input_shapes(inputs)
+    return inputs, targets
 
 
 def fourier_series(dates, period, series_order):
@@ -492,7 +572,7 @@ def fourier_series(dates, period, series_order):
     Parameters
     ----------
         dates : pd.Series
-            Containing timestamps
+            Containing time stamps
         period : float
             Number of days of the period
         series_order : int
@@ -531,7 +611,7 @@ def fourier_series_t(t, period, series_order):
     return features
 
 
-def _create_event_offset_features(event, config, feature, additive_events, multiplicative_events):
+def get_event_offset_features(event, config, feature):
     """
     Create event offset features for the given event, config and feature
     Parameters
@@ -542,30 +622,28 @@ def _create_event_offset_features(event, config, feature, additive_events, multi
             User specified events, holidays, and country specific holidays
         feature : pd.Series
             Feature for the event
-        additive_events : pd.DataFrame
-            Dataframe of additive events
-        multiplicative_events : pd.DataFrame
-            Dataframe of multiplicative events
     Returns
     -------
         tuple
             Tuple of additive_events and multiplicative_events
     """
+    events = pd.DataFrame({})
     lw = config.lower_window
     uw = config.upper_window
-    mode = config.mode
     for offset in range(lw, uw + 1):
         key = utils.create_event_names_for_offsets(event, offset)
         offset_feature = feature.shift(periods=offset, fill_value=0.0)
-        if mode == "additive":
-            additive_events[key] = offset_feature
-        else:
-            multiplicative_events[key] = offset_feature
+        events[key] = offset_feature
+    return events
 
 
-def make_events_features(df, config_events: Optional[configure.ConfigEvents] = None, config_country_holidays=None):
+def add_event_features_to_df(
+    df,
+    config_events: Optional[configure.ConfigEvents] = None,
+    config_country_holidays: Optional[configure.ConfigCountryHolidays] = None,
+):
     """
-    Construct arrays of all event features
+    Construct columns containing the features of each event, added to df.
     Parameters
     ----------
         df : pd.DataFrame
@@ -581,114 +659,227 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
         np.array
             All multiplicative event features (both user specified and country specific)
     """
-    df = df.reset_index(drop=True)
-    additive_events = pd.DataFrame()
-    multiplicative_events = pd.DataFrame()
 
-    # create all user specified events
+    def normalize_holiday_name(name):
+        # Handle cases like "Independence Day (observed)" -> "Independence Day"
+        if "(observed)" in name:
+            return name.replace(" (observed)", "")
+        return name
+
+    # create all additional user specified offest events
+    additive_events_names = []
+    multiplicative_events_names = []
     if config_events is not None:
-        for event, configs in config_events.items():
+        for event in sorted(list(config_events.keys())):
             feature = df[event]
-            _create_event_offset_features(event, configs, feature, additive_events, multiplicative_events)
+            config = config_events[event]
+            mode = config.mode
+            for offset in range(config.lower_window, config.upper_window + 1):
+                event_offset_name = utils.create_event_names_for_offsets(event, offset)
+                df[event_offset_name] = feature.shift(periods=offset, fill_value=0.0)
+                if mode == "additive":
+                    additive_events_names.append(event_offset_name)
+                else:
+                    multiplicative_events_names.append(event_offset_name)
 
-    # create all country specific holidays
+    # create all country specific holidays and their offsets.
+    additive_holiday_names = []
+    multiplicative_holiday_names = []
     if config_country_holidays is not None:
         year_list = list({x.year for x in df.ds})
-        country_holidays_dict = make_country_specific_holidays(year_list, config_country_holidays.country)
+        country_holidays_dict = get_all_holidays(year_list, config_country_holidays.country)
+        config = config_country_holidays
+        mode = config.mode
         for holiday in config_country_holidays.holiday_names:
-            feature = pd.Series([0.0] * df.shape[0])
+            feature = pd.Series(np.zeros(df.shape[0], dtype=np.float32))
+            holiday = normalize_holiday_name(holiday)
             if holiday in country_holidays_dict.keys():
                 dates = country_holidays_dict[holiday]
                 feature[df.ds.isin(dates)] = 1.0
-            _create_event_offset_features(
-                holiday, config_country_holidays, feature, additive_events, multiplicative_events
-            )
+            else:
+                raise ValueError(f"Holiday {holiday} not found in {config_country_holidays.country} holidays")
+            for offset in range(config.lower_window, config.upper_window + 1):
+                holiday_offset_name = utils.create_event_names_for_offsets(holiday, offset)
+                df[holiday_offset_name] = feature.shift(periods=offset, fill_value=0.0)
+                if mode == "additive":
+                    additive_holiday_names.append(holiday_offset_name)
+                else:
+                    multiplicative_holiday_names.append(holiday_offset_name)
+    # Future TODO: possibly undo merge of events and holidays.
+    additive_event_and_holiday_names = sorted(additive_events_names + additive_holiday_names)
+    multiplicative_event_and_holiday_names = sorted(multiplicative_events_names + multiplicative_holiday_names)
+    return df, additive_event_and_holiday_names, multiplicative_event_and_holiday_names
 
-    # Make sure column order is consistent
-    if not additive_events.empty:
-        additive_events = additive_events[sorted(additive_events.columns.tolist())]
-        additive_events = additive_events.values
+
+def create_origin_start_end_mask(df_length, max_lags, n_forecasts):
+    """Creates a boolean mask for valid prediction origin positions.
+    (based on limiting input lags and forecast targets at start and end of df)"""
+    if max_lags >= 1:
+        start_pad = np.zeros(max_lags - 1, dtype=bool)
+        valid_targets = np.ones(df_length - max_lags - n_forecasts + 1, dtype=bool)
+        end_pad = np.zeros(n_forecasts, dtype=bool)
+        target_start_end_mask = np.concatenate((start_pad, valid_targets, end_pad), axis=None)
+    elif max_lags == 0 and n_forecasts == 1:
+        # without lags, forecast targets and origins are identical
+        target_start_end_mask = np.ones(df_length, dtype=bool)
     else:
-        additive_events = None
-    if not multiplicative_events.empty:
-        multiplicative_events = multiplicative_events[sorted(multiplicative_events.columns.tolist())]
-        multiplicative_events = multiplicative_events.values
-    else:
-        multiplicative_events = None
-
-    return additive_events, multiplicative_events
+        raise ValueError(f"max_lags value of {max_lags} not supported for n_forecasts {n_forecasts}.")
+    return target_start_end_mask
 
 
-def make_regressors_features(df, config_regressors):
-    """Construct arrays of all scalar regressor features
+def create_prediction_frequency_filter_mask(df: pd.DataFrame, prediction_frequency=None):
+    """Filters prediction origin index from df based on the forecast frequency setting.
+
+    Filter based on timestamp last lag before targets start
+
     Parameters
     ----------
-        df : pd.DataFrame
-            Dataframe with all values including the user specified regressors
-        config_regressors : configure.ConfigFutureRegressors
-            User specified regressors config
-    Returns
-    -------
-        np.array
-            All additive regressor features
-        np.array
-            All multiplicative regressor features
-    """
-    additive_regressors = pd.DataFrame()
-    multiplicative_regressors = pd.DataFrame()
+        prediction_frequency : int
+            periodic interval in which forecasts should be made.
+        Note
+        ----
+        E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily
+        resolution).
 
-    for reg in df.columns:
-        if reg in config_regressors.regressors:
-            mode = config_regressors.regressors[reg].mode
+    Returns boolean mask where prediction origin indexes to be included are True, and the rest False.
+    """
+    mask = np.ones((len(df),), dtype=bool)
+
+    # Basic case: no filter
+    if prediction_frequency is None:
+        return mask
+    else:
+        assert isinstance(prediction_frequency, dict)
+
+    timestamps = pd.to_datetime(df.loc[:, "ds"])
+    filter_masks = []
+    for key, value in prediction_frequency.items():
+        if key == "hourly-minute":
+            mask = timestamps.dt.minute == value
+        elif key == "daily-hour":
+            mask = timestamps.dt.hour == value
+        elif key == "weekly-day":
+            mask = timestamps.dt.dayofweek == value
+        elif key == "monthly-day":
+            mask = timestamps.dt.day == value
+        elif key == "yearly-month":
+            mask = timestamps.dt.month == value
+        else:
+            raise ValueError(f"Invalid prediction frequency: {key}")
+        filter_masks.append(mask)
+    for m in filter_masks:
+        mask = np.logical_and(mask, m)
+    return mask
+
+
+def create_nan_mask(
+    df,
+    predict_mode,
+    max_lags,
+    n_lags,
+    n_forecasts,
+    config_lagged_regressors,
+    future_regressor_names,
+    event_names,
+):
+    """Creates mask for each prediction origin,
+    accounting for corresponding input lags / forecast targets containing any NaN values.
+
+    """
+    valid_origins = np.ones(len(df), dtype=bool)
+    df_isna = df.isna()
+
+    # TARGETS
+    if predict_mode:
+        # Targets not needed
+        targets_valid = np.ones(len(df), dtype=bool)
+    else:
+        if max_lags == 0:  # y-series and origin index match
+            targets_valid = np.logical_not(df_isna["y_scaled"].values)
+        else:
+            if n_forecasts == 1:
+                targets_nan = df_isna["y_scaled"].values[1:]
+                targets_nan = np.pad(targets_nan, pad_width=(0, 1), mode="constant", constant_values=True)
+                targets_valid = np.logical_not(targets_nan)
+            else:  # This is also correct for n_forecasts == 1, but slower.
+                targets_nan = sliding_window_view(df_isna["y_scaled"], window_shape=n_forecasts, axis=0).any(axis=-1)
+                # first entry corresponds to origin_index -1, drop this.
+                targets_nan = targets_nan[1:]
+                # pad last n_forecasts as missing, as forecast origins will have missing forecast-targets there.
+                targets_nan = np.pad(targets_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
+                targets_valid = np.logical_not(targets_nan)
+    valid_origins = np.logical_and(valid_origins, targets_valid)
+
+    # AR LAGS
+    if n_lags > 0:
+        # boolean vector, starting at origin_index = n_lags -1
+        y_lags_nan = sliding_window_view(df_isna["y_scaled"], window_shape=n_lags, axis=0).any(axis=-1)
+        # fill first n_lags -1 positions with True
+        # as there are missing lags for the corresponding origin_indexes
+        y_lags_nan = np.pad(y_lags_nan, pad_width=(n_lags - 1, 0), mode="constant", constant_values=True)
+        y_lags_valid = np.logical_not(y_lags_nan)
+        valid_origins = np.logical_and(valid_origins, y_lags_valid)
+
+    # LAGGED REGRESSORS
+    if config_lagged_regressors is not None:  # and max_lags > 0:
+        reg_lags_valid = np.ones(len(df), dtype=bool)
+        for name in df.columns:
+            if name in config_lagged_regressors:
+                n_reg_lags = config_lagged_regressors[name].n_lags
+                if n_reg_lags > 0:
+                    # boolean vector, starting at origin_index = n_lags -1
+                    reg_lags_nan = sliding_window_view(df_isna[name], window_shape=n_reg_lags, axis=0).any(axis=-1)
+                    # fill first n_reg_lags -1 positions with True,
+                    # as there are missing lags for the corresponding origin_indexes
+                    reg_lags_nan = np.pad(
+                        reg_lags_nan, pad_width=(n_reg_lags - 1, 0), mode="constant", constant_values=True
+                    )
+                    reg_lags_valid_i = np.logical_not(reg_lags_nan)
+                    reg_lags_valid = np.logical_and(reg_lags_valid, reg_lags_valid_i)
+        valid_origins = np.logical_and(valid_origins, reg_lags_valid)
+
+    # TIME: TREND & SEASONALITY: the time at each sample's lags and forecasts
+    # FUTURE REGRESSORS
+    # # EVENTS
+    names = ["t"] + future_regressor_names + event_names
+    valid_columns = mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts)
+    valid_origins = np.logical_and(valid_origins, valid_columns)
+
+    return valid_origins
+
+
+def mask_origin_without_nan_for_columns(df_isna, names, max_lags, n_lags, n_forecasts):
+    # assert len(names) > 0
+    contains_nan = df_isna.loc[:, names]
+    # if len(contains_nan.shape) > 1:
+    #     assert len(contains_nan.shape) == 2
+    contains_nan = contains_nan.any(axis=1)
+    if max_lags > 0:
+        if n_lags == 0 and n_forecasts == 1:
+            contains_nan = contains_nan[1:]
+            contains_nan = np.pad(contains_nan, pad_width=(0, 1), mode="constant", constant_values=True)
+        else:
+            contains_nan = sliding_window_view(contains_nan, window_shape=n_lags + n_forecasts, axis=0).any(axis=-1)
+            # first sample is at origin_index = n_lags -1,
+            if n_lags == 0:  # first sample origin index is at -1
+                contains_nan = contains_nan[1:]
+            else:
+                contains_nan = np.pad(contains_nan, pad_width=(n_lags - 1, 0), mode="constant", constant_values=True)
+            # there are n_forecasts origin_indexes missing at end
+            contains_nan = np.pad(contains_nan, pad_width=(0, n_forecasts), mode="constant", constant_values=True)
+    valid_origins = np.logical_not(contains_nan)
+    return valid_origins
+
+
+def sort_regressor_names(config):
+    additive_regressors_names = []
+    multiplicative_regressors_names = []
+    if config is not None and config.regressors is not None:
+        # sort and divide regressors into multiplicative and additive
+        for reg in sorted(list(config.regressors.keys())):
+            mode = config.regressors[reg].mode
             if mode == "additive":
-                additive_regressors[reg] = df[reg]
+                additive_regressors_names.append(reg)
             else:
-                multiplicative_regressors[reg] = df[reg]
-
-    if not additive_regressors.empty:
-        additive_regressors = additive_regressors[sorted(additive_regressors.columns.tolist())]
-        additive_regressors = additive_regressors.values
-    else:
-        additive_regressors = None
-    if not multiplicative_regressors.empty:
-        multiplicative_regressors = multiplicative_regressors[sorted(multiplicative_regressors.columns.tolist())]
-        multiplicative_regressors = multiplicative_regressors.values
-    else:
-        multiplicative_regressors = None
-
-    return additive_regressors, multiplicative_regressors
-
-
-def seasonal_features_from_dates(df, config_seasonality: configure.ConfigSeasonality):
-    """Dataframe with seasonality features.
-    Includes seasonality features, holiday features, and added regressors.
-    Parameters
-    ----------
-        df : pd.DataFrame
-            Dataframe with all values
-        config_seasonality : configure.ConfigSeasonality
-            Configuration for seasonalities
-    Returns
-    -------
-        OrderedDict
-            Dictionary with keys for each period name containing an np.array
-            with the respective regression features. each with dims: (len(dates), 2*fourier_order)
-    """
-    dates = df["ds"]
-    assert len(dates.shape) == 1
-    seasonalities = OrderedDict({})
-    # Seasonality features
-    for name, period in config_seasonality.periods.items():
-        if period.resolution > 0:
-            if config_seasonality.computation == "fourier":
-                features = fourier_series(
-                    dates=dates,
-                    period=period.period,
-                    series_order=period.resolution,
-                )
-            else:
-                raise NotImplementedError
-            if period.condition_name is not None:
-                features = features * df[period.condition_name].values[:, np.newaxis]
-            seasonalities[name] = features
-    return seasonalities
+                multiplicative_regressors_names.append(reg)
+    return additive_regressors_names, multiplicative_regressors_names

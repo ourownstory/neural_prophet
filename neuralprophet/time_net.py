@@ -451,19 +451,21 @@ class TimeNet(pl.LightningModule):
                 Features (either additive or multiplicative) related to event component dims (batch, n_forecasts,
                 n_features)
             params : nn.Parameter
-                Params (either additive or multiplicative) related to events
+                Params (either additive or multiplicative) related to events dims (n_quantiles, n_features)
             indices : list of int
                 Indices in the feature tensors related to a particular event
         Returns
         -------
             torch.Tensor
-                Forecast component of dims (batch, n_forecasts)
+                Forecast component of dims (batch, n_forecasts, n_quantiles)
         """
         if indices is not None:
             features = features[:, :, indices]
             params = params[:, indices]
-
-        return torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
+        # features dims: (batch, n_forecasts, n_features)  -> (batch, n_forecasts, 1, n_features)
+        # params dims: (n_quantiles, n_features) -> (batch, 1, n_quantiles, n_features)
+        out = torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
+        return out  # dims (batch, n_forecasts, n_quantiles)
 
     def auto_regression(self, lags: Union[torch.Tensor, float]) -> torch.Tensor:
         """Computes auto-regessive model component AR-Net.
