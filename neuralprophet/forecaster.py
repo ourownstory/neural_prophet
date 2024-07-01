@@ -1051,6 +1051,10 @@ class NeuralProphet:
 
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
+
+        if continue_training and self.metrics_logger.checkpoint_path is None:
+            log.error("Continued training requires checkpointing in model.")
+
         self.max_lags = df_utils.get_max_num_lags(self.config_lagged_regressors, self.n_lags)
         if self.max_lags == 0 and self.n_forecasts > 1:
             self.n_forecasts = 1
@@ -2761,10 +2765,14 @@ class NeuralProphet:
             # Set continue_training flag in model to update scheduler correctly
             self.model.continue_training = True
 
+            previous_epoch = checkpoint["epoch"]
             # Adjust epochs
-            additional_epochs = 50
-            previous_epochs = self.config_train.epochs  # Get the number of epochs already trained
-            new_total_epochs = previous_epochs + additional_epochs
+            if self.config_train.epochs:
+                additional_epochs = self.config_train.epochs
+            else:
+                additional_epochs = previous_epoch
+            # Get the number of epochs already trained
+            new_total_epochs = previous_epoch + additional_epochs
             self.config_train.epochs = new_total_epochs
 
             # Reinitialize optimizer with loaded model parameters
