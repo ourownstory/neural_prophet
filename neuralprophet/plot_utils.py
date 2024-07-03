@@ -482,11 +482,15 @@ def get_valid_configuration(  # move to utils
                     }
                 )
             elif validator == "plot_parameters":
-                regressor_param = m.model.future_regressors.get_reg_weights(regressor)[quantile_index, :]
-                if configs.mode == "additive":
-                    additive_future_regressors.append((regressor, regressor_param.detach().numpy()))
-                elif configs.mode == "multiplicative":
-                    multiplicative_future_regressors.append((regressor, regressor_param.detach().numpy()))
+                future_regressor_coefficients = m.model.get_future_regressor_coefficients()
+                for _, row in future_regressor_coefficients.iterrows():
+                    regressor = row["regressor"]
+                    mode = row["regressor_mode"]
+                    coef = row["coef"]
+                    if mode == "additive":
+                        additive_future_regressors.append((regressor, coef))
+                    elif mode == "multiplicative":
+                        multiplicative_future_regressors.append((regressor, coef))
 
     # Plot  quantiles as a separate component, if present
     # If multiple steps in the future are predicted, only plot quantiles if highlight_forecast_step_n is set

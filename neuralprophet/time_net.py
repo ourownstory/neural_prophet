@@ -988,15 +988,6 @@ class TimeNet(pl.LightningModule):
     def train_dataloader(self):
         return self.train_loader
 
-    # Helper function to calculate the average weight
-    def calculate_average_weight(self, weight):
-        if weight.ndim == 2:
-            return weight.mean(axis=0).mean(axis=0)
-        elif weight.ndim == 1:
-            return weight.mean(axis=0)
-        else:
-            return weight
-
     def get_future_regressor_coefficients(self):
         """
         Retrieves the coefficients for future regressors and events.
@@ -1019,6 +1010,15 @@ class TimeNet(pl.LightningModule):
         >>> m.model.get_future_and_event_regressor_coefficients()
         """
         coefficients = []
+
+        # Helper function to calculate the average weight
+        def calculate_average_weight(weight):
+            if weight.ndim == 2:
+                return weight.mean(axis=0).mean(axis=0)
+            elif weight.ndim == 1:
+                return weight.mean(axis=0)
+            else:
+                return weight
 
         # Future Regressors
         if self.config_regressors is not None and self.config_regressors.regressors is not None:
@@ -1047,7 +1047,7 @@ class TimeNet(pl.LightningModule):
                                 layer.weight.data.cpu().numpy() for layer in layers if isinstance(layer, nn.Linear)
                             ]
                             coef = np.concatenate(weights, axis=None)
-                coef_avg = self.calculate_average_weight(coef)
+                coef_avg = calculate_average_weight(coef)
                 coefficients.append({"regressor": name, "regressor_mode": config.mode, "coef": coef_avg})
 
         return pd.DataFrame(coefficients)
