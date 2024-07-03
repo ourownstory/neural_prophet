@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 import torchmetrics
 
-from neuralprophet import configure, np_types
+from neuralprophet import configure, np_types, utils_torch
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
 from neuralprophet.utils import (
     check_for_regularization,
@@ -1056,10 +1056,6 @@ class TimeNet(pl.LightningModule):
         """
         Retrieves the coefficients for events and holidays.
 
-        Note: The average weight calculation is performed to get a single representative
-        value of the coefficient for a given regressor when there are multiple forecasts
-        or hidden layers.
-
         Returns
         -------
             pd.DataFrame: A DataFrame containing the following columns:
@@ -1077,27 +1073,14 @@ class TimeNet(pl.LightningModule):
         coefficients = []
 
         if self.events_dims is not None:
-            additive_idx = 0
-            multiplicative_idx = 0
-
             for event, configs in self.events_dims.items():
                 mode = configs["mode"]
-                num_params = len(configs["event_indices"])
+                event_weights = self.get_event_weights(event)
+                all_weights = []
+                for key, param in event_weights.items():
+                    all_weights.extend(param.detach().numpy())
 
-                if mode == "additive" and "additive" in self.event_params:
-                    coef = self.event_params["additive"].data.cpu().numpy()[:, additive_idx : additive_idx + num_params]
-                    additive_idx += num_params
-                elif mode == "multiplicative" and "multiplicative" in self.event_params:
-                    coef = (
-                        self.event_params["multiplicative"]
-                        .data.cpu()
-                        .numpy()[:, multiplicative_idx : multiplicative_idx + num_params]
-                    )
-                    multiplicative_idx += num_params
-                else:
-                    continue
-
-                coef_avg = self.calculate_average_weight(coef)
+                coef_avg = np.mean(all_weights)
 
                 # Determine if it's a holiday or an event
                 if self.config_holidays and event in self.config_holidays.holiday_names:
@@ -1113,7 +1096,7 @@ class TimeNet(pl.LightningModule):
 
     def get_ar_coefficients(self):
         """
-        Retrieves the coefficients for the autoregressive (AR) components.
+        Retrieves the coefficients for the autoregressive (AR) components. In case of hidden layers the coefficients only provide a rough approximation of the importance as they only consider the first layer.
 
         Returns
         -------
@@ -1131,20 +1114,18 @@ class TimeNet(pl.LightningModule):
         coefficients = []
 
         if self.config_ar is not None and hasattr(self, "ar_net"):
-            first_ar_layer = self.ar_net[0]
-            if isinstance(first_ar_layer, nn.Linear):
-                weights = first_ar_layer.weight.data.cpu().numpy()
+            ar_weights = utils_torch.interprete_model(self, net="ar_net", forward_func="auto_regression")
+            ar_weights_np = ar_weights.detach().cpu().numpy()
+            mean_weights = ar_weights_np.mean(axis=0)
 
-                mean_weights = weights.mean(axis=0)
-
-                for lag, coef in enumerate(mean_weights):
-                    coefficients.append({"regressor": "AR", "lag": lag + 1, "coef": coef})
+            for lag, coef in enumerate(mean_weights):
+                coefficients.append({"regressor": "AR", "lag": lag + 1, "coef": coef})
 
         return pd.DataFrame(coefficients)
 
     def get_lagged_regressor_coefficients(self):
         """
-        Retrieves coefficients of lagged regressors, mapped to their corresponding lags. In case of hidden layers the coefficients only provide a rough approximation of the importance as they only consider the first layer.
+        Retrieves coefficients of lagged regressors, mapped to their corresponding lags.
 
         Returns
         -------
@@ -1160,28 +1141,17 @@ class TimeNet(pl.LightningModule):
         >>> m.model.get_lagged_regressor_coefficients()
         """
         coefficients = []
-
         if self.config_lagged_regressors is not None:
-            # Determine the split points for different lagged regressors
-            covar_splits = np.cumsum([config.n_lags for config in list(self.config_lagged_regressors.values())[:-1]])
+            covar_weights = self.get_covar_weights()
 
-            # Use the weights from the first layer as they can be mapped directly to the lagged regressors
-            first_layer_weights = self.covar_net[0].weight.data.cpu().numpy()
-            feature_weights = first_layer_weights.T
-            mean_weights = feature_weights.mean(axis=1)
+            for regressor_name, weight_tensor in covar_weights.items():
+                if weight_tensor.requires_grad:
+                    weight_tensor = weight_tensor.detach()
+                weights = weight_tensor.cpu().numpy().mean(axis=0)
 
-            print(mean_weights)
-
-            if len(self.config_lagged_regressors) > 1:
-                # Split weights for different regressors
-                weight_split = np.split(mean_weights, covar_splits)
-                for (name, config), weights in zip(self.config_lagged_regressors.items(), weight_split):
-                    for lag in range(config.n_lags):
-                        coefficients.append({"regressor": name, "lag": lag + 1, "coef": weights[lag]})
-            else:
-                name, config = list(self.config_lagged_regressors.items())[0]
+                config = self.config_lagged_regressors[regressor_name]
                 for lag in range(config.n_lags):
-                    coefficients.append({"regressor": name, "lag": lag + 1, "coef": mean_weights[lag]})
+                    coefficients.append({"regressor": regressor_name, "lag": lag + 1, "coef": weights[lag]})
 
         return pd.DataFrame(coefficients)
 
