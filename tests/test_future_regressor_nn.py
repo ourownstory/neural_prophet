@@ -181,7 +181,6 @@ def test_future_regressor_nn_shared_2():
 # def test_future_regressor_nn_shared_coef_2():
 #     log.info("future regressor with NN shared coef 2")
 #     df = pd.read_csv(ENERGY_TEMP_DAILY_FILE, nrows=NROWS)
-
 #     m = NeuralProphet(
 # epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR,
 #         yearly_seasonality=False,

@@ -4,14 +4,15 @@ import logging
 import os
 import pathlib
 
+import matplotlib
 import pandas as pd
 import pytest
 
 from neuralprophet import NeuralProphet
 
 log = logging.getLogger("NP.test")
-log.setLevel("DEBUG")
-log.parent.setLevel("WARNING")
+log.setLevel("ERROR")
+log.parent.setLevel("ERROR")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
@@ -72,6 +73,7 @@ def test_plot(plotting_backend):
         fig6.show()
         fig7.show()
         fig8.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -114,6 +116,7 @@ def test_plot_components(plotting_backend):
         fig2.show()
         fig3.show()
         fig4.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -154,6 +157,7 @@ def test_plot_parameters(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -222,6 +226,7 @@ def test_plot_global_local_parameters(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -271,11 +276,7 @@ def test_plot_events(plotting_backend):
         ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
     )
     # add the country specific holidays
-    m = m.add_country_holidays("US", mode="multiplicative", regularization=0.5)
-    m.add_country_holidays("Indonesia")
-    m.add_country_holidays("Philippines")
-    m.add_country_holidays("Pakistan")
-    m.add_country_holidays("Belarus")
+    m = m.add_country_holidays(["US", "Indonesia", "Philippines", "Pakistan", "Belarus"], mode="multiplicative")
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
@@ -290,6 +291,7 @@ def test_plot_events(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -337,11 +339,7 @@ def test_plot_events_additive(plotting_backend):
     # set event windows
     m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive", regularization=0.5)
     # add the country specific holidays
-    m = m.add_country_holidays("US", mode="additive", regularization=0.5)
-    m.add_country_holidays("Indonesia")
-    m.add_country_holidays("Philippines")
-    m.add_country_holidays("Pakistan")
-    m.add_country_holidays("Belarus")
+    m = m.add_country_holidays(["US", "Canada", "MEX"], mode="additive", regularization=0.5)
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
@@ -356,6 +354,7 @@ def test_plot_events_additive(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -394,6 +393,7 @@ def test_plot_events_components(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -419,6 +419,7 @@ def test_plot_trend(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -490,6 +491,7 @@ def test_plot_seasonality(plotting_backend):
         fig4.show()
         fig5.show()
         fig6.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -519,6 +521,7 @@ def test_plot_daily_seasonality(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -556,6 +559,7 @@ def test_plot_lag_reg(plotting_backend):
         fig2.show()
         fig3.show()
         fig4.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -585,6 +589,7 @@ def test_plot_future_reg(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -643,6 +648,7 @@ def test_plot_uncertainty(plotting_backend):
         fig5.show()
         fig6.show()
         fig7.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -706,6 +712,7 @@ def test_plot_conformal_prediction(plotting_backend):
             fig3.show()
             fig4.show()
             fig5.show()
+    matplotlib.pyplot.close("all")
 
 
 def test_advanced_conformal_prediction_plots():
@@ -734,6 +741,7 @@ def test_advanced_conformal_prediction_plots():
         fig0 = m.conformal_plot(forecast)
         if PLOT:
             fig0.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -763,6 +771,7 @@ def test_plot_conformal_prediction_asymmetric(plotting_backend):
         fig0.show()
         fig1.show()
         fig2.show()
+    matplotlib.pyplot.close("all")
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -791,6 +800,7 @@ def test_plot_latest_forecast(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+    matplotlib.pyplot.close("all")
 
 
 def test_plotting_backend_options():
@@ -842,3 +852,4 @@ def test_plotting_backend_options():
         fig10.show()
         fig11.show()
         fig12.show()
+    matplotlib.pyplot.close("all")

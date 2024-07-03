@@ -88,15 +88,15 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
     return new_df
 
 
-def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors], n_lags: int) -> int:
+def get_max_num_lags(n_lags: int, config_lagged_regressors: Optional[ConfigLaggedRegressors]) -> int:
     """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
     ----------
-        config_lagged_regressors : configure.ConfigLaggedRegressors
-            Configurations for lagged regressors
         n_lags : int
             number of lagged values of series to include as model inputs
+        config_lagged_regressors : configure.ConfigLaggedRegressors
+            Configurations for lagged regressors
 
     Returns
     -------
@@ -104,12 +104,11 @@ def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors],
             Maximum number of lags between the autoregression lags and the covariates lags.
     """
     if config_lagged_regressors is not None:
-        log.debug("config_lagged_regressors exists")
-        max_n_lags = max([n_lags] + [val.n_lags for key, val in config_lagged_regressors.items()])
+        # log.debug("config_lagged_regressors exists")
+        return max([n_lags] + [val.n_lags for key, val in config_lagged_regressors.items()])
     else:
-        log.debug("config_lagged_regressors does not exist")
-        max_n_lags = n_lags
-    return max_n_lags
+        # log.debug("config_lagged_regressors does not exist")
+        return n_lags
 
 
 def merge_dataframes(df: pd.DataFrame) -> pd.DataFrame:
@@ -508,14 +507,12 @@ def check_dataframe(
     for name in columns:
         if name not in df:
             raise ValueError(f"Column {name!r} missing from dataframe")
-        if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
+        if sum(df.loc[:, name].notnull().values) < 1:
             raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
         if not np.issubdtype(df[name].dtype, np.number):
             df[name] = pd.to_numeric(df[name])
         if np.isinf(df.loc[:, name].values).any():
             df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
-        if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
-            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
 
     if future:
         return df, regressors_to_remove, lag_regressors_to_remove
@@ -1541,10 +1538,10 @@ def drop_missing_from_df(df, drop_missing, predict_steps, n_lags):
                 if all_nan_idx[i + 1] - all_nan_idx[i] > 1:
                     break
             # drop NaN window
-            df = df.drop(df.index[window[0] : window[-1] + 1]).reset_index().drop("index", axis=1)
+            df = df.drop(df.index[window[0] : window[-1] + 1]).reset_index(drop=True)
             # drop lagged values if window does not occur at the beginning of df
             if window[0] - (n_lags - 1) >= 0:
-                df = df.drop(df.index[(window[0] - (n_lags - 1)) : window[0]]).reset_index().drop("index", axis=1)
+                df = df.drop(df.index[(window[0] - (n_lags - 1)) : window[0]]).reset_index(drop=True)
     return df
 
 
