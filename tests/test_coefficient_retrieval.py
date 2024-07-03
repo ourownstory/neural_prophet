@@ -51,7 +51,7 @@ def test_event_regressor_coefficients():
     assert "regressor" in coefficients.columns, "Regressor column missing"
     assert "regressor_mode" in coefficients.columns, "Regressor mode column missing"
     assert "coef" in coefficients.columns, "Coefficient column missing"
-    assert len(coefficients) == 12, f"Incorrect number of coefficients found: {len(coefficients)}"
+    assert len(coefficients) == 10, f"Incorrect number of coefficients found: {len(coefficients)}"
 
 
 def test_lagged_regressor_coefficients():

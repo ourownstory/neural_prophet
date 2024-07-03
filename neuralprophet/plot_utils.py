@@ -324,8 +324,6 @@ def get_valid_configuration(  # move to utils
     # Identify components to be plotted
     # as dict, minimum: {plot_name}
     plot_components = []
-    if validator == "plot_parameters":
-        quantile_index = m.model.quantiles.index(quantile)
 
     # Plot trend
     if "trend" in components:
