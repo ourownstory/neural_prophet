@@ -470,4 +470,4 @@ def measure_times():
     compare.print()
 
 
-# measure_times()
+measure_times()

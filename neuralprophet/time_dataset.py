@@ -98,8 +98,10 @@ class TimeDataset(Dataset):
 
         # self.tensor_data = torch.tensor(df.values, dtype=torch.float32
         self.df["ds"] = self.df["ds"].astype(int) // 10**9  # Convert to Unix timestamp in seconds
+        # skipping col "ID" is string type that is interpreted as object by torch (self.df[col].dtype == "O")
+        # "ID" is stored in self.meta["df_name"]
         self.tensor_dict = {
-            col: torch.tensor(self.df[col].values, dtype=torch.float32) for col in self.df if self.df[col].dtype != "O"
+            col: torch.tensor(self.df[col].values, dtype=torch.float32) for col in self.df if col != "ID"
         }
 
         # Construct index map
