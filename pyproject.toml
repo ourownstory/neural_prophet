@@ -6,11 +6,11 @@ authors = ["Oskar Triebe <triebe@stanford.edu>"]
 license = "MIT"
 readme = "README.md"
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Natural Language :: English",
-    "Operating System :: OS Independent",
-    "Operating System :: POSIX :: Linux",
-    "Operating System :: MacOS :: MacOS X",
+  "Development Status :: 4 - Beta",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS :: MacOS X",
 ]
 
 [tool.poetry.urls]
@@ -29,12 +29,17 @@ torchmetrics = ">=1.0.0"
 typing-extensions = ">=4.5.0"
 holidays = ">=0.41,<1.0"
 captum = ">=0.6.0"
+lightning-fabric = ">=2.0.0"
+
+[tool.poetry.group.plotting]
+optional = false
+
+[tool.poetry.group.plotting.dependencies]
 matplotlib = ">=3.5.3"
 plotly = ">=5.13.1"
-kaleido = "0.2.1" # required for plotly static image export
+kaleido = "0.2.1"                                           # required for plotly static image export
 plotly-resampler = { version = ">=0.9.2", optional = true }
 livelossplot = { version = ">=0.5.5", optional = true }
-lightning-fabric = ">=2.0.0"
 
 [tool.poetry.extras]
 plotly-resampler = ["plotly-resampler"]
@@ -47,7 +52,7 @@ nbformat = ">=5.8.0"
 [tool.poetry.group.pytest] # pytest dev setup and CI
 optional = true
 
-[tool.poetry.group.pytest.dependencies] 
+[tool.poetry.group.pytest.dependencies]
 pytest = "^8.0.0"
 pytest-xdist = "^3.1.0"
 pytest-cov = "^4.1.0"
@@ -114,12 +119,8 @@ profile = "black"
 line_length = 120
 
 [tool.pyright]
-include = [
-    "neuralprophet/**/*.py"
-]
-exclude = [
-    "neuralprophet/**/*plot*.py"
-]
+include = ["neuralprophet/**/*.py"]
+exclude = ["neuralprophet/**/*plot*.py"]
 
 [tool.ruff]
 line-length = 120
