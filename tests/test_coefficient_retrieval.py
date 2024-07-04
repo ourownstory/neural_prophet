@@ -26,7 +26,6 @@ def test_future_regressor_coefficients_nn():
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, future_regressors_model="neural_nets")
     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     df["B"] = df["y"].rolling(30, min_periods=1).mean()
-    regressors_df_future = pd.DataFrame(data={"A": df["A"][-50:], "B": df["B"][-50:]})
     df = df[:-50]
     m = m.add_future_regressor(name="A")
     m = m.add_future_regressor(name="B", mode="additive")
@@ -36,7 +35,12 @@ def test_future_regressor_coefficients_nn():
     assert not coefficients.empty, "No coefficients found"
     assert "regressor" in coefficients.columns, "Regressor column missing"
     assert "regressor_mode" in coefficients.columns, "Regressor mode column missing"
-    assert "coef" in coefficients.columns, "Coefficient column missing"
+    assert "A" in coefficients["regressor"].values, "Regressor A not found"
+    assert "B" in coefficients["regressor"].values, "Regressor B not found"
+    a_mode = coefficients[coefficients["regressor"] == "A"]["regressor_mode"].values[0]
+    b_mode = coefficients[coefficients["regressor"] == "B"]["regressor_mode"].values[0]
+    assert a_mode == "additive", f"Unexpected mode for regressor A: {a_mode}"
+    assert b_mode == "additive", f"Unexpected mode for regressor B: {b_mode}"
 
 
 def test_event_regressor_coefficients():
