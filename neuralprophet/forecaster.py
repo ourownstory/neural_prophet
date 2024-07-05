@@ -979,7 +979,12 @@ class NeuralProphet:
                 metrics with training and potentially evaluation metrics
         """
         if self.fitted and not continue_training:
-            raise RuntimeError("Model has been fitted already. Please initialize a new model to fit again.")
+            raise RuntimeError(
+                "Model has been fitted already. If you want to continue training please set the flag continue_training."
+            )
+
+        if continue_training and epochs is None:
+            raise ValueError("Continued training requires setting the number of epochs to train for.")
 
         # Configuration
         if epochs is not None:
@@ -1065,11 +1070,8 @@ class NeuralProphet:
             or any(value != 1 for value in self.num_seasonalities_modelled_dict.values())
         )
 
-        if self.fitted is True and not continue_training:
-            log.error("Model has already been fitted. Re-fitting may break or produce different results.")
-
         if continue_training and self.metrics_logger.checkpoint_path is None:
-            log.error("Continued training requires checkpointing in model.")
+            log.error("Continued training requires checkpointing in model to continue from last epoch.")
 
         self.max_lags = df_utils.get_max_num_lags(
             n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors
@@ -2777,33 +2779,14 @@ class NeuralProphet:
 
         # Load model and optimizer state from checkpoint if continue_training is True
         if continue_training:
-            checkpoint_path = self.metrics_logger.checkpoint_path
-            checkpoint = torch.load(checkpoint_path)
-
-            # Load model state
-            self.model.load_state_dict(checkpoint["state_dict"])
+            previous_epoch = self.model.current_epoch
 
             # Set continue_training flag in model to update scheduler correctly
             self.model.continue_training = True
 
-            previous_epoch = checkpoint["epoch"]
             # Adjust epochs
-            if self.config_train.epochs:
-                additional_epochs = self.config_train.epochs
-            else:
-                additional_epochs = previous_epoch
-            # Get the number of epochs already trained
-            new_total_epochs = previous_epoch + additional_epochs
+            new_total_epochs = previous_epoch + self.config_train.epochs
             self.config_train.epochs = new_total_epochs
-
-            # Reinitialize optimizer with loaded model parameters
-            optimizer = torch.optim.AdamW(self.model.parameters())
-
-            # Load optimizer state
-            if "optimizer_states" in checkpoint and checkpoint["optimizer_states"]:
-                optimizer.load_state_dict(checkpoint["optimizer_states"][0])
-
-            self.config_train.optimizer = optimizer
 
         else:
             self.model = self._init_model()
