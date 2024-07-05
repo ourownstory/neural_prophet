@@ -277,6 +277,8 @@ class Conformal:
             else:
                 fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resampler_active=False)
             fig.show()
+        elif plotting_backend == "no-backend-installed":
+            return None
         else:
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
