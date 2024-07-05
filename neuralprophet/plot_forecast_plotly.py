@@ -2,8 +2,18 @@ import logging
 
 import numpy as np
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objs as go
+import warnings
+
+try:
+    import plotly.express as px
+    import plotly.graph_objs as go
+
+    plotly_installed = True
+except ImportError:
+    from neuralprophet.plot_utils import show_import_error_warning
+
+    plotly_installed = False
+    show_import_error_warning("plotly")
 
 from neuralprophet.plot_model_parameters_plotly import get_dynamic_axis_range
 from neuralprophet.plot_utils import set_y_as_percent
@@ -19,30 +29,31 @@ except ImportError:
     plotly_resampler_installed = False
     log.error("Importing plotly failed. Interactive plots will not work.")
 
-# UI Configuration
-prediction_color = "#2d92ff"
-actual_color = "black"
-trend_color = "#B23B00"
-line_width = 2
-marker_size = 4
-xaxis_args = {
-    "showline": True,
-    "mirror": True,
-    "linewidth": 1.5,
-}
-yaxis_args = {
-    "showline": True,
-    "mirror": True,
-    "linewidth": 1.5,
-}
-layout_args = {
-    "autosize": True,
-    "template": "plotly_white",
-    "margin": go.layout.Margin(l=0, r=10, b=0, t=10, pad=0),
-    "font": dict(size=10),
-    "title": dict(font=dict(size=12)),
-    "hovermode": "x unified",
-}
+if plotly_installed:
+    # UI Configuration
+    prediction_color = "#2d92ff"
+    actual_color = "black"
+    trend_color = "#B23B00"
+    line_width = 2
+    marker_size = 4
+    xaxis_args = {
+        "showline": True,
+        "mirror": True,
+        "linewidth": 1.5,
+    }
+    yaxis_args = {
+        "showline": True,
+        "mirror": True,
+        "linewidth": 1.5,
+    }
+    layout_args = {
+        "autosize": True,
+        "template": "plotly_white",
+        "margin": go.layout.Margin(l=0, r=10, b=0, t=10, pad=0),
+        "font": dict(size=10),
+        "title": dict(font=dict(size=12)),
+        "hovermode": "x unified",
+    }
 
 
 def plot(
@@ -91,6 +102,11 @@ def plot(
             unregister_plotly_resampler()
     if resampler_active and not plotly_resampler_installed:
         log.error("plotly-resampler is not installed. Please install it to use the resampler.")
+
+    if not plotly_installed:
+        warnings.warn("Plotly is not installed. Please install plotly to use this function. [Should not be shown!]")
+        log.error("Plotly is not installed. Please install plotly to use this function.")
+        return None
 
     cross_marker_color = "blue"
     cross_symbol = "x"

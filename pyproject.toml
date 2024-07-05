@@ -30,16 +30,16 @@ typing-extensions = ">=4.5.0"
 holidays = ">=0.41,<1.0"
 captum = ">=0.6.0"
 lightning-fabric = ">=2.0.0"
+plotly-resampler = { version = ">=0.9.2", optional = true }
+livelossplot = { version = ">=0.5.5", optional = true }
+matplotlib = ">=3.5.3"
 
 [tool.poetry.group.plotting]
 optional = false
 
 [tool.poetry.group.plotting.dependencies]
-matplotlib = ">=3.5.3"
 plotly = ">=5.13.1"
-kaleido = "0.2.1"                                           # required for plotly static image export
-plotly-resampler = { version = ">=0.9.2", optional = true }
-livelossplot = { version = ">=0.5.5", optional = true }
+kaleido = "0.2.1"   # required for plotly static image export
 
 [tool.poetry.extras]
 plotly-resampler = ["plotly-resampler"]

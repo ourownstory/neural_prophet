@@ -581,7 +581,10 @@ def validate_current_env_for_resampler(auto: bool = False) -> Optional[bool]:
         the code and the function did not switch to a valid environment.
     """
 
-    from IPython import get_ipython
+    try:
+        from IPython import get_ipython
+    except ImportError:
+        return None
 
     if "google.colab" in str(get_ipython()):
         if auto:
@@ -627,6 +630,7 @@ def is_notebook():
 def select_plotting_backend(model, plotting_backend):
     """Automatically selects the plotting backend based on the global plotting_backend and plotting_backend set by the
     user. If the plotting backend is selected as "plotly-resampler", triggers warning message.
+        If the plotting backend is not installed, triggers warning message and returns "no-backend-installed".
 
     Parameters
     ----------
@@ -652,4 +656,48 @@ def select_plotting_backend(model, plotting_backend):
                 plotting_backend = "plotly"
         elif plotting_backend == "plotly-resampler":
             validate_current_env_for_resampler()
-    return plotting_backend.lower()
+    return validate_plotting_backend_installed(
+        plotting_backend.lower()
+    )  # in case plotting backend is not installed, return None
+
+
+def show_import_error_warning(module_name: str):
+    """
+    Raise a warning if a module is not installed.
+
+    Parameters
+    ----------
+    module_name: str
+        The name of the module that is not installed.
+    """
+    logging.warning(f"{module_name} not installed. Plotting will not work.")
+    warnings.warn(
+        f"{module_name} not installed. Plotting will not work."
+        "This might be due to you running with poetry in minimal mode."
+        "Use `poety install --with plotting` to install."
+    )
+
+
+def validate_plotting_backend_installed(plotting_backend: str):
+    """
+    Validate if the plotting backend is installed.
+
+    Parameters
+    ----------
+    plotting_backend: str
+        The plotting backend to validate.
+    """
+    if plotting_backend.startswith("plotly"):
+        try:
+            import plotly.graph_objects as go
+        except ImportError:
+            show_import_error_warning("plotly")
+        return "no-backend-installed"
+    elif plotting_backend == "matplotlib":
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            show_import_error_warning("matplotlib")
+        return "no-backend-installed"
+    else:
+        return plotting_backend

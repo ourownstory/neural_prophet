@@ -10,7 +10,14 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import torch
-from plotly.subplots import make_subplots
+from neuralprophet.plot_utils import show_import_error_warning
+
+try:
+    from plotly.subplots import make_subplots
+
+    plotly_installed = True
+except ImportError:
+    plotly_installed = False
 
 from neuralprophet import NeuralProphet, set_random_seed
 
@@ -65,6 +72,9 @@ def create_metrics_plot(metrics):
     # Deactivate the resampler since it is not compatible with kaleido (image export)
     if plotly_resampler_installed:
         unregister_plotly_resampler()
+    if not plotly_installed:
+        show_import_error_warning("plotly")
+        return None  # this will fail ugly and results in a test failure
 
     # Plotly params
     prediction_color = "#2d92ff"

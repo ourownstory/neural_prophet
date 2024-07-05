@@ -3,8 +3,18 @@ import logging
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objs as go
-from plotly.subplots import make_subplots
+
+try:
+    import plotly.express as px
+    import plotly.graph_objs as go
+
+    plotly_installed = True
+
+except ImportError:
+    from neuralprophet.plot_utils import show_import_error_warning
+
+    plotly_installed = False
+    show_import_error_warning("plotly")
 
 from neuralprophet.plot_utils import predict_one_season, predict_season_from_dates
 
@@ -18,26 +28,29 @@ except ImportError:
     plotly_resampler_installed = False
     log.error("Importing plotly failed. Interactive plots will not work.")
 
-# UI Configuration
-color = "#2d92ff"
-xaxis_args = {
-    "showline": True,
-    "mirror": True,
-    "linewidth": 1.5,
-}
-yaxis_args = {
-    "showline": True,
-    "mirror": True,
-    "linewidth": 1.5,
-}
-layout_args = {
-    "autosize": True,
-    "template": "plotly_white",
-    "margin": go.layout.Margin(l=0, r=10, b=0, t=10, pad=0),
-    "font": dict(size=10),
-    "title": dict(font=dict(size=12)),
-    "hovermode": "x unified",
-}
+
+if plotly_installed:
+    # UI Configuration
+    color = "#2d92ff"
+    xaxis_args = {
+        "showline": True,
+        "mirror": True,
+        "linewidth": 1.5,
+    }
+    yaxis_args = {
+        "showline": True,
+        "mirror": True,
+        "linewidth": 1.5,
+    }
+    layout_args = {
+        "autosize": True,
+        "template": "plotly_white",
+        "margin": go.layout.Margin(l=0, r=10, b=0, t=10, pad=0),
+        "font": dict(size=10),
+        "title": dict(font=dict(size=12)),
+        "hovermode": "x unified",
+    }
+
 if plotly_resampler_installed:
     register_plotly_resampler(mode="auto")
 
