@@ -64,6 +64,7 @@ class TimeNet(pl.LightningModule):
         num_seasonalities_modelled_dict: dict = None,
         meta_used_in_model: bool = False,
         continue_training: bool = False,
+        start_epoch: int = 0,
     ):
         """
         Parameters
@@ -309,6 +310,7 @@ class TimeNet(pl.LightningModule):
 
         # Continued training
         self.continue_training = continue_training
+        self.start_epoch = start_epoch
 
     @property
     def ar_weights(self) -> torch.Tensor:
@@ -870,11 +872,20 @@ class TimeNet(pl.LightningModule):
 
         # Scheduler
         if self.continue_training:
+            optimizer.load_state_dict(self.config_train.optimizer_state)
+
             # Update initial learning rate to the last learning rate for continued training
-            last_lr = optimizer.param_groups[0]["lr"]
-            lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+            last_lr = float(optimizer.param_groups[0]["lr"])  # Ensure it's a float
+
+            batches_per_epoch = len(self.train_dataloader())
+            total_batches_processed = self.start_epoch * batches_per_epoch
+
             for param_group in optimizer.param_groups:
-                param_group["initial_lr"] = last_lr
+                param_group["initial_lr"] = (last_lr,)
+
+            lr_scheduler = lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
+                optimizer, gamma=0.95, last_epoch=total_batches_processed - 1
+            )
         else:
             lr_scheduler = self._scheduler(
                 optimizer,

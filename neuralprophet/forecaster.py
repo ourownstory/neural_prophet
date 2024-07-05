@@ -2779,14 +2779,20 @@ class NeuralProphet:
 
         # Load model and optimizer state from checkpoint if continue_training is True
         if continue_training:
+            checkpoint_path = self.metrics_logger.checkpoint_path
+            checkpoint = torch.load(checkpoint_path)
+
             previous_epoch = self.model.current_epoch
 
             # Set continue_training flag in model to update scheduler correctly
             self.model.continue_training = True
+            self.model.start_epoch = previous_epoch
 
             # Adjust epochs
             new_total_epochs = previous_epoch + self.config_train.epochs
             self.config_train.epochs = new_total_epochs
+
+            self.config_train.set_optimizer_state(checkpoint["optimizer_states"][0])
 
         else:
             self.model = self._init_model()

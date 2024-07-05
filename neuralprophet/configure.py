@@ -104,6 +104,7 @@ class Train:
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
     lr_finder_args: dict = field(default_factory=dict)
+    optimizer_state: dict = field(default_factory=dict)
 
     def __post_init__(self):
         # assert the uncertainty estimation params and then finalize the quantiles
@@ -238,6 +239,9 @@ class Train:
         else:
             delay_weight = 1
         return delay_weight
+
+    def set_optimizer_state(self, optimizer_state: dict):
+        self.optimizer_state = optimizer_state
 
 
 @dataclass
