@@ -21,6 +21,7 @@ AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 512
 EPOCHS = 10
+ADDITIONAL_EPOCHS = 5
 LR = 1.0
 BATCH_SIZE = 64
 
@@ -112,5 +113,5 @@ def test_continue_training():
         n_changepoints=0,
     )
     metrics = m.fit(df, checkpointing=True, freq="D")
-    metrics2 = m.fit(df, freq="D", continue_training=True)
+    metrics2 = m.fit(df, freq="D", continue_training=True, epochs=ADDITIONAL_EPOCHS)
     assert metrics["Loss"].min() >= metrics2["Loss"].min()
