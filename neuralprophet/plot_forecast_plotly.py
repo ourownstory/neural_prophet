@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-import warnings
 
 try:
     import plotly.express as px
@@ -102,11 +101,6 @@ def plot(
             unregister_plotly_resampler()
     if resampler_active and not plotly_resampler_installed:
         log.error("plotly-resampler is not installed. Please install it to use the resampler.")
-
-    if not plotly_installed:
-        warnings.warn("Plotly is not installed. Please install plotly to use this function. [Should not be shown!]")
-        log.error("Plotly is not installed. Please install plotly to use this function.")
-        return None
 
     cross_marker_color = "blue"
     cross_symbol = "x"

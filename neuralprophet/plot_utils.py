@@ -584,7 +584,7 @@ def validate_current_env_for_resampler(auto: bool = False) -> Optional[bool]:
     try:
         from IPython import get_ipython
     except ImportError:
-        return None
+        return None  # TODO not entirely sure if that is the correct behavior to simply return None here @Oscar?
 
     if "google.colab" in str(get_ipython()):
         if auto:
