@@ -436,6 +436,7 @@ class NeuralProphet:
         batch_size: Optional[int] = None,
         loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "SmoothL1Loss",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "AdamW",
+        scheduler: Optional[str] = "onecyclelr",
         newer_samples_weight: float = 2,
         newer_samples_start: float = 0.0,
         quantiles: List[float] = [],
@@ -451,7 +452,6 @@ class NeuralProphet:
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
         prediction_frequency: Optional[dict] = None,
-        scheduler: Optional[str] = "onecyclelr",
     ):
         self.config = locals()
         self.config.pop("self")

@@ -871,35 +871,34 @@ class TimeNet(pl.LightningModule):
         optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
 
         # Scheduler
+        self._scheduler = self.config_train.scheduler
+
         if self.continue_training:
             optimizer.load_state_dict(self.config_train.optimizer_state)
 
             # Update initial learning rate to the last learning rate for continued training
             last_lr = float(optimizer.param_groups[0]["lr"])  # Ensure it's a float
 
-            batches_per_epoch = len(self.train_dataloader())
-            total_batches_processed = self.start_epoch * batches_per_epoch
-
             for param_group in optimizer.param_groups:
                 param_group["initial_lr"] = (last_lr,)
 
+            if self._scheduler == torch.optim.lr_scheduler.OneCycleLR:
+                log.warning("OneCycleLR scheduler is not supported for continued training. Switching to ExponentialLR")
+                self._scheduler = torch.optim.lr_scheduler.ExponentialLR
+                self.config_train.scheduler_args = {"gamma": 0.95}
+
+        if self._scheduler == torch.optim.lr_scheduler.OneCycleLR:
+            lr_scheduler = self._scheduler(
+                optimizer,
+                max_lr=self.learning_rate,
+                total_steps=self.trainer.estimated_stepping_batches,
+                **self.config_train.scheduler_args,
+            )
+        else:
             lr_scheduler = self._scheduler(
                 optimizer,
                 **self.config_train.scheduler_args,
             )
-        else:
-            if self._scheduler == torch.optim.lr_scheduler.OneCycleLR:
-                lr_scheduler = self._scheduler(
-                    optimizer,
-                    max_lr=self.learning_rate,
-                    total_steps=self.trainer.estimated_stepping_batches,
-                    **self.config_train.scheduler_args,
-                )
-            else:
-                lr_scheduler = self._scheduler(
-                    optimizer,
-                    **self.config_train.scheduler_args,
-                )
 
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
