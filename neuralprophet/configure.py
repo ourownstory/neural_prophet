@@ -94,7 +94,7 @@ class Train:
     optimizer: Union[str, Type[torch.optim.Optimizer]]
     quantiles: List[float] = field(default_factory=list)
     optimizer_args: dict = field(default_factory=dict)
-    scheduler: Optional[Type[torch.optim.lr_scheduler.OneCycleLR]] = None
+    scheduler: Optional[Type[torch.optim.lr_scheduler._LRScheduler]] = None
     scheduler_args: dict = field(default_factory=dict)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
@@ -193,16 +193,59 @@ class Train:
         Set the scheduler and scheduler args.
         The scheduler is not initialized yet as this is done in configure_optimizers in TimeNet.
         """
-        self.scheduler = torch.optim.lr_scheduler.OneCycleLR
-        self.scheduler_args.update(
-            {
-                "pct_start": 0.3,
-                "anneal_strategy": "cos",
-                "div_factor": 10.0,
-                "final_div_factor": 10.0,
-                "three_phase": True,
-            }
-        )
+        self.scheduler_args.clear()
+        if isinstance(self.scheduler, str):
+            if self.scheduler.lower() == "onecyclelr":
+                self.scheduler = torch.optim.lr_scheduler.OneCycleLR
+                self.scheduler_args.update(
+                    {
+                        "pct_start": 0.3,
+                        "anneal_strategy": "cos",
+                        "div_factor": 10.0,
+                        "final_div_factor": 10.0,
+                        "three_phase": True,
+                    }
+                )
+            elif self.scheduler.lower() == "steplr":
+                self.scheduler = torch.optim.lr_scheduler.StepLR
+                self.scheduler_args.update(
+                    {
+                        "step_size": 10,
+                        "gamma": 0.1,
+                    }
+                )
+            elif self.scheduler.lower() == "exponentiallr":
+                self.scheduler = torch.optim.lr_scheduler.ExponentialLR
+                self.scheduler_args.update(
+                    {
+                        "gamma": 0.95,
+                    }
+                )
+            elif self.scheduler.lower() == "reducelronplateau":
+                self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau
+                self.scheduler_args.update(
+                    {
+                        "mode": "min",
+                        "factor": 0.1,
+                        "patience": 10,
+                    }
+                )
+            elif self.scheduler.lower() == "cosineannealinglr":
+                self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR
+                self.scheduler_args.update(
+                    {
+                        "T_max": 50,
+                    }
+                )
+            else:
+                raise NotImplementedError(f"Scheduler {self.scheduler} is not supported.")
+        elif self.scheduler is None:
+            self.scheduler = torch.optim.lr_scheduler.ExponentialLR
+            self.scheduler_args.update(
+                {
+                    "gamma": 0.95,
+                }
+            )
 
     def set_lr_finder_args(self, dataset_size, num_batches):
         """

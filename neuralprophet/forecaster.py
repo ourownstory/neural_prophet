@@ -451,6 +451,7 @@ class NeuralProphet:
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
         prediction_frequency: Optional[dict] = None,
+        scheduler: Optional[str] = "onecyclelr",
     ):
         self.config = locals()
         self.config.pop("self")
@@ -509,6 +510,7 @@ class NeuralProphet:
         self.config_train = configure.Train(
             quantiles=quantiles,
             learning_rate=learning_rate,
+            scheduler=scheduler,
             epochs=epochs,
             batch_size=batch_size,
             loss_func=loss_func,
@@ -921,6 +923,7 @@ class NeuralProphet:
         continue_training: bool = False,
         num_workers: int = 0,
         deterministic: bool = False,
+        scheduler: Optional[str] = None,
     ):
         """Train, and potentially evaluate model.
 
@@ -985,6 +988,18 @@ class NeuralProphet:
 
         if continue_training and epochs is None:
             raise ValueError("Continued training requires setting the number of epochs to train for.")
+
+        if continue_training:
+            if scheduler is not None:
+                self.config_train.scheduler = scheduler
+            else:
+                self.config_train.scheduler = None
+            self.config_train.set_scheduler()
+
+        if scheduler is not None and not continue_training:
+            log.warning(
+                "Scheduler can only be set in fit when continuing training. Please set the scheduler when initializing the model."
+            )
 
         # Configuration
         if epochs is not None:
@@ -2681,7 +2696,6 @@ class NeuralProphet:
                 config_seasonality=self.config_seasonality,
             )
 
-        print("Changepoints:", self.config_trend.changepoints)
         df = _normalize(df=df, config_normalization=self.config_normalization)
         if not self.fitted:
             if self.config_trend.changepoints is not None:

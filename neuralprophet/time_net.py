@@ -883,16 +883,23 @@ class TimeNet(pl.LightningModule):
             for param_group in optimizer.param_groups:
                 param_group["initial_lr"] = (last_lr,)
 
-            lr_scheduler = lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-                optimizer, gamma=0.95, last_epoch=total_batches_processed - 1
-            )
-        else:
             lr_scheduler = self._scheduler(
                 optimizer,
-                max_lr=self.learning_rate,
-                total_steps=self.trainer.estimated_stepping_batches,
                 **self.config_train.scheduler_args,
             )
+        else:
+            if self._scheduler == torch.optim.lr_scheduler.OneCycleLR:
+                lr_scheduler = self._scheduler(
+                    optimizer,
+                    max_lr=self.learning_rate,
+                    total_steps=self.trainer.estimated_stepping_batches,
+                    **self.config_train.scheduler_args,
+                )
+            else:
+                lr_scheduler = self._scheduler(
+                    optimizer,
+                    **self.config_train.scheduler_args,
+                )
 
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
