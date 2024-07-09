@@ -2916,7 +2916,13 @@ class NeuralProphet:
 
         # Return metrics collected in logger as dataframe
         if self.metrics_logger.history is not None:
-            metrics_df = pd.DataFrame(self.metrics_logger.history)
+            # avoid array mismatch when continuing training
+            history = self.metrics_logger.history
+            max_length = max(len(lst) for lst in history.values())
+            for key in history:
+                while len(history[key]) < max_length:
+                    history[key].append(None)
+            metrics_df = pd.DataFrame(history)
         else:
             metrics_df = pd.DataFrame()
         return metrics_df
