@@ -190,7 +190,7 @@ class Train:
 
     def set_scheduler(self):
         """
-        Set the scheduler and scheduler args.
+        Set the scheduler and scheduler arg depending on the user selection.
         The scheduler is not initialized yet as this is done in configure_optimizers in TimeNet.
         """
         self.scheduler_args.clear()
@@ -219,15 +219,6 @@ class Train:
                 self.scheduler_args.update(
                     {
                         "gamma": 0.95,
-                    }
-                )
-            elif self.scheduler.lower() == "reducelronplateau":
-                self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau
-                self.scheduler_args.update(
-                    {
-                        "mode": "min",
-                        "factor": 0.1,
-                        "patience": 10,
                     }
                 )
             elif self.scheduler.lower() == "cosineannealinglr":

@@ -301,6 +301,20 @@ class NeuralProphet:
             >>> m = NeuralProphet(collect_metrics=["MSE", "MAE", "RMSE"])
             >>> # use custorm torchmetrics names
             >>> m = NeuralProphet(collect_metrics={"MAPE": "MeanAbsolutePercentageError", "MSLE": "MeanSquaredLogError",
+        scheduler : str, torch.optim.lr_scheduler._LRScheduler
+            Type of learning rate scheduler to use.
+
+            Options
+                * (default) ``OneCycleLR``: One Cycle Learning Rate scheduler
+                * ``StepLR``: Step Learning Rate scheduler
+                * ``ExponentialLR``: Exponential Learning Rate scheduler
+                * ``CosineAnnealingLR``: Cosine Annealing Learning Rate scheduler
+
+            Examples
+            --------
+            >>> from neuralprophet import NeuralProphet
+            >>> # Step Learning Rate scheduler
+            >>> m = NeuralProphet(scheduler="StepLR")
 
         COMMENT
         Uncertainty Estimation
@@ -975,6 +989,13 @@ class NeuralProphet:
                 Note: using multiple workers and therefore distributed training might significantly increase
                 the training time since each batch needs to be copied to each worker for each epoch. Keeping
                 all data on the main process might be faster for most datasets.
+            scheduler : str
+                Type of learning rate scheduler to use for continued training. If None, uses ExponentialLR as
+                default as specified in the model config.
+                Options
+                * ``StepLR``: Step Learning Rate scheduler
+                * ``ExponentialLR``: Exponential Learning Rate scheduler
+                * ``CosineAnnealingLR``: Cosine Annealing Learning Rate scheduler
 
         Returns
         -------
@@ -2796,7 +2817,8 @@ class NeuralProphet:
             checkpoint_path = self.metrics_logger.checkpoint_path
             checkpoint = torch.load(checkpoint_path)
 
-            previous_epoch = self.model.current_epoch
+            checkpoint_epoch = checkpoint["epoch"] if "epoch" in checkpoint else 0
+            previous_epoch = max(self.model.current_epoch, checkpoint_epoch)
 
             # Set continue_training flag in model to update scheduler correctly
             self.model.continue_training = True
