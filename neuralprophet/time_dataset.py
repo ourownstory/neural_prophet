@@ -96,16 +96,26 @@ class TimeDataset(Dataset):
             self.config_regressors
         )
 
-        # self.tensor_data = torch.tensor(df.values, dtype=torch.float32
-        self.df["ds"] = self.df["ds"].astype(int) // 10**9  # Convert to Unix timestamp in seconds
+        self.df["ds"] = self.df["ds"].apply(lambda x: x.timestamp())  # Convert to Unix timestamp in seconds
+
         # skipping col "ID" is string type that is interpreted as object by torch (self.df[col].dtype == "O")
         # "ID" is stored in self.meta["df_name"]
-        self.tensor_dict = {
-            col: torch.tensor(self.df[col].values, dtype=torch.float32) for col in self.df if col != "ID"
-        }
 
+        for col in self.df.columns:
+            if col != "ID" and col != "ds":
+                self.df[col] = self.df[col].astype(float)
+        # Create the tensor dictionary with the correct data types
+        self.df_tensors = {
+            col: (
+                torch.tensor(self.df[col].values, dtype=torch.int64)
+                if col == "ds"
+                else torch.tensor(self.df[col].values, dtype=torch.float32)
+            )
+            for col in self.df
+            if col != "ID"
+        }
         # Construct index map
-        self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.tensor_dict)
+        self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.df_tensors)
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -143,7 +153,7 @@ class TimeDataset(Dataset):
 
         # Tabularize - extract features from dataframe at given target index position
         inputs, target = tabularize_univariate_datetime_single_index(
-            tensor_dict=self.tensor_dict,
+            df_tensors=self.df_tensors,
             origin_index=df_index,
             predict_mode=self.predict_mode,
             n_lags=self.n_lags,
@@ -166,30 +176,28 @@ class TimeDataset(Dataset):
         """Translates a single outer sample to dataframe index"""
         return self.sample2index_map[sample_index]
 
-    def create_sample2index_map(self, df, tensor_dict):
+    def create_sample2index_map(self, df, df_tensors):
         """creates mapping of sample index to corresponding df index at prediction origin.
         (prediction origin: last observation before forecast / future period starts).
         return created mapping to sample2index_map and number of samples.
         """
 
         # Limit target range due to input lags and number of forecasts
-        df_length = len(tensor_dict["ds"])
+        df_length = len(df_tensors["ds"])
         origin_start_end_mask = create_origin_start_end_mask(
             df_length=df_length, max_lags=self.max_lags, n_forecasts=self.n_forecasts
         )
 
         # Prediction Frequency
         # Filter missing samples and prediction frequency (does not actually drop, but creates indexmapping)
-        prediction_frequency_mask = create_prediction_frequency_filter_mask(
-            tensor_dict["ds"], self.prediction_frequency
-        )
+        prediction_frequency_mask = create_prediction_frequency_filter_mask(df_tensors["ds"], self.prediction_frequency)
 
         # Combine prediction origin masks
         valid_prediction_mask = prediction_frequency_mask & origin_start_end_mask
 
         # Create NAN-free index mapping of sample index to df index
         nan_mask = create_nan_mask(
-            tensor_dict=tensor_dict,
+            df_tensors=df_tensors,
             predict_mode=self.predict_mode,
             max_lags=self.max_lags,
             n_lags=self.n_lags,
@@ -201,8 +209,6 @@ class TimeDataset(Dataset):
 
         # Filter NAN
         valid_sample_mask = valid_prediction_mask & nan_mask
-        print(f"valid_prediction_mask = {valid_prediction_mask}")
-        print(f"nan_mask = {nan_mask}")
         n_clean_data_samples = valid_prediction_mask.sum().item()
         n_real_data_samples = valid_sample_mask.sum().item()
         nan_samples_to_drop = n_clean_data_samples - n_real_data_samples
@@ -286,39 +292,39 @@ class GlobalTimeDataset(TimeDataset):
         return self.datasets[df_name].__getitem__(local_pos)
 
 
-def get_sample_targets(tensor_dict, origin_index, n_forecasts, max_lags, predict_mode):
+def get_sample_targets(df_tensors, origin_index, n_forecasts, max_lags, predict_mode):
     if predict_mode:
         return torch.zeros((n_forecasts, 1), dtype=torch.float32)
     else:
         if n_forecasts == 1:
             if max_lags == 0:
-                targets = tensor_dict["y_scaled"][origin_index]
+                targets = df_tensors["y_scaled"][origin_index]
             if max_lags > 0:
-                targets = tensor_dict["y_scaled"][origin_index + 1]
+                targets = df_tensors["y_scaled"][origin_index + 1]
             targets = targets.unsqueeze(0).unsqueeze(1)
         else:
-            targets = tensor_dict["y_scaled"][origin_index + 1 : origin_index + n_forecasts + 1]
+            targets = df_tensors["y_scaled"][origin_index + 1 : origin_index + n_forecasts + 1]
             targets = targets.unsqueeze(1)
         return targets
 
 
-def get_sample_lagged_regressors(tensor_dict, origin_index, config_lagged_regressors):
+def get_sample_lagged_regressors(df_tensors, origin_index, config_lagged_regressors):
     lagged_regressors = OrderedDict({})
     # Future TODO: optimize this computation for many lagged_regressors
     for name, lagged_regressor in config_lagged_regressors.items():
         covar_lags = lagged_regressor.n_lags
         assert covar_lags > 0
         # Indexing tensors instead of DataFrame
-        lagged_regressors[name] = tensor_dict[name][origin_index - covar_lags + 1 : origin_index + 1]
+        lagged_regressors[name] = df_tensors[name][origin_index - covar_lags + 1 : origin_index + 1]
     return lagged_regressors
 
 
-def get_sample_seasonalities(tensor_dict, origin_index, n_forecasts, max_lags, n_lags, config_seasonality):
+def get_sample_seasonalities(df_tensors, origin_index, n_forecasts, max_lags, n_lags, config_seasonality):
     seasonalities = OrderedDict({})
     if max_lags == 0:
-        dates = tensor_dict["ds"][origin_index].unsqueeze(0)
+        dates = df_tensors["ds"][origin_index].unsqueeze(0)
     else:
-        dates = tensor_dict["ds"][origin_index - n_lags + 1 : origin_index + n_forecasts + 1]
+        dates = df_tensors["ds"][origin_index - n_lags + 1 : origin_index + n_forecasts + 1]
 
     for name, period in config_seasonality.periods.items():
         if period.resolution > 0:
@@ -340,9 +346,9 @@ def get_sample_seasonalities(tensor_dict, origin_index, n_forecasts, max_lags, n
 
             if period.condition_name is not None:
                 if max_lags == 0:
-                    condition_values = tensor_dict[period.condition_name][origin_index].unsqueeze(0).unsqueeze(1)
+                    condition_values = df_tensors[period.condition_name][origin_index].unsqueeze(0).unsqueeze(1)
                 else:
-                    condition_values = tensor_dict[period.condition_name][
+                    condition_values = df_tensors[period.condition_name][
                         origin_index - n_lags + 1 : origin_index + n_forecasts + 1
                     ].unsqueeze(1)
                 features = features * condition_values
@@ -351,25 +357,25 @@ def get_sample_seasonalities(tensor_dict, origin_index, n_forecasts, max_lags, n
 
 
 def get_sample_future_regressors(
-    tensor_dict, origin_index, n_forecasts, max_lags, n_lags, additive_regressors_names, multiplicative_regressors_names
+    df_tensors, origin_index, n_forecasts, max_lags, n_lags, additive_regressors_names, multiplicative_regressors_names
 ):
     regressors = OrderedDict({})
     if max_lags == 0:
         if len(additive_regressors_names) > 0:
             features = torch.stack(
-                [tensor_dict[name][origin_index].unsqueeze(0) for name in additive_regressors_names], dim=1
+                [df_tensors[name][origin_index].unsqueeze(0) for name in additive_regressors_names], dim=1
             )
             regressors["additive"] = features
         if len(multiplicative_regressors_names) > 0:
             features = torch.stack(
-                [tensor_dict[name][origin_index].unsqueeze(0) for name in multiplicative_regressors_names], dim=1
+                [df_tensors[name][origin_index].unsqueeze(0) for name in multiplicative_regressors_names], dim=1
             )
             regressors["multiplicative"] = features
     else:
         if len(additive_regressors_names) > 0:
             features = torch.stack(
                 [
-                    tensor_dict[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
+                    df_tensors[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
                     for name in additive_regressors_names
                 ],
                 dim=1,
@@ -378,7 +384,7 @@ def get_sample_future_regressors(
         if len(multiplicative_regressors_names) > 0:
             features = torch.stack(
                 [
-                    tensor_dict[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
+                    df_tensors[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
                     for name in multiplicative_regressors_names
                 ],
                 dim=1,
@@ -388,7 +394,7 @@ def get_sample_future_regressors(
 
 
 def get_sample_future_events(
-    tensor_dict,
+    df_tensors,
     origin_index,
     n_forecasts,
     max_lags,
@@ -400,19 +406,19 @@ def get_sample_future_events(
     if max_lags == 0:
         if len(additive_event_and_holiday_names) > 0:
             features = torch.stack(
-                [tensor_dict[name][origin_index].unsqueeze(0) for name in additive_event_and_holiday_names], dim=1
+                [df_tensors[name][origin_index].unsqueeze(0) for name in additive_event_and_holiday_names], dim=1
             )
             events["additive"] = features
         if len(multiplicative_event_and_holiday_names) > 0:
             features = torch.stack(
-                [tensor_dict[name][origin_index].unsqueeze(0) for name in multiplicative_event_and_holiday_names], dim=1
+                [df_tensors[name][origin_index].unsqueeze(0) for name in multiplicative_event_and_holiday_names], dim=1
             )
             events["multiplicative"] = features
     else:
         if len(additive_event_and_holiday_names) > 0:
             features = torch.stack(
                 [
-                    tensor_dict[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
+                    df_tensors[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
                     for name in additive_event_and_holiday_names
                 ],
                 dim=1,
@@ -421,7 +427,7 @@ def get_sample_future_events(
         if len(multiplicative_event_and_holiday_names) > 0:
             features = torch.stack(
                 [
-                    tensor_dict[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
+                    df_tensors[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
                     for name in multiplicative_event_and_holiday_names
                 ],
                 dim=1,
@@ -447,7 +453,7 @@ def log_input_shapes(inputs):
 
 
 def tabularize_univariate_datetime_single_index(
-    tensor_dict: dict,
+    df_tensors: dict,
     origin_index: int,
     predict_mode: bool = False,
     n_lags: int = 0,
@@ -516,7 +522,7 @@ def tabularize_univariate_datetime_single_index(
     inputs = OrderedDict({})
 
     targets = get_sample_targets(
-        tensor_dict=tensor_dict,
+        df_tensors=df_tensors,
         origin_index=origin_index,
         n_forecasts=n_forecasts,
         max_lags=max_lags,
@@ -525,30 +531,30 @@ def tabularize_univariate_datetime_single_index(
 
     # TIME: the time at each sample's lags and forecasts
     if max_lags == 0:
-        t = tensor_dict["t"][origin_index]
+        t = df_tensors["t"][origin_index]
         inputs["time"] = t.unsqueeze(0)
     else:
         # extract time value of n_lags steps before  and icluding origin_index and n_forecasts steps after origin_index
         # Note: df.loc is inclusive of slice end, while df.iloc is not.
-        t = tensor_dict["t"][origin_index - n_lags + 1 : origin_index + n_forecasts + 1]
+        t = df_tensors["t"][origin_index - n_lags + 1 : origin_index + n_forecasts + 1]
         inputs["time"] = t
 
     # LAGS: From y-series, extract preceeding n_lags steps up to and including origin_index
-    if n_lags >= 1 and "y_scaled" in tensor_dict:
+    if n_lags >= 1 and "y_scaled" in df_tensors:
         # Note: df.loc is inclusive of slice end, while df.iloc is not.
-        lags = tensor_dict["y_scaled"][origin_index - n_lags + 1 : origin_index + 1]
+        lags = df_tensors["y_scaled"][origin_index - n_lags + 1 : origin_index + 1]
         inputs["lags"] = lags
 
     # COVARIATES / LAGGED REGRESSORS: Lagged regressor inputs: analogous to LAGS
     if config_lagged_regressors is not None:  # and max_lags > 0:
         inputs["covariates"] = get_sample_lagged_regressors(
-            tensor_dict=tensor_dict, origin_index=origin_index, config_lagged_regressors=config_lagged_regressors
+            df_tensors=df_tensors, origin_index=origin_index, config_lagged_regressors=config_lagged_regressors
         )
 
     # SEASONALITIES_
     if config_seasonality is not None:
         inputs["seasonalities"] = get_sample_seasonalities(
-            tensor_dict=tensor_dict,
+            df_tensors=df_tensors,
             origin_index=origin_index,
             n_forecasts=n_forecasts,
             max_lags=max_lags,
@@ -562,7 +568,7 @@ def tabularize_univariate_datetime_single_index(
     any_future_regressors = 0 < len(additive_regressors_names + multiplicative_regressors_names)
     if any_future_regressors:  # if config_regressors.regressors is not None:
         inputs["regressors"] = get_sample_future_regressors(
-            tensor_dict=tensor_dict,
+            df_tensors=df_tensors,
             origin_index=origin_index,
             n_forecasts=n_forecasts,
             max_lags=max_lags,
@@ -577,7 +583,7 @@ def tabularize_univariate_datetime_single_index(
     any_events = 0 < len(additive_event_and_holiday_names + multiplicative_event_and_holiday_names)
     if any_events:
         inputs["events"] = get_sample_future_events(
-            tensor_dict=tensor_dict,
+            df_tensors=df_tensors,
             origin_index=origin_index,
             n_forecasts=n_forecasts,
             max_lags=max_lags,
@@ -805,7 +811,7 @@ def create_prediction_frequency_filter_mask(timestamps, prediction_frequency=Non
 
 
 def create_nan_mask(
-    tensor_dict,
+    df_tensors,
     predict_mode,
     max_lags,
     n_lags,
@@ -817,9 +823,9 @@ def create_nan_mask(
     """Creates mask for each prediction origin,
     accounting for corresponding input lags / forecast targets containing any NaN values.
     """
-    tensor_length = len(tensor_dict["ds"])
+    tensor_length = len(df_tensors["ds"])
     valid_origins = torch.ones(tensor_length, dtype=torch.bool)
-    tensor_isna = {k: torch.isnan(v) for k, v in tensor_dict.items()}
+    tensor_isna = {k: torch.isnan(v) for k, v in df_tensors.items()}
 
     # TARGETS
     if predict_mode:
