@@ -96,24 +96,37 @@ class TimeDataset(Dataset):
             self.config_regressors
         )
 
-        self.df["ds"] = self.df["ds"].apply(lambda x: x.timestamp())  # Convert to Unix timestamp in seconds
-
         # skipping col "ID" is string type that is interpreted as object by torch (self.df[col].dtype == "O")
         # "ID" is stored in self.meta["df_name"]
-
+        skip_cols = ["ID", "ds"]
         for col in self.df.columns:
-            if col != "ID" and col != "ds":
+            if col not in skip_cols:
                 self.df[col] = self.df[col].astype(float)
         # Create the tensor dictionary with the correct data types
         self.df_tensors = {
-            col: (
-                torch.tensor(self.df[col].values, dtype=torch.int64)
-                if col == "ds"
-                else torch.tensor(self.df[col].values, dtype=torch.float32)
-            )
-            for col in self.df
-            if col != "ID"
+            col: torch.tensor(self.df[col].values, dtype=torch.float32) for col in self.df if col not in skip_cols
         }
+        self.df["ds"] = self.df["ds"].apply(lambda x: x.timestamp())  # Convert to Unix timestamp in seconds
+        self.df_tensors["ds"] = torch.tensor(self.df["ds"].values, dtype=torch.int64)
+
+        if self.additive_event_and_holiday_names:
+            self.df_tensors["additive_event_and_holiday"] = torch.stack(
+                [self.df_tensors[name] for name in self.additive_event_and_holiday_names], dim=1
+            )
+        if self.multiplicative_event_and_holiday_names:
+            self.df_tensors["multiplicative_event_and_holiday"] = torch.stack(
+                [self.df_tensors[name] for name in self.multiplicative_event_and_holiday_names], dim=1
+            )
+
+        if self.additive_regressors_names:
+            self.df_tensors["additive_regressors"] = torch.stack(
+                [self.df_tensors[name] for name in self.additive_regressors_names], dim=1
+            )
+        if self.multiplicative_regressors_names:
+            self.df_tensors["multiplicative_regressors"] = torch.stack(
+                [self.df_tensors[name] for name in self.multiplicative_regressors_names], dim=1
+            )
+
         # Construct index map
         self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.df_tensors)
 
@@ -361,35 +374,22 @@ def get_sample_future_regressors(
 ):
     regressors = OrderedDict({})
     if max_lags == 0:
-        if len(additive_regressors_names) > 0:
-            features = torch.stack(
-                [df_tensors[name][origin_index].unsqueeze(0) for name in additive_regressors_names], dim=1
-            )
-            regressors["additive"] = features
-        if len(multiplicative_regressors_names) > 0:
-            features = torch.stack(
-                [df_tensors[name][origin_index].unsqueeze(0) for name in multiplicative_regressors_names], dim=1
-            )
-            regressors["multiplicative"] = features
+        if additive_regressors_names:
+            regressors["additive"] = df_tensors["additive_regressors"][origin_index, :].unsqueeze(0)
+
+        if multiplicative_regressors_names:
+            regressors["multiplicative"] = df_tensors["multiplicative_regressors"][origin_index, :].unsqueeze(0)
+
     else:
-        if len(additive_regressors_names) > 0:
-            features = torch.stack(
-                [
-                    df_tensors[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
-                    for name in additive_regressors_names
-                ],
-                dim=1,
-            )
-            regressors["additive"] = features
-        if len(multiplicative_regressors_names) > 0:
-            features = torch.stack(
-                [
-                    df_tensors[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
-                    for name in multiplicative_regressors_names
-                ],
-                dim=1,
-            )
-            regressors["multiplicative"] = features
+        if additive_regressors_names:
+            regressors["additive"] = df_tensors["additive_regressors"][
+                origin_index + 1 - n_lags : origin_index + n_forecasts + 1, :
+            ]
+        if multiplicative_regressors_names:
+            regressors["multiplicative"] = df_tensors["multiplicative_regressors"][
+                origin_index + 1 - n_lags : origin_index + n_forecasts + 1, :
+            ]
+
     return regressors
 
 
@@ -404,35 +404,19 @@ def get_sample_future_events(
 ):
     events = OrderedDict({})
     if max_lags == 0:
-        if len(additive_event_and_holiday_names) > 0:
-            features = torch.stack(
-                [df_tensors[name][origin_index].unsqueeze(0) for name in additive_event_and_holiday_names], dim=1
-            )
-            events["additive"] = features
-        if len(multiplicative_event_and_holiday_names) > 0:
-            features = torch.stack(
-                [df_tensors[name][origin_index].unsqueeze(0) for name in multiplicative_event_and_holiday_names], dim=1
-            )
-            events["multiplicative"] = features
+        if additive_event_and_holiday_names:
+            events["additive"] = df_tensors["additive_event_and_holiday"][origin_index, :].unsqueeze(0)
+        if multiplicative_event_and_holiday_names:
+            events["multiplicative"] = df_tensors["multiplicative_event_and_holiday"][origin_index, :].unsqueeze(0)
     else:
-        if len(additive_event_and_holiday_names) > 0:
-            features = torch.stack(
-                [
-                    df_tensors[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
-                    for name in additive_event_and_holiday_names
-                ],
-                dim=1,
-            )
-            events["additive"] = features
-        if len(multiplicative_event_and_holiday_names) > 0:
-            features = torch.stack(
-                [
-                    df_tensors[name][origin_index + 1 - n_lags : origin_index + n_forecasts + 1]
-                    for name in multiplicative_event_and_holiday_names
-                ],
-                dim=1,
-            )
-            events["multiplicative"] = features
+        if additive_event_and_holiday_names:
+            events["additive"] = df_tensors["additive_event_and_holiday"][
+                origin_index + 1 - n_lags : origin_index + n_forecasts + 1, :
+            ]
+        if multiplicative_event_and_holiday_names:
+            events["multiplicative"] = df_tensors["multiplicative_event_and_holiday"][
+                origin_index + 1 - n_lags : origin_index + n_forecasts + 1, :
+            ]
     return events
 
 
