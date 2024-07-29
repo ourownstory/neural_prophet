@@ -826,7 +826,6 @@ def create_nan_mask(
 
     valid_origins &= targets_valid
 
-
     # AR LAGS
     if n_lags > 0:
         # boolean vector, starting at origin_index = n_lags -1
@@ -852,7 +851,6 @@ def create_nan_mask(
                 reg_lags_nan = torch.cat([torch.ones(n_reg_lags - 1, dtype=torch.bool), reg_lags_nan])
                 reg_lags_valid &= ~reg_lags_nan
         valid_origins &= reg_lags_valid
-
 
     # TIME: TREND & SEASONALITY: the time at each sample's lags and forecasts
     # FUTURE REGRESSORS
