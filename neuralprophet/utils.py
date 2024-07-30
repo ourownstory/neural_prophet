@@ -928,7 +928,7 @@ def configure_trainer(
     has_progressbar_callback = (
         True
         if has_custom_callbacks
-        and any(isinstance(callback, pl.callbacks.ProgressBarBase) for callback in config["callbacks"])
+        and any(isinstance(callback, pl.callbacks.ProgressBar) for callback in config["callbacks"])
         else False
     )
     if has_progressbar_callback and not progress_bar_enabled:
