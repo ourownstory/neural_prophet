@@ -66,16 +66,23 @@ jobs:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "<details><summary>Model training plots</summary>" >> report.md
-          echo "\n## Model Training\n" >> report.md
-          echo "### PeytonManning\n" >> report.md
+          echo "" >> report.md
+          echo "## Model Training" >> report.md
+          echo "" >> report.md
+          echo "### PeytonManning" >> report.md
           cml asset publish tests/metrics/PeytonManning.svg --md >> report.md
-          echo "\n### YosemiteTemps\n" >> report.md
+          echo "" >> report.md
+          echo "### YosemiteTemps" >> report.md
           cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
-          echo "\n### AirPassengers\n" >> report.md
+          echo "" >> report.md
+          echo "### AirPassengers" >> report.md
           cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
-          echo "\n### EnergyPriceDaily\n" >> report.md
+          echo "" >> report.md
+          echo "### EnergyPriceDaily" >> report.md
           cml asset publish tests/metrics/EnergyPriceDaily.svg --md >> report.md
-          echo "\n</details>" >> report.md
+          echo "" >> report.md
+          echo "</details>" >> report.md
+          echo "" >> report.md
           cml comment update --target=pr report.md # Post reports as comments in GitHub PRs
           cml check create --title=ModelReport report.md # update status of check in PR
       
