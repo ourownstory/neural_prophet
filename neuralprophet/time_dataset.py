@@ -137,10 +137,10 @@ class TimeDataset(Dataset):
     def precompute_seasonality_terms(self):
         precomputed_terms = OrderedDict()
 
-        for name, period in self.config_seasonlity_periods.items():
+        for name, period in self.config_seasonality.periods.items():
             if period.resolution > 0:
                 factor = 2.0 * np.pi / period.period
-                arrange_tensor = torch.arrange(1, period.resolution + 1, dtype=torch.float32)
+                arrange_tensor = torch.arange(1, period.resolution + 1, dtype=torch.float32)
                 factor_arrange = factor * arrange_tensor
                 precomputed_terms[name] = factor_arrange
         return precomputed_terms
