@@ -136,6 +136,8 @@ class TimeDataset(Dataset):
 
     def precompute_seasonality_terms(self):
         precomputed_terms = OrderedDict()
+        if self.config_seasonality is None:
+            return precomputed_terms
 
         for name, period in self.config_seasonality.periods.items():
             if period.resolution > 0:
