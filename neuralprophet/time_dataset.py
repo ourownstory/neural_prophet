@@ -129,6 +129,23 @@ class TimeDataset(Dataset):
 
         # Construct index map
         self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.df_tensors)
+        self.time_offset = torch.tensor(datetime(1900, 1, 1).timestamp())
+        self.df_tensors["ds_seasonality"] = (self.df_tensors["ds"] - self.time_offset).float() / (3600 * 24.0)
+
+        self.precomputed_seasonality_terms = self.precompute_seasonality_terms()
+
+    def precompute_seasonality_terms(self):
+        precomputed_terms = OrderedDict()
+        if self.config_seasonality is None:
+            return precomputed_terms
+
+        for name, period in self.config_seasonality.periods.items():
+            if period.resolution > 0:
+                factor = 2.0 * np.pi / period.period
+                arrange_tensor = torch.arange(1, period.resolution + 1, dtype=torch.float32)
+                factor_arrange = factor * arrange_tensor
+                precomputed_terms[name] = factor_arrange
+        return precomputed_terms
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -333,19 +350,16 @@ def get_sample_lagged_regressors(df_tensors, origin_index, config_lagged_regress
 
 
 def get_sample_seasonalities(df_tensors, origin_index, n_forecasts, max_lags, n_lags, config_seasonality):
-
     seasonalities = OrderedDict({})
     if max_lags == 0:
-        dates = df_tensors["ds"][origin_index].unsqueeze(0)
+        dates = df_tensors["ds_seasonality"][origin_index].unsqueeze(0)
     else:
-        dates = df_tensors["ds"][origin_index - n_lags + 1 : origin_index + n_forecasts + 1]
-
-    t = (dates - torch.tensor(datetime(1900, 1, 1).timestamp())).float() / (3600 * 24.0)
+        dates = df_tensors["ds_seasonality"][origin_index - n_lags + 1 : origin_index + n_forecasts + 1]
 
     for name, period in config_seasonality.periods.items():
         if period.resolution > 0:
             if config_seasonality.computation == "fourier":
-                factor = 2.0 * np.pi * t[:, None] / period.period
+                factor = 2.0 * np.pi * dates[:, None] / period.period
                 sin_terms = torch.sin(factor * torch.arange(1, period.resolution + 1))
                 cos_terms = torch.cos(factor * torch.arange(1, period.resolution + 1))
                 features = torch.cat((sin_terms, cos_terms), dim=1)
