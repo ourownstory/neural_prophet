@@ -12,6 +12,8 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 from lightning_fabric.utilities.seed import seed_everything
+from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.profilers import PyTorchProfiler
 
 from neuralprophet import utils_torch
 from neuralprophet.logger import ProgressBar
@@ -821,6 +823,7 @@ def configure_trainer(
     checkpointing_enabled: bool = False,
     num_batches_per_epoch: int = 100,
     deterministic: bool = False,
+    debug_mode: bool = False,
 ):
     """
     Configures the PyTorch Lightning trainer.
@@ -842,12 +845,14 @@ def configure_trainer(
         progress_bar_enabled : bool
             If False, no progress bar is shown.
         metrics_enabled : bool
-            If False, no metrics are logged. Calculating metrics is computationally expensive and reduces the training
+            If False, no metrics are logged. Calculating metrics is computationally expensive and reduces the training.
             speed.
         checkpointing_enabled : bool
             If False, no checkpointing is performed. Checkpointing reduces the training speed.
         num_batches_per_epoch : int
             Number of batches per epoch.
+        debug_mode : bool
+            If True, enables debug mode for additional logging.
 
     Returns
     -------
@@ -970,6 +975,14 @@ def configure_trainer(
         config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
     config["enable_model_summary"] = False
+
+    if debug_mode:
+        config["logger"] = TensorBoardLogger("tb_logs", name="NeuralProphet")
+        config["profiler"] = PyTorchProfiler(
+            on_trace_ready=torch.profiler.tensorboard_trace_handler("tb_logs/profiler0"),
+            trace_memory=True,
+        )
+
     # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
     # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#replace-sampler-ddp
     # config["replace_sampler_ddp"] = False

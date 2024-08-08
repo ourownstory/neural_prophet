@@ -274,6 +274,9 @@ class NeuralProphet:
                 * ``MSE``: Mean Squared Error loss function
                 * ``MAE``: Mean Absolute Error loss function
                 * ``torch.nn.functional.loss.``: loss or callable for custom loss, eg. L1-Loss
+        debug_mode : bool, default False
+            If True, enables debug mode for additional logging and insights during the training process.
+            This flag is useful for identifying issues during the model's fit operation.
 
             Examples
             --------
@@ -447,12 +450,14 @@ class NeuralProphet:
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
         prediction_frequency: Optional[dict] = None,
+        debug_mode=False,
     ):
         self.config = locals()
         self.config.pop("self")
 
         # General
         self.name = "NeuralProphet"
+        self.debug_mode = debug_mode
         self.n_forecasts = n_forecasts
         self.prediction_frequency = prediction_frequency
 
@@ -2789,6 +2794,7 @@ class NeuralProphet:
             checkpointing_enabled=checkpointing_enabled,
             num_batches_per_epoch=len(train_loader),
             deterministic=deterministic,
+            debug_mode=self.debug_mode,
         )
 
         # Tune hyperparams and train
