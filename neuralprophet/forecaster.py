@@ -2810,8 +2810,11 @@ class NeuralProphet:
                 )
                 # Estimate the optimal learning rate from the loss curve
                 assert lr_finder is not None
-                _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
-                self.model.learning_rate = lr_suggestion
+                _, _, lr_suggestion_smooth = utils.smooth_loss_and_suggest(lr_finder.results)
+                lr_suggestion_default = lr_finder.suggestion(skip_begin=10, skip_end=3)
+                self.model.learning_rate = np.exp(
+                    0.5 * np.log(lr_suggestion_smooth) + 0.5 * np.log(lr_suggestion_default)
+                )
             start = time.time()
             self.trainer.fit(
                 self.model,
@@ -2832,8 +2835,11 @@ class NeuralProphet:
                 )
                 assert lr_finder is not None
                 # Estimate the optimal learning rate from the loss curve
-                _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
-                self.model.learning_rate = lr_suggestion
+                _, _, lr_suggestion_smooth = utils.smooth_loss_and_suggest(lr_finder.results)
+                lr_suggestion_default = lr_finder.suggestion(skip_begin=10, skip_end=3)
+                self.model.learning_rate = np.exp(
+                    0.5 * np.log(lr_suggestion_smooth) + 0.5 * np.log(lr_suggestion_default)
+                )
             start = time.time()
             self.trainer.fit(
                 self.model,
