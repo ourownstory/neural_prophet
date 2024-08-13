@@ -751,7 +751,7 @@ def set_log_level(log_level: str = "INFO", include_handlers: bool = False):
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
 
-def smooth_loss_and_suggest(lr_finder_results, window=10):
+def smooth_loss_and_suggest(lr_finder, window=10):
     """
     Smooth loss using a Hamming filter.
 
@@ -769,6 +769,7 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         suggested_lr: float
             Suggested learning rate based on gradient
     """
+    lr_finder_results = lr_finder.results
     lr = lr_finder_results["lr"]
     loss = lr_finder_results["loss"]
     # Derive window size from num lr searches, ensure window is divisible by 2
@@ -799,7 +800,12 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
             "samples or manually set the learning rate."
         )
         raise
-    return (loss, lr, suggestion)
+    lr_suggestion_default = lr_finder.suggestion(skip_begin=10, skip_end=3)
+    if suggestion is not None and suggestion is not None:
+        lr_suggestion = np.exp(0.5 * np.log(suggestion) + 0.5 * np.log(lr_suggestion_default))
+    else:
+        lr_suggestion = suggestion if suggestion is not None else lr_suggestion_default
+    return (loss, lr, lr_suggestion)
 
 
 def _smooth_loss(loss, beta=0.9):
