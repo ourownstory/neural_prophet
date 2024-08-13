@@ -158,9 +158,9 @@ class TimeDataset(Dataset):
 
         # Determine the range of indices based on whether lags are used
         if max_lags == 0:
-            indices = [origin_index]
+            indices = slice(origin_index, origin_index + 1)
         else:
-            indices = list(range(origin_index - n_lags + 1, origin_index + n_forecasts + 1))
+            indices = slice(origin_index - n_lags + 1, origin_index + n_forecasts + 1)
 
         # Extract the precomputed seasonalities from self.seasonalities
         for name, features in self.seasonalities.items():
