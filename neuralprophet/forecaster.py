@@ -2805,7 +2805,7 @@ class NeuralProphet:
                 lr_finder = tuner.lr_find(
                     model=self.model,
                     train_dataloaders=train_loader,
-                    val_dataloaders=val_loader,
+                    # val_dataloaders=val_loader, # not be used, but may lead to Lightning bug if not provided
                     **self.config_train.lr_finder_args,
                 )
                 # Estimate the optimal learning rate from the loss curve

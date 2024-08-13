@@ -772,7 +772,8 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
     lr = lr_finder_results["lr"]
     loss = lr_finder_results["loss"]
     # Derive window size from num lr searches, ensure window is divisible by 2
-    half_window = math.ceil(round(len(loss) * 0.1) / 2)
+    # half_window = math.ceil(round(len(loss) * 0.1) / 2)
+    half_window = math.ceil(window / 2)
     # Pad sequence and initialialize hamming filter
     loss = np.pad(np.array(loss), pad_width=half_window, mode="edge")
     window = np.hamming(half_window * 2)
