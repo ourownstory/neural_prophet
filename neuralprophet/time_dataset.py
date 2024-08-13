@@ -135,38 +135,41 @@ class TimeDataset(Dataset):
 
     def calculate_seasonalities(self):
         self.seasonalities = OrderedDict({})
+        self.seasonality_indices = OrderedDict({})
         dates = self.df_tensors["ds"]
         t = (dates - torch.tensor(datetime(1900, 1, 1).timestamp())).float() / (3600 * 24.0)
 
-        def compute_fourier_features(t, period):
-            factor = 2.0 * np.pi / period.period
-            sin_terms = torch.sin(factor * t[:, None] * torch.arange(1, period.resolution + 1))
-            cos_terms = torch.cos(factor * t[:, None] * torch.arange(1, period.resolution + 1))
-            return torch.cat((sin_terms, cos_terms), dim=1)
+        torch_pi = torch.tensor(np.pi, dtype=t.dtype, device=t.device)
+        base_time = t[:, None]
+        start_index = 0
+        all_features = []
 
         for name, period in self.config_seasonality.periods.items():
             if period.resolution > 0:
-                features = compute_fourier_features(t, period)
+                factor = 2.0 * torch_pi / period.period
+                terms = factor * base_time * torch.arrange(1, period.resolution + 1)
+                features = torch.cat((torch.sin(terms), torch.cos(terms)), dim=1)
 
                 if period.condition_name is not None:
                     condition_values = self.df_tensors[period.condition_name].unsqueeze(1)
                     features *= condition_values
-                self.seasonalities[name] = features
+
+                end_index = start_index + features.shape[1]
+                self.seasonality_indices[name] = (start_index, end_index)
+                all_features.append(features)
+                start_index = end_index
+
+        # Concatenate all features into a single tensor
+        self.stacked_seasonalities = torch.cat(all_features, dim=1)
 
     def get_sample_seasonalities(self, df_tensors, origin_index, n_forecasts, max_lags, n_lags, config_seasonality):
-        seasonalities = OrderedDict({})
-
         # Determine the range of indices based on whether lags are used
         if max_lags == 0:
             indices = slice(origin_index, origin_index + 1)
         else:
             indices = slice(origin_index - n_lags + 1, origin_index + n_forecasts + 1)
 
-        # Extract the precomputed seasonalities from self.seasonalities
-        for name, features in self.seasonalities.items():
-            seasonalities[name] = features[indices, :]
-
-        return seasonalities
+        return self.stacked_seasonalities[indices, :]
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
