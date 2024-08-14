@@ -806,7 +806,7 @@ def smooth_loss_and_suggest(lr_finder, window=10):
         log_suggestion_default = np.log(suggestion_default)
         lr_suggestion = np.exp((log_suggestion_smooth + log_suggestion_default) / 2)
     elif suggestion is None and suggestion_default is None:
-        log.error(f"Automatic learning rate test failed. Please set manually the learning rate.")
+        log.error("Automatic learning rate test failed. Please set manually the learning rate.")
         raise
     else:
         lr_suggestion = suggestion if suggestion is not None else suggestion_default
