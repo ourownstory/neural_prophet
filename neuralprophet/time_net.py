@@ -5,12 +5,13 @@ from functools import reduce
 from typing import Dict, List, Optional, Union
 
 import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torchmetrics
 
-from neuralprophet import configure, np_types
+from neuralprophet import configure, np_types, utils_torch
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
 from neuralprophet.utils import (
     check_for_regularization,
@@ -987,6 +988,173 @@ class TimeNet(pl.LightningModule):
 
     def train_dataloader(self):
         return self.train_loader
+
+    def get_future_regressor_coefficients(self):
+        """
+        Retrieves the coefficients for future regressors and events.
+
+        Note: The average weight calculation is performed to get a single representative
+        value of the coefficient for a given regressor when there are multiple forecasts
+        or hidden layers.
+
+        Returns
+        -------
+            pd.DataFrame: A DataFrame containing the following columns:
+                - regressor: Name of the regressor or event.
+                - regressor_mode: Mode of the regressor ('additive' or 'multiplicative').
+                - coef: Coefficient value for the regressor.
+        Example
+        -------
+        >>> m = NeuralProphet()
+        >>> m.add_future_regressor("temperature")
+        >>> m.fit(df)
+        >>> m.model.get_future_and_event_regressor_coefficients()
+        """
+        coefficients = []
+
+        # Helper function to calculate the average weight
+        def calculate_average_weight(weight):
+            if weight.ndim == 2:
+                return weight.mean(axis=0).mean(axis=0)
+            elif weight.ndim == 1:
+                return weight.mean(axis=0)
+            else:
+                return weight
+
+        # Future Regressors
+        if self.config_regressors is not None and self.config_regressors.regressors is not None:
+            for name, config in self.config_regressors.regressors.items():
+                regressor_component = self.future_regressors
+                if config.mode == "additive":
+                    if (
+                        hasattr(regressor_component, "regressor_params")
+                        and "additive" in regressor_component.regressor_params
+                    ):
+                        coef = regressor_component.regressor_params["additive"].data.cpu().numpy()
+                    else:
+                        if hasattr(regressor_component, "regressor_nets"):
+                            layers = regressor_component.regressor_nets[name]
+                            weights = [
+                                layer.weight.data.cpu().numpy() for layer in layers if isinstance(layer, nn.Linear)
+                            ]
+                            coef = np.concatenate(weights, axis=None)
+                elif hasattr(regressor_component, "regressor_params") and config.mode == "multiplicative":
+                    if "multiplicative" in regressor_component.regressor_params:
+                        coef = regressor_component.regressor_params["multiplicative"].data.cpu().numpy()
+                    else:
+                        if hasattr(regressor_component, "regressor_nets"):
+                            layers = regressor_component.regressor_nets[name]
+                            weights = [
+                                layer.weight.data.cpu().numpy() for layer in layers if isinstance(layer, nn.Linear)
+                            ]
+                            coef = np.concatenate(weights, axis=None)
+                coef_avg = calculate_average_weight(coef)
+                coefficients.append({"regressor": name, "regressor_mode": config.mode, "coef": coef_avg})
+
+        return pd.DataFrame(coefficients)
+
+    def get_event_coefficients(self):
+        """
+        Retrieves the coefficients for events and holidays.
+
+        Returns
+        -------
+            pd.DataFrame: A DataFrame containing the following columns:
+                - regressor: Name of the event or holiday.
+                - regressor_mode: Mode of the regressor ('additive' or 'multiplicative').
+                - coef: Coefficient value for the regressor.
+        Example
+        -------
+        >>> m = NeuralProphet()
+        >>> m.add_country_holidays("US")
+        >>> m.fit(df)
+        >>> m.model.get_event_coefficients()
+        """
+
+        coefficients = []
+
+        if self.events_dims is not None:
+            for event, configs in self.events_dims.items():
+                mode = configs["mode"]
+                event_weights = self.get_event_weights(event)
+                all_weights = []
+                for key, param in event_weights.items():
+                    all_weights.extend(param.detach().numpy())
+
+                coef_avg = np.mean(all_weights)
+
+                # Determine if it's a holiday or an event
+                if self.config_holidays and event in self.config_holidays.holiday_names:
+                    regressor_type = "holiday"
+                else:
+                    regressor_type = "event"
+
+                coefficients.append(
+                    {"regressor": event, "regressor_type": regressor_type, "regressor_mode": mode, "coef": coef_avg}
+                )
+
+        return pd.DataFrame(coefficients)
+
+    def get_ar_coefficients(self):
+        """
+        Retrieves the coefficients for the autoregressive (AR) components. In case of hidden layers the coefficients only provide a rough approximation of the importance as they only consider the first layer.
+
+        Returns
+        -------
+            pd.DataFrame: A DataFrame containing the following columns:
+                - regressor: Name of the AR component.
+                - lag: Lag value for the AR component.
+                - coef: Coefficient value for the AR component.
+
+        Example
+        -------
+        >>> m = NeuralProphet(n_lags=10)
+        >>> m.fit(df)
+        >>> m.model.get_ar_coefficients()
+        """
+        coefficients = []
+
+        if self.config_ar is not None and hasattr(self, "ar_net"):
+            ar_weights = utils_torch.interprete_model(self, net="ar_net", forward_func="auto_regression")
+            ar_weights_np = ar_weights.detach().cpu().numpy()
+            mean_weights = ar_weights_np.mean(axis=0)
+
+            for lag, coef in enumerate(mean_weights):
+                coefficients.append({"regressor": "AR", "lag": lag + 1, "coef": coef})
+
+        return pd.DataFrame(coefficients)
+
+    def get_lagged_regressor_coefficients(self):
+        """
+        Retrieves coefficients of lagged regressors, mapped to their corresponding lags.
+
+        Returns
+        -------
+            pd.DataFrame: A DataFrame containing the following columns:
+                - regressor: Name of the regressor.
+                - lag: The specific lag associated with the coefficient.
+                - coef: Coefficient value for the regressor at the specific lag.
+        Example
+        -------
+        >>> m = NeuralProphet()
+        >>> m.add_lagged_regressor('lagged_regressor1', n_lags=3)
+        >>> m.fit(df)
+        >>> m.model.get_lagged_regressor_coefficients()
+        """
+        coefficients = []
+        if self.config_lagged_regressors is not None:
+            covar_weights = self.get_covar_weights()
+
+            for regressor_name, weight_tensor in covar_weights.items():
+                if weight_tensor.requires_grad:
+                    weight_tensor = weight_tensor.detach()
+                weights = weight_tensor.cpu().numpy().mean(axis=0)
+
+                config = self.config_lagged_regressors[regressor_name]
+                for lag in range(config.n_lags):
+                    coefficients.append({"regressor": regressor_name, "lag": lag + 1, "coef": weights[lag]})
+
+        return pd.DataFrame(coefficients)
 
 
 class FlatNet(nn.Module):
