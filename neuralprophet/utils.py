@@ -751,7 +751,7 @@ def set_log_level(log_level: str = "INFO", include_handlers: bool = False):
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
 
-def smooth_loss_and_suggest(lr_finder_results, window=10):
+def smooth_loss_and_suggest(lr_finder, window=10):
     """
     Smooth loss using a Hamming filter.
 
@@ -769,10 +769,12 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         suggested_lr: float
             Suggested learning rate based on gradient
     """
+    lr_finder_results = lr_finder.results
     lr = lr_finder_results["lr"]
     loss = lr_finder_results["loss"]
     # Derive window size from num lr searches, ensure window is divisible by 2
-    half_window = math.ceil(round(len(loss) * 0.1) / 2)
+    # half_window = math.ceil(round(len(loss) * 0.1) / 2)
+    half_window = math.ceil(window / 2)
     # Pad sequence and initialialize hamming filter
     loss = np.pad(np.array(loss), pad_width=half_window, mode="edge")
     window = np.hamming(half_window * 2)
@@ -798,7 +800,17 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
             "samples or manually set the learning rate."
         )
         raise
-    return (loss, lr, suggestion)
+    suggestion_default = lr_finder.suggestion(skip_begin=10, skip_end=3)
+    if suggestion is not None and suggestion_default is not None:
+        log_suggestion_smooth = np.log(suggestion)
+        log_suggestion_default = np.log(suggestion_default)
+        lr_suggestion = np.exp((log_suggestion_smooth + log_suggestion_default) / 2)
+    elif suggestion is None and suggestion_default is None:
+        log.error("Automatic learning rate test failed. Please set manually the learning rate.")
+        raise
+    else:
+        lr_suggestion = suggestion if suggestion is not None else suggestion_default
+    return (loss, lr, lr_suggestion)
 
 
 def _smooth_loss(loss, beta=0.9):
