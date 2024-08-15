@@ -8,7 +8,8 @@ import pathlib
 import pandas as pd
 import pytest
 
-from neuralprophet import NeuralProphet, df_utils, load, save
+from neuralprophet import NeuralProphet, load, save
+from neuralprophet.utilities import df_utils
 
 log = logging.getLogger("NP.test")
 log.setLevel("ERROR")

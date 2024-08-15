@@ -6,12 +6,12 @@ import matplotlib
 import numpy as np
 import pandas as pd
 
-from neuralprophet.plot_forecast_matplotlib import plot_interval_width_per_timestep, plot_nonconformity_scores
-from neuralprophet.plot_forecast_plotly import (
+from neuralprophet.plotting.plot_forecast_matplotlib import plot_interval_width_per_timestep, plot_nonconformity_scores
+from neuralprophet.plotting.plot_forecast_plotly import (
     plot_interval_width_per_timestep as plot_interval_width_per_timestep_plotly,
 )
-from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
-from neuralprophet.plot_utils import log_warning_deprecation_plotly, select_plotting_backend
+from neuralprophet.plotting.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
+from neuralprophet.utilities.plot_utils import log_warning_deprecation_plotly, select_plotting_backend
 
 
 @dataclass

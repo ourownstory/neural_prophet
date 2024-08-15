@@ -5,7 +5,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from neuralprophet.plot_utils import predict_one_season, predict_season_from_dates, set_y_as_percent
+from neuralprophet.utilities.plot_utils import predict_one_season, predict_season_from_dates, set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
 

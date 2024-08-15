@@ -10,7 +10,8 @@ import pandas as pd
 import pytest
 from holidays import country_holidays
 
-from neuralprophet import NeuralProphet, event_utils
+from neuralprophet import NeuralProphet
+from neuralprophet.utilities import event_utils
 
 log = logging.getLogger("NP.test")
 log.setLevel("ERROR")

@@ -13,8 +13,8 @@ import pytorch_lightning as pl
 import torch
 from lightning_fabric.utilities.seed import seed_everything
 
-from neuralprophet import utils_torch
 from neuralprophet.logger import ProgressBar
+from neuralprophet.utilities import utils_torch
 
 if TYPE_CHECKING:
     from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality, Train

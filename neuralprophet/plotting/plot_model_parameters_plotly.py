@@ -6,7 +6,7 @@ import pandas as pd
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 
-from neuralprophet.plot_utils import predict_one_season, predict_season_from_dates
+from neuralprophet.utilities.plot_utils import predict_one_season, predict_season_from_dates
 
 log = logging.getLogger("NP.plotly")
 

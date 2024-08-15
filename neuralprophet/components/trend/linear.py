@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from neuralprophet.components.trend import Trend
-from neuralprophet.utils_torch import init_parameter
+from neuralprophet.utilities.utils_torch import init_parameter
 
 
 class LinearTrend(Trend):

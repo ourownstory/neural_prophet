@@ -12,7 +12,7 @@ import torchmetrics
 
 from neuralprophet import configure, np_types
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
-from neuralprophet.utils import (
+from neuralprophet.utilities.utils import (
     check_for_regularization,
     config_events_to_model_dims,
     reg_func_events,
@@ -22,7 +22,7 @@ from neuralprophet.utils import (
     reg_func_trend,
     reg_func_trend_glocal,
 )
-from neuralprophet.utils_torch import init_parameter, interprete_model
+from neuralprophet.utilities.utils_torch import init_parameter, interprete_model
 
 log = logging.getLogger("NP.time_net")
 

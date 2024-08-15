@@ -11,8 +11,9 @@ import pandas as pd
 import pytest
 import torch
 
-from neuralprophet import NeuralProphet, df_utils, set_random_seed
+from neuralprophet import NeuralProphet, set_random_seed
 from neuralprophet.data.process import _handle_missing_data, _validate_column_name
+from neuralprophet.utilities import df_utils
 
 log = logging.getLogger("NP.test")
 log.setLevel("ERROR")

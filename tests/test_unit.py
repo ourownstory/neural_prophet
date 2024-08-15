@@ -10,9 +10,10 @@ import pandas as pd
 import pytest
 from torch.utils.data import DataLoader
 
-from neuralprophet import NeuralProphet, configure, df_utils, time_dataset
+from neuralprophet import NeuralProphet, configure, time_dataset
 from neuralprophet.data.process import _create_dataset, _handle_missing_data
 from neuralprophet.data.transform import _normalize
+from neuralprophet.utilities import df_utils
 
 log = logging.getLogger("NP.test")
 log.setLevel("ERROR")

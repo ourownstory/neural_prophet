@@ -14,7 +14,7 @@ from matplotlib.axes import Axes
 from pytorch_lightning.tuner.tuning import Tuner
 from torch.utils.data import DataLoader
 
-from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
+from neuralprophet import configure, np_types, time_dataset, time_net
 from neuralprophet.data.process import (
     _check_dataframe,
     _convert_raw_predictions_to_raw_df,
@@ -27,14 +27,19 @@ from neuralprophet.data.process import (
 from neuralprophet.data.split import _make_future_dataframe, _maybe_extend_df
 from neuralprophet.data.transform import _normalize
 from neuralprophet.logger import MetricsLogger
-from neuralprophet.plot_forecast_matplotlib import plot, plot_components
-from neuralprophet.plot_forecast_plotly import conformal_plot_plotly
-from neuralprophet.plot_forecast_plotly import plot as plot_plotly
-from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
-from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
-from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
-from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly, select_plotting_backend
+from neuralprophet.plotting.plot_forecast_matplotlib import plot, plot_components
+from neuralprophet.plotting.plot_forecast_plotly import conformal_plot_plotly
+from neuralprophet.plotting.plot_forecast_plotly import plot as plot_plotly
+from neuralprophet.plotting.plot_forecast_plotly import plot_components as plot_components_plotly
+from neuralprophet.plotting.plot_model_parameters_matplotlib import plot_parameters
+from neuralprophet.plotting.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.uncertainty import Conformal
+from neuralprophet.utilities import df_utils, utils, utils_metrics
+from neuralprophet.utilities.plot_utils import (
+    get_valid_configuration,
+    log_warning_deprecation_plotly,
+    select_plotting_backend,
+)
 
 log = logging.getLogger("NP.forecaster")
 

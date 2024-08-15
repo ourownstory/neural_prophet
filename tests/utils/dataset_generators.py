@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from neuralprophet.event_utils import get_all_holidays
+from neuralprophet.utilities.event_utils import get_all_holidays
 
 
 def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=100, y_holidays_override={}):

@@ -1,7 +1,7 @@
 import logging
 
-from neuralprophet import utils
 from neuralprophet.components import BaseComponent
+from neuralprophet.utilities import utils
 
 log = logging.getLogger("NP.future_regressors")
 

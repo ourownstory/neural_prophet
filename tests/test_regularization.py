@@ -8,8 +8,9 @@ import pandas as pd
 import pytest
 import torch
 
-from neuralprophet import NeuralProphet, df_utils
-from neuralprophet.utils import reg_func_abs
+from neuralprophet import NeuralProphet
+from neuralprophet.utilities import df_utils
+from neuralprophet.utilities.utils import reg_func_abs
 from tests.utils.dataset_generators import (
     generate_event_dataset,
     generate_holiday_dataset,
