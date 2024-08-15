@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from neuralprophet.components.seasonality import Seasonality
 from neuralprophet.utilities import utils
-from neuralprophet.utilities.utils_torch import init_parameter
+from neuralprophet.utilities.torch_utils import init_parameter
 
 
 class FourierSeasonality(Seasonality):

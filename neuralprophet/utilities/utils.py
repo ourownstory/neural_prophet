@@ -14,7 +14,7 @@ import torch
 from lightning_fabric.utilities.seed import seed_everything
 
 from neuralprophet.logger import ProgressBar
-from neuralprophet.utilities import utils_torch
+from neuralprophet.utilities import torch_utils
 
 if TYPE_CHECKING:
     from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality, Train
@@ -272,7 +272,7 @@ def reg_func_covariates(config_lagged_regressors: ConfigLaggedRegressors, model)
     for covariate, configs in config_lagged_regressors.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
-            loss = torch.mean(utils_torch.penalize_nonzero(weights[covariate])).squeeze()
+            loss = torch.mean(torch_utils.penalize_nonzero(weights[covariate])).squeeze()
             reg_covariate_loss += reg_lambda * loss
 
     return reg_covariate_loss

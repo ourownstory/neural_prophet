@@ -1,5 +1,5 @@
 Core Module Documentation
 ==========================
 
-.. automodule:: neuralprophet.utils_torch
+.. automodule:: neuralprophet.torch_utils
    :members:

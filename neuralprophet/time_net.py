@@ -12,6 +12,7 @@ import torchmetrics
 
 from neuralprophet import configure, np_types
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
+from neuralprophet.utilities.torch_utils import init_parameter, interprete_model
 from neuralprophet.utilities.utils import (
     check_for_regularization,
     config_events_to_model_dims,
@@ -22,7 +23,6 @@ from neuralprophet.utilities.utils import (
     reg_func_trend,
     reg_func_trend_glocal,
 )
-from neuralprophet.utilities.utils_torch import init_parameter, interprete_model
 
 log = logging.getLogger("NP.time_net")
 
@@ -315,7 +315,7 @@ class TimeNet(pl.LightningModule):
     @property
     def ar_weights(self) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
-        # TODO: this is wrong for deep networks, use utils_torch.interprete_model
+        # TODO: this is wrong for deep networks, use torch_utils.interprete_model
         for layer in self.ar_net:
             if isinstance(layer, nn.Linear):
                 return layer.weight

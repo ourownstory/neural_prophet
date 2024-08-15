@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from captum.attr import Saliency
 
-log = logging.getLogger("NP.utils_torch")
+log = logging.getLogger("NP.torch_utils")
 
 
 def init_parameter(dims):

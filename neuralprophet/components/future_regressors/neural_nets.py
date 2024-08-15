@@ -3,9 +3,9 @@ from collections import OrderedDict
 import torch.nn as nn
 
 from neuralprophet.components.future_regressors import FutureRegressors
-from neuralprophet.utilities.utils_torch import interprete_model
+from neuralprophet.utilities.torch_utils import interprete_model
 
-# from neuralprophet.utils_torch import init_parameter
+# from neuralprophet.torch_utils import init_parameter
 
 
 class NeuralNetsFutureRegressors(FutureRegressors):

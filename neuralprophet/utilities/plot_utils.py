@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from neuralprophet import time_dataset
-from neuralprophet.utilities import utils_torch
+from neuralprophet.utilities import torch_utils
 
 log = logging.getLogger("NP.plotting")
 
@@ -371,7 +371,7 @@ def get_valid_configuration(  # move to utils
                 {
                     "plot_name": "lagged weights",
                     "comp_name": "AR",
-                    "weights": utils_torch.interprete_model(m.model, net="ar_net", forward_func="auto_regression")
+                    "weights": torch_utils.interprete_model(m.model, net="ar_net", forward_func="auto_regression")
                     .detach()
                     .numpy(),
                     "focus": forecast_in_focus,

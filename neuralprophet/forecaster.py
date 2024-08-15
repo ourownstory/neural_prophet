@@ -34,7 +34,7 @@ from neuralprophet.plotting.plot_forecast_plotly import plot_components as plot_
 from neuralprophet.plotting.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plotting.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.uncertainty import Conformal
-from neuralprophet.utilities import df_utils, utils, utils_metrics
+from neuralprophet.utilities import df_utils, metrics_utils, utils
 from neuralprophet.utilities.plot_utils import (
     get_valid_configuration,
     log_warning_deprecation_plotly,
@@ -484,7 +484,7 @@ class NeuralProphet:
                     + "removed in a future version. The metrics are now configure in the `fit()` method via `metrics`."
                 )
             )
-        self.metrics = utils_metrics.get_metrics(collect_metrics)
+        self.metrics = metrics_utils.get_metrics(collect_metrics)
 
         # AR
         self.config_ar = configure.AR(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
@@ -995,7 +995,7 @@ class NeuralProphet:
             self.early_stopping = early_stopping
 
         if metrics is not None:
-            self.metrics = utils_metrics.get_metrics(metrics)
+            self.metrics = metrics_utils.get_metrics(metrics)
 
         # Warnings
         if early_stopping:
@@ -1019,7 +1019,7 @@ class NeuralProphet:
 
         if progress == "plot" and metrics is False:
             log.info("Progress plot requires metrics to be enabled. Enabling the default metrics.")
-            metrics = utils_metrics.get_metrics(True)
+            metrics = metrics_utils.get_metrics(True)
 
         if not self.config_normalization.global_normalization:
             log.info("When Global modeling with local normalization, metrics are displayed in normalized scale.")

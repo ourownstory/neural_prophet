@@ -27,7 +27,7 @@ Code Documentation
    hdays_utils.py <hdays_utils>
    plot_utils.py <plot_utils>
    utils_metrics.py <utils_metrics>
-   utils_torch.py <utils_torch>
+   torch_utils.py <torch_utils>
    custom_loss_metrics.py <custom_loss_metrics>
    logger.py <logger>
    np_types.py <np_types>

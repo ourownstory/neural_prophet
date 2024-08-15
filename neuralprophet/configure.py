@@ -15,7 +15,7 @@ import torch
 
 from neuralprophet import np_types
 from neuralprophet.custom_loss_metrics import PinballLoss
-from neuralprophet.utilities import df_utils, utils_torch
+from neuralprophet.utilities import df_utils, torch_utils
 from neuralprophet.utilities.event_utils import get_holiday_names
 
 log = logging.getLogger("NP.config")
@@ -184,7 +184,7 @@ class Train:
         Set the optimizer and optimizer args. If optimizer is a string, then it will be converted to the corresponding
         torch optimizer. The optimizer is not initialized yet as this is done in configure_optimizers in TimeNet.
         """
-        self.optimizer, self.optimizer_args = utils_torch.create_optimizer_from_config(
+        self.optimizer, self.optimizer_args = torch_utils.create_optimizer_from_config(
             self.optimizer, self.optimizer_args
         )
 
@@ -448,7 +448,7 @@ class AR:
         if original:
             reg = torch.div(2.0, 1.0 + torch.exp(-2 * (1e-9 + torch.abs(weights)).pow(1 / 2.0))) - 1.0
         else:
-            reg = utils_torch.penalize_nonzero(weights, eagerness=3, acceptance=1.0)
+            reg = torch_utils.penalize_nonzero(weights, eagerness=3, acceptance=1.0)
         return reg
 
 
