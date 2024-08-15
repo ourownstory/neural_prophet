@@ -21,6 +21,8 @@ Feature guides
     MLflow Integration<feature-guides/mlflow>
     Live Plotting during Training<feature-guides/Live_plot_during_training>
     Network Architecture Visualization<feature-guides/network_architecture_visualization>
+    Profiling and Logging<feature-guides/profiling_and_logging>
+
 
 Application examples
 --------------------

@@ -20,5 +20,4 @@ New Tutorials
     08: Uncertainty<tutorial08>
     09: Global Model<tutorial09>
     10: Validation and Reproducibility<tutorial10>
-    11: Profiling and Logging<tutorial11>
-    12: Next Steps<next-steps>
+    11: Next Steps<next-steps>
