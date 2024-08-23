@@ -199,13 +199,10 @@ class NeuralProphet:
                 * ``shared_neural_nets``
                 * ``shared_neural_nets_coef``
 
-        future_regressors_d_hidden: int
-            Number of hidden layers in the neural network model for future regressors.
-            Ignored if ``future_regressors_model`` is ``linear``.
+        future_regressors_layers: list of int
+            list of hidden layer dimensions of the future regressor nets. Specifies number of hidden layers (number of entries)
+            and layer dimension (list entry). Default [] (no hidden layers)
 
-        future_regressors_num_hidden_layers: int
-            Dimension of hidden layers in the neural network model for future regressors.
-            Ignored if ``future_regressors_model`` is ``linear``.
 
         COMMENT
         AR Config
@@ -438,8 +435,7 @@ class NeuralProphet:
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
         seasonality_local_reg: Optional[Union[bool, float]] = False,
         future_regressors_model: np_types.FutureRegressorsModel = "linear",
-        future_regressors_d_hidden: int = 4,
-        future_regressors_num_hidden_layers: int = 2,
+        future_regressors_layers: Optional[list] = [],
         n_forecasts: int = 1,
         n_lags: int = 0,
         ar_layers: Optional[list] = [],
@@ -557,8 +553,7 @@ class NeuralProphet:
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
         self.config_regressors = configure.ConfigFutureRegressors(
             model=future_regressors_model,
-            d_hidden=future_regressors_d_hidden,
-            num_hidden_layers=future_regressors_num_hidden_layers,
+            regressors_layers=future_regressors_layers,
         )  # Optional[configure.ConfigFutureRegressors] = None
 
         # set during fit()
@@ -2864,13 +2859,12 @@ class NeuralProphet:
                 lr_finder = tuner.lr_find(
                     model=self.model,
                     train_dataloaders=train_loader,
-                    val_dataloaders=val_loader,
+                    # val_dataloaders=val_loader, # not be used, but may lead to Lightning bug if not provided
                     **self.config_train.lr_finder_args,
                 )
                 # Estimate the optimal learning rate from the loss curve
                 assert lr_finder is not None
-                _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
-                self.model.learning_rate = lr_suggestion
+                _, _, self.model.learning_rate = utils.smooth_loss_and_suggest(lr_finder)
             start = time.time()
             self.trainer.fit(
                 self.model,
@@ -2891,8 +2885,7 @@ class NeuralProphet:
                 )
                 assert lr_finder is not None
                 # Estimate the optimal learning rate from the loss curve
-                _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
-                self.model.learning_rate = lr_suggestion
+                _, _, self.model.learning_rate = utils.smooth_loss_and_suggest(lr_finder)
             start = time.time()
             self.trainer.fit(
                 self.model,

@@ -270,28 +270,34 @@ class TimeNet(pl.LightningModule):
         self.ar_layers = ar_layers
         self.max_lags = max_lags
         if self.n_lags > 0:
-            self.ar_net = nn.ModuleList()
+            ar_net_layers = []
             d_inputs = self.n_lags
             for d_hidden_i in self.ar_layers:
-                self.ar_net.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+                ar_net_layers.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+                ar_net_layers.append(nn.ReLU())
                 d_inputs = d_hidden_i
             # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
-            self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+            ar_net_layers.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+            self.ar_net = nn.Sequential(*ar_net_layers)
             for lay in self.ar_net:
-                nn.init.kaiming_normal_(lay.weight, mode="fan_in")
+                if isinstance(lay, nn.Linear):
+                    nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
         # Lagged regressors
         self.lagged_reg_layers = lagged_reg_layers
         self.config_lagged_regressors = config_lagged_regressors
         if self.config_lagged_regressors is not None:
-            self.covar_net = nn.ModuleList()
+            covar_net_layers = []
             d_inputs = sum([covar.n_lags for _, covar in self.config_lagged_regressors.items()])
             for d_hidden_i in self.lagged_reg_layers:
-                self.covar_net.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+                covar_net_layers.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+                covar_net_layers.append(nn.ReLU())
                 d_inputs = d_hidden_i
-            self.covar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+            covar_net_layers.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+            self.covar_net = nn.Sequential(*covar_net_layers)
             for lay in self.covar_net:
-                nn.init.kaiming_normal_(lay.weight, mode="fan_in")
+                if isinstance(lay, nn.Linear):
+                    nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
         # Regressors
         self.config_regressors = config_regressors
@@ -316,7 +322,9 @@ class TimeNet(pl.LightningModule):
     def ar_weights(self) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         # TODO: this is wrong for deep networks, use utils_torch.interprete_model
-        return self.ar_net[0].weight
+        for layer in self.ar_net:
+            if isinstance(layer, nn.Linear):
+                return layer.weight
 
     def get_covar_weights(self, covar_input=None) -> torch.Tensor:
         """
@@ -399,49 +407,50 @@ class TimeNet(pl.LightningModule):
             dim (batch, n_forecasts, no_quantiles)
                 final forecasts
         """
-        if len(self.quantiles) > 1:
-            # generate the actual quantile forecasts from predicted differences
-            if any(quantile > 0.5 for quantile in self.quantiles):
-                quantiles_divider_index = next(i for i, quantile in enumerate(self.quantiles) if quantile > 0.5)
-            else:
-                quantiles_divider_index = len(self.quantiles)
 
-            n_upper_quantiles = diffs.shape[-1] - quantiles_divider_index
-            n_lower_quantiles = quantiles_divider_index - 1
-
-            out = torch.zeros_like(diffs)
-            out[:, :, 0] = diffs[:, :, 0]  # set the median where 0 is the median quantile index
-
-            if n_upper_quantiles > 0:  # check if upper quantiles exist
-                upper_quantile_diffs = diffs[:, :, quantiles_divider_index:]
-                if predict_mode:  # check for quantile crossing and correct them in predict mode
-                    upper_quantile_diffs[:, :, 0] = torch.max(
-                        torch.tensor(0, device=self.device), upper_quantile_diffs[:, :, 0]
-                    )
-                    for i in range(n_upper_quantiles - 1):
-                        next_diff = upper_quantile_diffs[:, :, i + 1]
-                        diff = upper_quantile_diffs[:, :, i]
-                        upper_quantile_diffs[:, :, i + 1] = torch.max(next_diff, diff)
-                out[:, :, quantiles_divider_index:] = (
-                    upper_quantile_diffs + diffs[:, :, 0].unsqueeze(dim=2).repeat(1, 1, n_upper_quantiles).detach()
-                )  # set the upper quantiles
-
-            if n_lower_quantiles > 0:  # check if lower quantiles exist
-                lower_quantile_diffs = diffs[:, :, 1:quantiles_divider_index]
-                if predict_mode:  # check for quantile crossing and correct them in predict mode
-                    lower_quantile_diffs[:, :, -1] = torch.max(
-                        torch.tensor(0, device=self.device), lower_quantile_diffs[:, :, -1]
-                    )
-                    for i in range(n_lower_quantiles - 1, 0, -1):
-                        next_diff = lower_quantile_diffs[:, :, i - 1]
-                        diff = lower_quantile_diffs[:, :, i]
-                        lower_quantile_diffs[:, :, i - 1] = torch.max(next_diff, diff)
-                lower_quantile_diffs = -lower_quantile_diffs
-                out[:, :, 1:quantiles_divider_index] = (
-                    lower_quantile_diffs + diffs[:, :, 0].unsqueeze(dim=2).repeat(1, 1, n_lower_quantiles).detach()
-                )  # set the lower quantiles
+        if len(self.quantiles) <= 1:
+            return diffs
+        # generate the actual quantile forecasts from predicted differences
+        if any(quantile > 0.5 for quantile in self.quantiles):
+            quantiles_divider_index = next(i for i, quantile in enumerate(self.quantiles) if quantile > 0.5)
         else:
-            out = diffs
+            quantiles_divider_index = len(self.quantiles)
+
+        n_upper_quantiles = diffs.shape[-1] - quantiles_divider_index
+        n_lower_quantiles = quantiles_divider_index - 1
+
+        out = torch.zeros_like(diffs)
+        out[:, :, 0] = diffs[:, :, 0]  # set the median where 0 is the median quantile index
+
+        if n_upper_quantiles > 0:  # check if upper quantiles exist
+            upper_quantile_diffs = diffs[:, :, quantiles_divider_index:]
+            if predict_mode:  # check for quantile crossing and correct them in predict mode
+                upper_quantile_diffs[:, :, 0] = torch.max(
+                    torch.tensor(0, device=self.device), upper_quantile_diffs[:, :, 0]
+                )
+                for i in range(n_upper_quantiles - 1):
+                    next_diff = upper_quantile_diffs[:, :, i + 1]
+                    diff = upper_quantile_diffs[:, :, i]
+                    upper_quantile_diffs[:, :, i + 1] = torch.max(next_diff, diff)
+            out[:, :, quantiles_divider_index:] = (
+                upper_quantile_diffs + diffs[:, :, 0].unsqueeze(dim=2).repeat(1, 1, n_upper_quantiles).detach()
+            )  # set the upper quantiles
+
+        if n_lower_quantiles > 0:  # check if lower quantiles exist
+            lower_quantile_diffs = diffs[:, :, 1:quantiles_divider_index]
+            if predict_mode:  # check for quantile crossing and correct them in predict mode
+                lower_quantile_diffs[:, :, -1] = torch.max(
+                    torch.tensor(0, device=self.device), lower_quantile_diffs[:, :, -1]
+                )
+                for i in range(n_lower_quantiles - 1, 0, -1):
+                    next_diff = lower_quantile_diffs[:, :, i - 1]
+                    diff = lower_quantile_diffs[:, :, i]
+                    lower_quantile_diffs[:, :, i - 1] = torch.max(next_diff, diff)
+            lower_quantile_diffs = -lower_quantile_diffs
+            out[:, :, 1:quantiles_divider_index] = (
+                lower_quantile_diffs + diffs[:, :, 0].unsqueeze(dim=2).repeat(1, 1, n_lower_quantiles).detach()
+            )  # set the lower quantiles
+
         return out
 
     def scalar_features_effects(self, features: torch.Tensor, params: nn.Parameter, indices=None) -> torch.Tensor:
@@ -480,14 +489,9 @@ class TimeNet(pl.LightningModule):
             torch.Tensor
                 Forecast component of dims: (batch, n_forecasts)
         """
-        x = lags
-        for i in range(len(self.ar_layers) + 1):
-            if i > 0:
-                x = nn.functional.relu(x)
-            x = self.ar_net[i](x)
-
+        x = self.ar_net(lags)
         # segment the last dimension to match the quantiles
-        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
+        x = x.view(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
     def forward_covar_net(self, covariates):
@@ -507,13 +511,9 @@ class TimeNet(pl.LightningModule):
             x = torch.cat([covar for _, covar in covariates.items()], axis=1)
         else:
             x = covariates
-        for i in range(len(self.lagged_reg_layers) + 1):
-            if i > 0:
-                x = nn.functional.relu(x)
-            x = self.covar_net[i](x)
-
+        x = self.covar_net(x)
         # segment the last dimension to match the quantiles
-        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
+        x = x.view(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
     def forward(self, inputs: Dict, meta: Dict = None, compute_components_flag: bool = False) -> torch.Tensor:
@@ -908,8 +908,7 @@ class TimeNet(pl.LightningModule):
             end_w = self.config_train.newer_samples_weight
             start_t = self.config_train.newer_samples_start
             time = (t.detach() - start_t) / (1.0 - start_t)
-            time = torch.maximum(torch.zeros_like(time), time)
-            time = torch.minimum(torch.ones_like(time), time)  # time = 0 to 1
+            time = torch.clamp(time, 0.0, 1.0)  # time = 0 to 1
             time = np.pi * (time - 1.0)  # time =  -pi to 0
             time = 0.5 * torch.cos(time) + 0.5  # time =  0 to 1
             # scales end to be end weight times bigger than start weight
@@ -1047,11 +1046,13 @@ class DeepNet(nn.Module):
     def __init__(self, d_inputs, d_outputs, lagged_reg_layers=[]):
         # Perform initialization of the pytorch superclass
         super(DeepNet, self).__init__()
-        self.layers = nn.ModuleList()
+        layers = []
         for d_hidden_i in lagged_reg_layers:
-            self.layers.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+            layers.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+            layers.append(nn.ReLU())
             d_inputs = d_hidden_i
-        self.layers.append(nn.Linear(d_inputs, d_outputs, bias=True))
+        layers.append(nn.Linear(d_inputs, d_outputs, bias=True))
+        self.layers = nn.Sequential(*layers)
         for lay in self.layers:
             nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
@@ -1059,12 +1060,7 @@ class DeepNet(nn.Module):
         """
         This method defines the network layering and activation functions
         """
-        activation = nn.functional.relu
-        for i in range(len(self.layers)):
-            if i > 0:
-                x = activation(x)
-            x = self.layers[i](x)
-        return x
+        return self.layers(x)
 
     @property
     def ar_weights(self):

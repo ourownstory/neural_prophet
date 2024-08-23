@@ -243,7 +243,7 @@ class Train:
         Set the lr_finder_args.
         This is the range of learning rates to test.
         """
-        num_training = 150 + int(np.log10(100 + dataset_size) * 25)
+        num_training = 100 + int(np.log10(dataset_size) * 20)
         if num_batches < num_training:
             log.warning(
                 f"Learning rate finder: The number of batches ({num_batches}) is too small than the required number \
@@ -252,7 +252,7 @@ class Train:
             # num_training = num_batches
         self.lr_finder_args.update(
             {
-                "min_lr": 1e-6,
+                "min_lr": 1e-7,
                 "max_lr": 10,
                 "num_training": num_training,
                 "early_stop_threshold": None,
@@ -516,8 +516,8 @@ class Regressor:
 @dataclass
 class ConfigFutureRegressors:
     model: str
-    d_hidden: int
-    num_hidden_layers: int
+    regressors_layers: Optional[List[int]]
+
     regressors: OrderedDict = field(init=False)  # contains RegressorConfig objects
 
     def __post_init__(self):
