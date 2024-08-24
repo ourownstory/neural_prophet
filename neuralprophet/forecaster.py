@@ -35,6 +35,7 @@ from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly, select_plotting_backend
 from neuralprophet.uncertainty import Conformal
+from neuralprophet.utils import unpack_sliced_tensor
 
 log = logging.getLogger("NP.forecaster")
 
@@ -487,7 +488,7 @@ class NeuralProphet:
         self.max_lags = self.n_lags
 
         # Model
-        self.config_model = configure.Model(lagged_reg_layers=lagged_reg_layers)
+        self.config_model = configure.Model(features_map={}, lagged_reg_layers=lagged_reg_layers)
 
         # Trend
         self.config_trend = configure.Trend(
@@ -1893,13 +1894,23 @@ class NeuralProphet:
                 config_regressors=self.config_regressors,
                 config_lagged_regressors=self.config_lagged_regressors,
                 config_missing=self.config_missing,
+                config_model=self.config_model,
                 # config_train=self.config_train, # no longer needed since JIT tabularization.
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
             for name in self.config_seasonality.periods:
                 predicted[name] = list()
-            for inputs, _, meta in loader:
+            for inputs_tensor, meta in loader:
+                inputs = unpack_sliced_tensor(
+                    sliced_tensor=inputs_tensor,
+                    n_lags=0,
+                    n_forecasts=1,
+                    max_lags=0,
+                    feature_indices=self.config_model.features_map,
+                    config_lagged_regressors=self.config_lagged_regressors,
+                    config_seasonality=self.config_seasonality,
+                )
                 # Meta as a tensor for prediction
                 if self.model.config_seasonality is None:
                     meta_name_tensor = None
@@ -2631,6 +2642,7 @@ class NeuralProphet:
             config_events=self.config_events,
             config_holidays=self.config_country_holidays,
             config_normalization=self.config_normalization,
+            config_model=self.config_model,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             max_lags=self.max_lags,

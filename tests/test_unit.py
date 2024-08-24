@@ -110,16 +110,17 @@ def test_timedataset_minimal():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
+            config_model=None,
         )
-        inputs, targets, meta = dataset.__getitem__(0)
-        # inputs50, targets50, meta50 = dataset.__getitem__(50)
-        log.debug(f"(n_forecasts {n_forecasts}, n_lags {n_lags})")
-        log.debug(f"tabularized targets: {targets.shape}")
-        log.debug(
-            "tabularized inputs: {}".format(
-                "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
-            )
-        )
+        input, meta = dataset.__getitem__(0)
+        # # inputs50, targets50, meta50 = dataset.__getitem__(50)
+        # log.debug(f"(n_forecasts {n_forecasts}, n_lags {n_lags})")
+        # log.debug(f"tabularized targets: {targets.shape}")
+        # log.debug(
+        #     "tabularized inputs: {}".format(
+        #         "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
+        #     )
+        # )
 
 
 def test_normalize():
@@ -736,7 +737,7 @@ def test_dataloader():
     df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
     dataset = _create_dataset(m, df_global, predict_mode=False)
     loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
-    for inputs, targets, meta in loader:
+    for _, meta in loader:
         assert set(meta["df_name"]) == set(df_global["ID"].unique())
         break
 
@@ -875,6 +876,7 @@ def test_too_many_NaN():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
+            config_model=None,
         )
 
 

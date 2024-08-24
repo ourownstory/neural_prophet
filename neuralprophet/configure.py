@@ -22,7 +22,11 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
+    features_map: dict
     lagged_reg_layers: Optional[List[int]]
+
+
+ConfigModel = Model
 
 
 @dataclass

@@ -21,6 +21,7 @@ from neuralprophet.utils import (
     reg_func_seasonality_glocal,
     reg_func_trend,
     reg_func_trend_glocal,
+    unpack_sliced_tensor,
 )
 from neuralprophet.utils_torch import init_parameter, interprete_model
 
@@ -51,6 +52,7 @@ class TimeNet(pl.LightningModule):
         config_regressors: Optional[configure.ConfigFutureRegressors] = None,
         config_events: Optional[configure.ConfigEvents] = None,
         config_holidays: Optional[configure.ConfigCountryHolidays] = None,
+        config_model: Optional[configure.ConfigModel] = None,
         n_forecasts: int = 1,
         n_lags: int = 0,
         max_lags: int = 0,
@@ -155,6 +157,7 @@ class TimeNet(pl.LightningModule):
         self.config_train = config_train
         self.config_normalization = config_normalization
         self.compute_components_flag = compute_components_flag
+        self.config_model = config_model
 
         # Optimizer and LR Scheduler
         self._optimizer = self.config_train.optimizer
@@ -562,7 +565,6 @@ class TimeNet(pl.LightningModule):
             meta = OrderedDict()
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
-
         components = {}
         additive_components = torch.zeros(
             size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)),
@@ -574,7 +576,6 @@ class TimeNet(pl.LightningModule):
         multiplicative_components_nonstationary = torch.zeros(
             size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
-
         trend = self.trend(t=inputs["time"], meta=meta)
         components["trend"] = trend
 
@@ -774,7 +775,17 @@ class TimeNet(pl.LightningModule):
         return loss, reg_loss
 
     def training_step(self, batch, batch_idx):
-        inputs, targets, meta = batch
+        inputs_tensor, meta = batch
+        inputs = unpack_sliced_tensor(
+            inputs_tensor,
+            self.n_lags,
+            self.n_forecasts,
+            self.max_lags,
+            self.config_model.features_map,
+            self.config_lagged_regressors,
+            self.config_seasonality,
+        )
+        targets = inputs["targets"]
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
@@ -810,7 +821,18 @@ class TimeNet(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        inputs, targets, meta = batch
+        inputs_tensor, meta = batch
+
+        inputs = unpack_sliced_tensor(
+            inputs_tensor,
+            self.n_lags,
+            self.n_forecasts,
+            self.max_lags,
+            self.config_model.features_map,
+            self.config_lagged_regressors,
+            self.config_seasonality,
+        )
+        targets = inputs["targets"]
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
@@ -829,7 +851,18 @@ class TimeNet(pl.LightningModule):
             self.log("RegLoss_val", reg_loss, **self.log_args)
 
     def test_step(self, batch, batch_idx):
-        inputs, targets, meta = batch
+        inputs_tensor, meta = batch
+
+        inputs = unpack_sliced_tensor(
+            inputs_tensor,
+            self.n_lags,
+            self.n_forecasts,
+            self.max_lags,
+            self.config_model.features_map,
+            self.config_lagged_regressors,
+            self.config_seasonality,
+        )
+        targets = inputs["targets"]
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
@@ -843,12 +876,24 @@ class TimeNet(pl.LightningModule):
         if self.metrics_enabled:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
+            # target_denorm = target_denorm.detach().clone()
+
             self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss_test", loss, **self.log_args)
             self.log("RegLoss_test", reg_loss, **self.log_args)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        inputs, _, meta = batch
+        inputs_tensor, meta = batch
+
+        inputs = unpack_sliced_tensor(
+            inputs_tensor,
+            self.n_lags,
+            self.n_forecasts,
+            self.max_lags,
+            self.config_model.features_map,
+            self.config_lagged_regressors,
+            self.config_seasonality,
+        )
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)

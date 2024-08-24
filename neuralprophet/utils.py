@@ -987,3 +987,154 @@ def configure_trainer(
     # config["replace_sampler_ddp"] = False
 
     return pl.Trainer(**config), checkpoint_callback
+
+
+def unpack_sliced_tensor(
+    sliced_tensor,
+    n_lags,
+    n_forecasts,
+    max_lags,
+    feature_indices,
+    config_lagged_regressors,
+    config_seasonality,
+):
+    sliced_tensor = sliced_tensor.detach().clone()
+    inputs = OrderedDict()
+    if max_lags > 0:
+        # Unpack time feature (time doesn't need further slicing)
+        start_idx, end_idx = feature_indices["time"]
+        time_offset = max_lags - n_lags
+        inputs["time"] = sliced_tensor[:, time_offset : time_offset + n_lags + n_forecasts, start_idx]
+
+        # Unpack lags feature
+        if "lags" in feature_indices:
+            lags_start_idx, lags_end_idx = feature_indices["lags"]
+            lags_offset = max_lags - n_lags
+            inputs["lags"] = sliced_tensor[:, lags_offset : lags_offset + n_lags, lags_start_idx]
+
+        # Unpack targets
+        if "targets" in feature_indices:
+            targets_start_idx, targets_end_idx = feature_indices["targets"]
+            inputs["targets"] = sliced_tensor[:, max_lags : max_lags + n_forecasts, targets_start_idx].unsqueeze(2)
+
+        # Unpack additive event and holiday features
+        if "additive_events" in feature_indices:
+            events_start_idx, events_end_idx = feature_indices["additive_events"]
+            future_offset = max_lags - n_lags
+            inputs["events"] = OrderedDict()
+            inputs["events"]["additive"] = sliced_tensor[
+                :, future_offset : future_offset + n_forecasts + n_lags, events_start_idx : events_end_idx + 1
+            ]
+
+        # Unpack multiplicative event and holiday features
+        if "multiplicative_events" in feature_indices:
+            events_start_idx, events_end_idx = feature_indices["multiplicative_events"]
+            future_offset = max_lags - n_lags
+            if "events" not in inputs:
+                inputs["events"] = OrderedDict()
+            inputs["events"]["multiplicative"] = sliced_tensor[
+                :, future_offset : future_offset + n_forecasts + n_lags, events_start_idx : events_end_idx + 1
+            ]
+
+        # Unpack additive regressor features
+        if "additive_regressors" in feature_indices:
+            regressors_start_idx, regressors_end_idx = feature_indices["additive_regressors"]
+            future_offset = max_lags - n_lags
+            inputs["regressors"] = OrderedDict()
+            inputs["regressors"]["additive"] = sliced_tensor[
+                :,
+                future_offset : future_offset + n_forecasts + n_lags,
+                regressors_start_idx : regressors_end_idx + 1,
+            ]
+
+        # Unpack multiplicative regressor features
+        if "multiplicative_regressors" in feature_indices:
+            regressors_start_idx, regressors_end_idx = feature_indices["multiplicative_regressors"]
+            future_offset = max_lags - n_lags
+            if "regressors" not in inputs:
+                inputs["regressors"] = OrderedDict()
+            inputs["regressors"]["multiplicative"] = sliced_tensor[
+                :,
+                future_offset : future_offset + n_forecasts + n_lags,
+                regressors_start_idx : regressors_end_idx + 1,
+            ]
+
+        # Unpack seasonality feature
+        if config_seasonality is not None and hasattr(config_seasonality, "periods"):
+            inputs["seasonalities"] = OrderedDict()
+            for seasonality_name in config_seasonality.periods.keys():
+                seasonality_key = f"seasonality_{seasonality_name}"
+                if seasonality_key in feature_indices:
+                    seasonality_start_idx, seasonality_end_idx = feature_indices[seasonality_key]
+                    seasonality_offset = max_lags - n_lags
+                    inputs["seasonalities"][seasonality_name] = sliced_tensor[
+                        :,
+                        seasonality_offset : seasonality_offset + n_forecasts + n_lags,
+                        seasonality_start_idx:seasonality_end_idx,
+                    ]
+                    s = inputs["seasonalities"][seasonality_name].shape
+
+        # Unpack lagged regressor features
+        if config_lagged_regressors:
+            inputs["covariates"] = OrderedDict()
+            for name, lagged_regressor in config_lagged_regressors.items():
+                lagged_regressor_key = f"lagged_regressor_{name}"
+                if lagged_regressor_key in feature_indices:
+                    lagged_regressor_start_idx, _ = feature_indices[lagged_regressor_key]
+                    covar_lags = lagged_regressor.n_lags
+                    lagged_regressor_offset = max_lags - covar_lags
+                    inputs["covariates"][name] = sliced_tensor[
+                        :,
+                        lagged_regressor_offset : lagged_regressor_offset + covar_lags,
+                        lagged_regressor_start_idx,
+                    ]
+
+    else:
+        start_idx, end_idx = feature_indices["time"]
+        inputs["time"] = sliced_tensor[:, start_idx : end_idx + 1]
+
+        if "targets" in feature_indices:
+            targets_start_idx, targets_end_idx = feature_indices["targets"]
+            inputs["targets"] = sliced_tensor[:, targets_start_idx : targets_end_idx + 1].unsqueeze(1)
+
+        # Unpack additive event and holiday features
+        if "additive_events" in feature_indices:
+            events_start_idx, events_end_idx = feature_indices["additive_events"]
+            inputs["events"] = OrderedDict()
+            inputs["events"]["additive"] = sliced_tensor[:, events_start_idx : events_end_idx + 1].unsqueeze(1)
+
+        # Unpack multiplicative event and holiday features
+        if "multiplicative_events" in feature_indices:
+            events_start_idx, events_end_idx = feature_indices["multiplicative_events"]
+            if "events" not in inputs:
+                inputs["events"] = OrderedDict()
+            inputs["events"]["multiplicative"] = sliced_tensor[:, events_start_idx : events_end_idx + 1].unsqueeze(1)
+
+        # Unpack additive regressor features
+        if "additive_regressors" in feature_indices:
+            regressors_start_idx, regressors_end_idx = feature_indices["additive_regressors"]
+            inputs["regressors"] = OrderedDict()
+            inputs["regressors"]["additive"] = sliced_tensor[
+                :, regressors_start_idx : regressors_end_idx + 1
+            ].unsqueeze(1)
+
+        # Unpack multiplicative regressor features
+        if "multiplicative_regressors" in feature_indices:
+            regressors_start_idx, regressors_end_idx = feature_indices["multiplicative_regressors"]
+            if "regressors" not in inputs:
+                inputs["regressors"] = OrderedDict()
+            inputs["regressors"]["multiplicative"] = sliced_tensor[
+                :, regressors_start_idx : regressors_end_idx + 1
+            ].unsqueeze(1)
+
+        # Unpack seasonality feature
+        if config_seasonality and hasattr(config_seasonality, "periods"):
+            inputs["seasonalities"] = OrderedDict()
+            for seasonality_name in config_seasonality.periods.keys():
+                seasonality_key = f"seasonality_{seasonality_name}"
+                if seasonality_key in feature_indices:
+                    seasonality_start_idx, seasonality_end_idx = feature_indices[seasonality_key]
+                    inputs["seasonalities"][seasonality_name] = sliced_tensor[
+                        :, seasonality_start_idx:seasonality_end_idx
+                    ].unsqueeze(1)
+    return inputs

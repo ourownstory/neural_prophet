@@ -626,5 +626,6 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
         config_regressors=model.config_regressors,
         config_lagged_regressors=model.config_lagged_regressors,
         config_missing=model.config_missing,
+        config_model=model.config_model,
         # config_train=model.config_train, # no longer needed since JIT tabularization.
     )
