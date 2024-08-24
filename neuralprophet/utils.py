@@ -1072,7 +1072,6 @@ def unpack_sliced_tensor(
                         seasonality_offset : seasonality_offset + n_forecasts + n_lags,
                         seasonality_start_idx:seasonality_end_idx,
                     ]
-                    s = inputs["seasonalities"][seasonality_name].shape
 
         # Unpack lagged regressor features
         if config_lagged_regressors:
