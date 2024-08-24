@@ -42,6 +42,7 @@ class TimeNet(pl.LightningModule):
 
     def __init__(
         self,
+        config_model: configure.Model,
         config_seasonality: configure.ConfigSeasonality,
         config_train: Optional[configure.Train] = None,
         config_trend: Optional[configure.Trend] = None,
@@ -151,6 +152,7 @@ class TimeNet(pl.LightningModule):
             pass
 
         # General
+        self.config_model = config_model
         self.n_forecasts = n_forecasts
 
         # Lightning Config
@@ -209,7 +211,7 @@ class TimeNet(pl.LightningModule):
         )
 
         # Quantiles
-        self.quantiles = self.config_train.quantiles
+        self.quantiles = self.config_model.quantiles
 
         # Trend
         self.config_trend = config_trend

@@ -3,6 +3,7 @@ import math
 import os
 import time
 from collections import OrderedDict
+from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple, Type, Union
 
 import matplotlib
@@ -452,7 +453,7 @@ class NeuralProphet:
         scheduler_args: Optional[dict] = None,
         newer_samples_weight: float = 2,
         newer_samples_start: float = 0.0,
-        quantiles: List[float] = [],
+        quantiles: Optional[List[float]] = None,
         impute_missing: bool = True,
         impute_linear: int = 10,
         impute_rolling: int = 10,
@@ -463,7 +464,7 @@ class NeuralProphet:
         global_time_normalization: bool = True,
         unknown_data_normalization: bool = False,
         accelerator: Optional[str] = None,
-        trainer_config: dict = {},
+        trainer_config: Optional[dict] = None,
         prediction_frequency: Optional[dict] = None,
     ):
         self.config = locals()
@@ -505,7 +506,11 @@ class NeuralProphet:
         self.max_lags = self.n_lags
 
         # Model
-        self.config_model = configure.Model(lagged_reg_layers=lagged_reg_layers)
+        self.config_model = configure.Model(
+            lagged_reg_layers=lagged_reg_layers,
+            quantiles=quantiles,
+        )
+        self.config_model.setup_quantiles()
 
         # Trend
         self.config_trend = configure.Trend(
@@ -518,24 +523,6 @@ class NeuralProphet:
             trend_global_local=trend_global_local,
             trend_local_reg=trend_local_reg,
         )
-
-        # Model
-        self.quantiles = quantiles
-        # convert quantiles to empty list [] if None
-        if self.quantiles is None:
-            self.quantiles = []
-        # assert quantiles is a list type
-        assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
-        # check if quantiles contain 0.5 or close to 0.5, remove if so as 0.5 will be inserted again as first index
-        self.quantiles = [quantile for quantile in self.quantiles if not math.isclose(0.5, quantile)]
-        # check if quantiles are float values in (0, 1)
-        assert all(
-            0 < quantile < 1 for quantile in self.quantiles
-        ), "The quantiles specified need to be floats in-between (0, 1)."
-        # sort the quantiles
-        self.quantiles.sort()
-        # 0 is the median quantile index
-        self.quantiles.insert(0, 0.5)
 
         # Training
         self.learning_rate = learning_rate
@@ -586,7 +573,7 @@ class NeuralProphet:
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
         self.accelerator = accelerator
-        self.trainer_config = trainer_config
+        self.trainer_config = trainer_config if trainer_config is not None else {}
 
         # set during prediction
         self.future_periods = None
@@ -954,6 +941,7 @@ class NeuralProphet:
         deterministic: bool = False,
         scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
         scheduler_args: Optional[dict] = None,
+        trainer_config: Optional[dict] = None,
     ):
         """Train, and potentially evaluate model.
 
@@ -1018,6 +1006,12 @@ class NeuralProphet:
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
+        if minimal:
+            # overrides these settings:
+            checkpointing = False
+            self.metrics = False
+            progress = None
+
         if self.fitted and not continue_training:
             raise RuntimeError(
                 "Model has been fitted already. If you want to continue training please set the flag continue_training."
@@ -1031,42 +1025,24 @@ class NeuralProphet:
                 log.error("Continued training requires checkpointing in model to continue from last epoch.")
 
         # Configuration
-        self.continue_training = continue_training
-
-        # Config
         self.config_train = configure.Train(
-            quantiles=self.quantiles,
-            learning_rate=self.learning_rate,
-            scheduler=self.scheduler,
-            scheduler_args=self.scheduler_args,
-            epochs=self.epochs,
-            batch_size=self.batch_size,
+            learning_rate=self.learning_rate if learning_rate is None else learning_rate,
+            scheduler=self.scheduler if scheduler is None else scheduler,
+            scheduler_args=self.scheduler_args if scheduler is None else scheduler_args,
+            epochs=self.epochs if epochs is None else epochs,
+            batch_size=self.batch_size if batch_size is None else batch_size,
             loss_func=self.loss_func,
             optimizer=self.optimizer,
             newer_samples_weight=self.newer_samples_weight,
             newer_samples_start=self.newer_samples_start,
             trend_reg_threshold=self.config_trend.trend_reg_threshold,
-            continue_training=self.continue_training,
+            continue_training=continue_training,
+            trainer_config=self.trainer_config if trainer_config is None else trainer_config,
         )
-
-        if scheduler is not None:
-            self.config_train.scheduler = scheduler
-            self.config_train.scheduler_args = scheduler_args
-
-        if epochs is not None:
-            self.config_train.epochs = epochs
-
-        if batch_size is not None:
-            self.config_train.batch_size = batch_size
-
-        if learning_rate is not None:
-            self.config_train.learning_rate = learning_rate
+        self.config_train.set_loss_func(quantiles=self.config_model.quantiles)
 
         if early_stopping is not None:
             self.early_stopping = early_stopping
-
-        if metrics is not None:
-            self.metrics = utils_metrics.get_metrics(metrics)
 
         # Warnings
         if early_stopping:
@@ -1088,18 +1064,15 @@ class NeuralProphet:
                         number of epochs to train for."
                 )
 
-        if progress == "plot" and metrics is False:
-            log.info("Progress plot requires metrics to be enabled. Enabling the default metrics.")
-            metrics = utils_metrics.get_metrics(True)
+        if metrics:
+            self.metrics = utils_metrics.get_metrics(metrics)
+
+        if progress == "plot" and not metrics:
+            log.info("Progress plot requires metrics to be enabled. Disabling progress plot.")
+            progress = None
 
         if not self.config_normalization.global_normalization:
             log.info("When Global modeling with local normalization, metrics are displayed in normalized scale.")
-
-        if minimal:
-            # overrides these settings:
-            checkpointing = False
-            self.metrics = False
-            progress = None
 
         # Pre-processing
         # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
@@ -1266,7 +1239,7 @@ class NeuralProphet:
                     dates=dates,
                     predicted=predicted,
                     n_forecasts=self.n_forecasts,
-                    quantiles=self.quantiles,
+                    quantiles=self.config_model.quantiles,
                     components=components,
                 )
                 if auto_extend and periods_added[df_name] > 0:
@@ -1281,7 +1254,7 @@ class NeuralProphet:
                     n_forecasts=self.n_forecasts,
                     max_lags=self.max_lags,
                     freq=self.data_freq,
-                    quantiles=self.quantiles,
+                    quantiles=self.config_model.quantiles,
                     config_lagged_regressors=self.config_lagged_regressors,
                 )
                 if auto_extend and periods_added[df_name] > 0:
@@ -1922,7 +1895,7 @@ class NeuralProphet:
             else:
                 meta_name_tensor = None
 
-            quantile_index = self.quantiles.index(quantile)
+            quantile_index = self.config_model.quantiles.index(quantile)
             trend = self.model.trend(t, meta_name_tensor).detach().numpy()[:, :, quantile_index].squeeze()
 
             data_params = self.config_normalization.get_data_params(df_name)
@@ -1987,7 +1960,7 @@ class NeuralProphet:
 
                 for name in self.config_seasonality.periods:
                     features = inputs["seasonalities"][name]
-                    quantile_index = self.quantiles.index(quantile)
+                    quantile_index = self.config_model.quantiles.index(quantile)
                     y_season = torch.squeeze(
                         self.model.seasonality.compute_fourier(features=features, name=name, meta=meta_name_tensor)[
                             :, :, quantile_index
@@ -2119,7 +2092,7 @@ class NeuralProphet:
                 log.info(f"Plotting data from ID {df_name}")
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
-        if len(self.quantiles) > 1:
+        if len(self.config_model.quantiles) > 1:
             if (self.highlight_forecast_step_n) is None and (
                 self.n_forecasts > 1 or self.n_lags > 0
             ):  # rather query if n_forecasts >1 than n_lags>1
@@ -2159,7 +2132,7 @@ class NeuralProphet:
         if plotting_backend.startswith("plotly"):
             return plot_plotly(
                 fcst=fcst,
-                quantiles=self.quantiles,
+                quantiles=self.config_model.quantiles,
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
@@ -2170,7 +2143,7 @@ class NeuralProphet:
         else:
             return plot(
                 fcst=fcst,
-                quantiles=self.quantiles,
+                quantiles=self.config_model.quantiles,
                 ax=ax,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -2238,7 +2211,9 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif include_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_latest_forecast(fcst, self.quantiles, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_latest_forecast(
+            fcst, self.config_model.quantiles, n_last=1 + include_previous_forecasts
+        )
         return fcst
 
     def plot_latest_forecast(
@@ -2306,7 +2281,7 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
-        if len(self.quantiles) > 1:
+        if len(self.config_model.quantiles) > 1:
             log.warning(
                 "Plotting latest forecasts when uncertainty estimation enabled"
                 " plots only the median quantile forecasts."
@@ -2317,7 +2292,9 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif plot_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_latest_forecast(fcst, self.quantiles, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_latest_forecast(
+            fcst, self.config_model.quantiles, n_last=1 + include_previous_forecasts
+        )
 
         # Check whether a local or global plotting backend is set.
         plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
@@ -2326,7 +2303,7 @@ class NeuralProphet:
         if plotting_backend.startswith("plotly"):
             return plot_plotly(
                 fcst=fcst,
-                quantiles=self.quantiles,
+                quantiles=self.config_model.quantiles,
                 ylabel=ylabel,
                 xlabel=xlabel,
                 figsize=tuple(x * 70 for x in figsize),
@@ -2338,7 +2315,7 @@ class NeuralProphet:
         else:
             return plot(
                 fcst=fcst,
-                quantiles=self.quantiles,
+                quantiles=self.config_model.quantiles,
                 ax=ax,
                 ylabel=ylabel,
                 xlabel=xlabel,
@@ -2504,7 +2481,7 @@ class NeuralProphet:
                 m=self,
                 fcst=fcst,
                 plot_configuration=valid_plot_configuration,
-                quantile=self.quantiles[0],  # plot components only for median quantile
+                quantile=self.config_model.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
                 df_name=df_name,
                 one_period_per_season=one_period_per_season,
@@ -2614,11 +2591,11 @@ class NeuralProphet:
             if not (0 < quantile < 1):
                 raise ValueError("The quantile selected needs to be a float in-between (0,1)")
             # ValueError if selected quantile is out of range
-            if quantile not in self.quantiles:
+            if quantile not in self.config_model.quantiles:
                 raise ValueError("Selected quantile is not specified in the model configuration.")
         else:
             # plot parameters for median quantile if not specified
-            quantile = self.quantiles[0]
+            quantile = self.config_model.quantiles[0]
 
         # Validate components to be plotted
         valid_parameters_set = [
@@ -2686,13 +2663,9 @@ class NeuralProphet:
             )
 
     def _init_model(self):
-        """Build Pytorch model with configured hyperparamters.
-
-        Returns
-        -------
-            TimeNet model
-        """
+        """Build Pytorch model with configured hyperparamters."""
         self.model = time_net.TimeNet(
+            config_model=self.config_model,
             config_train=self.config_train,
             config_trend=self.config_trend,
             config_ar=self.config_ar,
@@ -2715,7 +2688,6 @@ class NeuralProphet:
             meta_used_in_model=self.meta_used_in_model,
         )
         log.debug(self.model)
-        return self.model
 
     def _init_train_loader(self, df, num_workers=0):
         """Executes data preparation steps and initiates training procedure.
@@ -2855,14 +2827,14 @@ class NeuralProphet:
             self.config_train.set_optimizer_state(checkpoint["optimizer_states"][0])
 
         else:
-            self.model = self._init_model()
+            self._init_model()
 
         self.model.train_loader = train_loader
 
         # Init the Trainer
         self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
-            config=self.trainer_config,
+            config=self.config_train.trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping=self.early_stopping,
             early_stopping_target="Loss_val" if validation_enabled else "Loss",
@@ -2960,7 +2932,7 @@ class NeuralProphet:
         """
         self.trainer, _ = utils.configure_trainer(
             config_train=self.config_train,
-            config=self.trainer_config,
+            config=self.config_train.trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping=self.early_stopping,
             accelerator=accelerator,
@@ -3165,7 +3137,7 @@ class NeuralProphet:
             alpha=alpha,
             method=method,
             n_forecasts=self.n_forecasts,
-            quantiles=self.quantiles,
+            quantiles=self.config_model.quantiles,
         )
 
         df_forecast = c.predict(df=df_test, df_cal=df_cal, show_all_PI=show_all_PI)
