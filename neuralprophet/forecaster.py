@@ -298,6 +298,7 @@ class NeuralProphet:
             >>> m = NeuralProphet(collect_metrics=["MSE", "MAE", "RMSE"])
             >>> # use custorm torchmetrics names
             >>> m = NeuralProphet(collect_metrics={"MAPE": "MeanAbsolutePercentageError", "MSLE": "MeanSquaredLogError",
+
         scheduler : str, torch.optim.lr_scheduler._LRScheduler
             Type of learning rate scheduler to use.
 
@@ -446,7 +447,8 @@ class NeuralProphet:
         batch_size: Optional[int] = None,
         loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "SmoothL1Loss",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "AdamW",
-        scheduler: Optional[str] = "onecyclelr",
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = "onecyclelr",
+        scheduler_args: Optional[dict] = None,
         newer_samples_weight: float = 2,
         newer_samples_start: float = 0.0,
         quantiles: List[float] = [],
@@ -521,6 +523,7 @@ class NeuralProphet:
             quantiles=quantiles,
             learning_rate=learning_rate,
             scheduler=scheduler,
+            scheduler_args=scheduler_args,
             epochs=epochs,
             batch_size=batch_size,
             loss_func=loss_func,
@@ -932,7 +935,8 @@ class NeuralProphet:
         continue_training: bool = False,
         num_workers: int = 0,
         deterministic: bool = False,
-        scheduler: Optional[str] = None,
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
+        scheduler_args: Optional[dict] = None,
     ):
         """Train, and potentially evaluate model.
 
@@ -1002,20 +1006,30 @@ class NeuralProphet:
                 "Model has been fitted already. If you want to continue training please set the flag continue_training."
             )
 
-        if continue_training and epochs is None:
-            raise ValueError("Continued training requires setting the number of epochs to train for.")
-
         if continue_training:
-            if scheduler is not None:
-                self.config_train.scheduler = scheduler
-            else:
-                self.config_train.scheduler = None
-            self.config_train.set_scheduler()
+            if epochs is None:
+                raise ValueError("Continued training requires setting the number of epochs to train for.")
 
-        if scheduler is not None and not continue_training:
-            log.warning(
-                "Scheduler can only be set in fit when continuing training. Please set the scheduler when initializing the model."
-            )
+            if continue_training and self.metrics_logger.checkpoint_path is None:
+                log.error("Continued training requires checkpointing in model to continue from last epoch.")
+
+            # if scheduler is not None:
+            #     log.warning(
+            #         "Scheduler can only be set in fit when continuing training. Please set the scheduler when initializing the model."
+            #     )
+
+            if scheduler is None:
+                log.warning(
+                    "No scheduler specified for continued training. Using a fallback scheduler for continued training."
+                )
+                self.config_train.scheduler = None
+                self.config_train.scheduler_args = None
+                self.config_train.set_scheduler()
+
+        if scheduler is not None:
+            self.config_train.scheduler = scheduler
+            self.config_train.scheduler_args = scheduler_args
+            self.config_train.set_scheduler()
 
         # Configuration
         if epochs is not None:
@@ -1061,6 +1075,7 @@ class NeuralProphet:
             log.info("When Global modeling with local normalization, metrics are displayed in normalized scale.")
 
         if minimal:
+            # overrides these settings:
             checkpointing = False
             self.metrics = False
             progress = None
@@ -1100,9 +1115,6 @@ class NeuralProphet:
             or self.num_seasonalities_modelled != 1
             or any(value != 1 for value in self.num_seasonalities_modelled_dict.values())
         )
-
-        if continue_training and self.metrics_logger.checkpoint_path is None:
-            log.error("Continued training requires checkpointing in model to continue from last epoch.")
 
         self.max_lags = df_utils.get_max_num_lags(
             n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors
