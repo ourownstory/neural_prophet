@@ -158,9 +158,16 @@ class TimeNet(pl.LightningModule):
         self.config_normalization = config_normalization
         self.compute_components_flag = compute_components_flag
 
+        # Continued training
+        self.continue_training = continue_training
+        self.start_epoch = start_epoch
+
         # Optimizer and LR Scheduler
-        self._optimizer = self.config_train.optimizer
-        self._scheduler = self.config_train.scheduler
+        # self.config_train.set_optimizer()
+        # self.config_train.set_scheduler()
+        # self._optimizer = self.config_train.optimizer
+        # self._scheduler = self.config_train.scheduler
+        # Manual optimization: we are responsible for calling .backward(), .step(), .zero_grad().
         self.automatic_optimization = False
 
         # Hyperparameters (can be tuned using trainer.tune())
@@ -313,10 +320,6 @@ class TimeNet(pl.LightningModule):
             )
         else:
             self.config_regressors.regressors = None
-
-        # Continued training
-        self.continue_training = continue_training
-        self.start_epoch = start_epoch
 
     @property
     def ar_weights(self) -> torch.Tensor:
@@ -867,11 +870,13 @@ class TimeNet(pl.LightningModule):
         return prediction, components
 
     def configure_optimizers(self):
+        self.config_train.set_optimizer()
+        self.config_train.set_scheduler()
+        self._optimizer = self.config_train.optimizer
+        self._scheduler = self.config_train.scheduler
+
         # Optimizer
         optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
-
-        # Scheduler
-        self._scheduler = self.config_train.scheduler
 
         if self.continue_training:
             optimizer.load_state_dict(self.config_train.optimizer_state)
@@ -882,11 +887,7 @@ class TimeNet(pl.LightningModule):
             for param_group in optimizer.param_groups:
                 param_group["initial_lr"] = (last_lr,)
 
-            if self._scheduler == torch.optim.lr_scheduler.OneCycleLR:
-                log.warning("OneCycleLR scheduler is not supported for continued training. Switching to ExponentialLR")
-                self._scheduler = torch.optim.lr_scheduler.ExponentialLR
-                self.config_train.scheduler_args = {"gamma": 0.95}
-
+        # Scheduler
         if self._scheduler == torch.optim.lr_scheduler.OneCycleLR:
             lr_scheduler = self._scheduler(
                 optimizer,

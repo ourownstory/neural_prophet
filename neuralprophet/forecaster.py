@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import time
 from collections import OrderedDict
@@ -518,20 +519,36 @@ class NeuralProphet:
             trend_local_reg=trend_local_reg,
         )
 
+        # Model
+        self.quantiles = quantiles
+        # convert quantiles to empty list [] if None
+        if self.quantiles is None:
+            self.quantiles = []
+        # assert quantiles is a list type
+        assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
+        # check if quantiles contain 0.5 or close to 0.5, remove if so as 0.5 will be inserted again as first index
+        self.quantiles = [quantile for quantile in self.quantiles if not math.isclose(0.5, quantile)]
+        # check if quantiles are float values in (0, 1)
+        assert all(
+            0 < quantile < 1 for quantile in self.quantiles
+        ), "The quantiles specified need to be floats in-between (0, 1)."
+        # sort the quantiles
+        self.quantiles.sort()
+        # 0 is the median quantile index
+        self.quantiles.insert(0, 0.5)
+
         # Training
-        self.config_train = configure.Train(
-            quantiles=quantiles,
-            learning_rate=learning_rate,
-            scheduler=scheduler,
-            scheduler_args=scheduler_args,
-            epochs=epochs,
-            batch_size=batch_size,
-            loss_func=loss_func,
-            optimizer=optimizer,
-            newer_samples_weight=newer_samples_weight,
-            newer_samples_start=newer_samples_start,
-            trend_reg_threshold=self.config_trend.trend_reg_threshold,
-        )
+        self.learning_rate = learning_rate
+        self.scheduler = scheduler
+        self.scheduler_args = scheduler_args
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.loss_func = loss_func
+        self.optimizer = optimizer
+        self.newer_samples_weight = newer_samples_weight
+        self.newer_samples_start = newer_samples_start
+        self.trend_reg_threshold = self.config_trend.trend_reg_threshold
+        self.continue_training = False
 
         # Seasonality
         self.config_seasonality = configure.ConfigSeasonality(
@@ -1013,25 +1030,29 @@ class NeuralProphet:
             if continue_training and self.metrics_logger.checkpoint_path is None:
                 log.error("Continued training requires checkpointing in model to continue from last epoch.")
 
-            # if scheduler is not None:
-            #     log.warning(
-            #         "Scheduler can only be set in fit when continuing training. Please set the scheduler when initializing the model."
-            #     )
+        # Configuration
+        self.continue_training = continue_training
 
-            if scheduler is None:
-                log.warning(
-                    "No scheduler specified for continued training. Using a fallback scheduler for continued training."
-                )
-                self.config_train.scheduler = None
-                self.config_train.scheduler_args = None
-                self.config_train.set_scheduler()
+        # Config
+        self.config_train = configure.Train(
+            quantiles=self.quantiles,
+            learning_rate=self.learning_rate,
+            scheduler=self.scheduler,
+            scheduler_args=self.scheduler_args,
+            epochs=self.epochs,
+            batch_size=self.batch_size,
+            loss_func=self.loss_func,
+            optimizer=self.optimizer,
+            newer_samples_weight=self.newer_samples_weight,
+            newer_samples_start=self.newer_samples_start,
+            trend_reg_threshold=self.config_trend.trend_reg_threshold,
+            continue_training=self.continue_training,
+        )
 
         if scheduler is not None:
             self.config_train.scheduler = scheduler
             self.config_train.scheduler_args = scheduler_args
-            self.config_train.set_scheduler()
 
-        # Configuration
         if epochs is not None:
             self.config_train.epochs = epochs
 
@@ -1245,7 +1266,7 @@ class NeuralProphet:
                     dates=dates,
                     predicted=predicted,
                     n_forecasts=self.n_forecasts,
-                    quantiles=self.config_train.quantiles,
+                    quantiles=self.quantiles,
                     components=components,
                 )
                 if auto_extend and periods_added[df_name] > 0:
@@ -1260,7 +1281,7 @@ class NeuralProphet:
                     n_forecasts=self.n_forecasts,
                     max_lags=self.max_lags,
                     freq=self.data_freq,
-                    quantiles=self.config_train.quantiles,
+                    quantiles=self.quantiles,
                     config_lagged_regressors=self.config_lagged_regressors,
                 )
                 if auto_extend and periods_added[df_name] > 0:
@@ -1901,7 +1922,7 @@ class NeuralProphet:
             else:
                 meta_name_tensor = None
 
-            quantile_index = self.config_train.quantiles.index(quantile)
+            quantile_index = self.quantiles.index(quantile)
             trend = self.model.trend(t, meta_name_tensor).detach().numpy()[:, :, quantile_index].squeeze()
 
             data_params = self.config_normalization.get_data_params(df_name)
@@ -1966,7 +1987,7 @@ class NeuralProphet:
 
                 for name in self.config_seasonality.periods:
                     features = inputs["seasonalities"][name]
-                    quantile_index = self.config_train.quantiles.index(quantile)
+                    quantile_index = self.quantiles.index(quantile)
                     y_season = torch.squeeze(
                         self.model.seasonality.compute_fourier(features=features, name=name, meta=meta_name_tensor)[
                             :, :, quantile_index
@@ -2098,7 +2119,7 @@ class NeuralProphet:
                 log.info(f"Plotting data from ID {df_name}")
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
-        if len(self.config_train.quantiles) > 1:
+        if len(self.quantiles) > 1:
             if (self.highlight_forecast_step_n) is None and (
                 self.n_forecasts > 1 or self.n_lags > 0
             ):  # rather query if n_forecasts >1 than n_lags>1
@@ -2138,7 +2159,7 @@ class NeuralProphet:
         if plotting_backend.startswith("plotly"):
             return plot_plotly(
                 fcst=fcst,
-                quantiles=self.config_train.quantiles,
+                quantiles=self.quantiles,
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
@@ -2149,7 +2170,7 @@ class NeuralProphet:
         else:
             return plot(
                 fcst=fcst,
-                quantiles=self.config_train.quantiles,
+                quantiles=self.quantiles,
                 ax=ax,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -2217,9 +2238,7 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif include_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_latest_forecast(
-            fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
-        )
+        fcst = utils.fcst_df_to_latest_forecast(fcst, self.quantiles, n_last=1 + include_previous_forecasts)
         return fcst
 
     def plot_latest_forecast(
@@ -2287,7 +2306,7 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
-        if len(self.config_train.quantiles) > 1:
+        if len(self.quantiles) > 1:
             log.warning(
                 "Plotting latest forecasts when uncertainty estimation enabled"
                 " plots only the median quantile forecasts."
@@ -2298,9 +2317,7 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif plot_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_latest_forecast(
-            fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
-        )
+        fcst = utils.fcst_df_to_latest_forecast(fcst, self.quantiles, n_last=1 + include_previous_forecasts)
 
         # Check whether a local or global plotting backend is set.
         plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
@@ -2309,7 +2326,7 @@ class NeuralProphet:
         if plotting_backend.startswith("plotly"):
             return plot_plotly(
                 fcst=fcst,
-                quantiles=self.config_train.quantiles,
+                quantiles=self.quantiles,
                 ylabel=ylabel,
                 xlabel=xlabel,
                 figsize=tuple(x * 70 for x in figsize),
@@ -2321,7 +2338,7 @@ class NeuralProphet:
         else:
             return plot(
                 fcst=fcst,
-                quantiles=self.config_train.quantiles,
+                quantiles=self.quantiles,
                 ax=ax,
                 ylabel=ylabel,
                 xlabel=xlabel,
@@ -2487,7 +2504,7 @@ class NeuralProphet:
                 m=self,
                 fcst=fcst,
                 plot_configuration=valid_plot_configuration,
-                quantile=self.config_train.quantiles[0],  # plot components only for median quantile
+                quantile=self.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
                 df_name=df_name,
                 one_period_per_season=one_period_per_season,
@@ -2597,11 +2614,11 @@ class NeuralProphet:
             if not (0 < quantile < 1):
                 raise ValueError("The quantile selected needs to be a float in-between (0,1)")
             # ValueError if selected quantile is out of range
-            if quantile not in self.config_train.quantiles:
+            if quantile not in self.quantiles:
                 raise ValueError("Selected quantile is not specified in the model configuration.")
         else:
             # plot parameters for median quantile if not specified
-            quantile = self.config_train.quantiles[0]
+            quantile = self.quantiles[0]
 
         # Validate components to be plotted
         valid_parameters_set = [
@@ -3148,7 +3165,7 @@ class NeuralProphet:
             alpha=alpha,
             method=method,
             n_forecasts=self.n_forecasts,
-            quantiles=self.config_train.quantiles,
+            quantiles=self.quantiles,
         )
 
         df_forecast = c.predict(df=df_test, df_cal=df_cal, show_all_PI=show_all_PI)

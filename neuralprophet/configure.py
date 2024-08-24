@@ -105,16 +105,19 @@ class Train:
     loss_func_name: str = field(init=False)
     lr_finder_args: dict = field(default_factory=dict)
     optimizer_state: dict = field(default_factory=dict)
+    continue_training: bool = False
 
     def __post_init__(self):
         # assert the uncertainty estimation params and then finalize the quantiles
-        self.set_quantiles()
+        # self.set_quantiles()
         assert self.newer_samples_weight >= 1.0
         assert self.newer_samples_start >= 0.0
         assert self.newer_samples_start < 1.0
         self.set_loss_func()
-        self.set_optimizer()
-        self.set_scheduler()
+
+        # called in TimeNet configure_optimizers:
+        # self.set_optimizer()
+        # self.set_scheduler()
 
     def set_loss_func(self):
         if isinstance(self.loss_func, str):
@@ -139,22 +142,22 @@ class Train:
         if len(self.quantiles) > 1:
             self.loss_func = PinballLoss(loss_func=self.loss_func, quantiles=self.quantiles)
 
-    def set_quantiles(self):
-        # convert quantiles to empty list [] if None
-        if self.quantiles is None:
-            self.quantiles = []
-        # assert quantiles is a list type
-        assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
-        # check if quantiles contain 0.5 or close to 0.5, remove if so as 0.5 will be inserted again as first index
-        self.quantiles = [quantile for quantile in self.quantiles if not math.isclose(0.5, quantile)]
-        # check if quantiles are float values in (0, 1)
-        assert all(
-            0 < quantile < 1 for quantile in self.quantiles
-        ), "The quantiles specified need to be floats in-between (0, 1)."
-        # sort the quantiles
-        self.quantiles.sort()
-        # 0 is the median quantile index
-        self.quantiles.insert(0, 0.5)
+    # def set_quantiles(self):
+    #     # convert quantiles to empty list [] if None
+    #     if self.quantiles is None:
+    #         self.quantiles = []
+    #     # assert quantiles is a list type
+    #     assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
+    #     # check if quantiles contain 0.5 or close to 0.5, remove if so as 0.5 will be inserted again as first index
+    #     self.quantiles = [quantile for quantile in self.quantiles if not math.isclose(0.5, quantile)]
+    #     # check if quantiles are float values in (0, 1)
+    #     assert all(
+    #         0 < quantile < 1 for quantile in self.quantiles
+    #     ), "The quantiles specified need to be floats in-between (0, 1)."
+    #     # sort the quantiles
+    #     self.quantiles.sort()
+    #     # 0 is the median quantile index
+    #     self.quantiles.insert(0, 0.5)
 
     def set_auto_batch_epoch(
         self,
@@ -183,16 +186,50 @@ class Train:
         """
         Set the optimizer and optimizer args. If optimizer is a string, then it will be converted to the corresponding
         torch optimizer. The optimizer is not initialized yet as this is done in configure_optimizers in TimeNet.
+
+        Parameters
+            ----------
+                optimizer_name : int
+                    Object provided to NeuralProphet as optimizer.
+                optimizer_args : dict
+                    Arguments for the optimizer.
+
         """
-        self.optimizer, self.optimizer_args = utils_torch.create_optimizer_from_config(
-            self.optimizer, self.optimizer_args
-        )
+        if isinstance(self.optimizer, str):
+            if self.optimizer.lower() == "adamw":
+                # Tends to overfit, but reliable
+                self.optimizer = torch.optim.AdamW
+                self.optimizer_args["weight_decay"] = 1e-3
+            elif self.optimizer.lower() == "sgd":
+                # better validation performance, but diverges sometimes
+                self.optimizer = torch.optim.SGD
+                self.optimizer_args["momentum"] = 0.9
+                self.optimizer_args["weight_decay"] = 1e-4
+            else:
+                raise ValueError(
+                    f"The optimizer name {self.optimizer} is not supported. Please pass the optimizer class."
+                )
+        elif not issubclass(self.optimizer, torch.optim.Optimizer):
+            raise ValueError("The provided optimizer is not supported.")
 
     def set_scheduler(self):
         """
         Set the scheduler and scheduler arg depending on the user selection.
         The scheduler is not initialized yet as this is done in configure_optimizers in TimeNet.
         """
+        if self.continue_training:
+            if (isinstance(self.scheduler, str) and self.scheduler.lower() == "onecyclelr") or isinstance(
+                self.scheduler, torch.optim.lr_scheduler.OneCycleLR
+            ):
+                log.warning(
+                    "OneCycleLR scheduler is not supported for continued training. Please set another scheduler. Falling back to ExponentialLR scheduler"
+                )
+                self.scheduler = "exponentiallr"
+
+        if self.scheduler is None:
+            log.warning("No scheduler specified. Falling back to ExponentialLR scheduler.")
+            self.scheduler = "exponentiallr"
+
         if isinstance(self.scheduler, str):
             if self.scheduler.lower() == "onecyclelr":
                 self.scheduler = torch.optim.lr_scheduler.OneCycleLR
@@ -226,12 +263,7 @@ class Train:
             if self.scheduler_args is not None:
                 defaults.update(self.scheduler_args)
             self.scheduler_args = defaults
-        elif self.scheduler is None:
-            self.scheduler = torch.optim.lr_scheduler.ExponentialLR
-            self.scheduler_args = {
-                "gamma": 0.95,
-            }
-        else:  # if scheduler is a class
+        else:
             assert issubclass(
                 self.scheduler, torch.optim.lr_scheduler.LRScheduler
             ), "Scheduler must be a subclass of torch.optim.lr_scheduler.LRScheduler"
