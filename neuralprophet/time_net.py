@@ -815,6 +815,7 @@ class TimeNet(pl.LightningModule):
         if self.metrics_enabled:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
+            target_denorm = target_denorm.contiguous()
             self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss", loss, **self.log_args)
             self.log("RegLoss", reg_loss, **self.log_args)
@@ -846,6 +847,7 @@ class TimeNet(pl.LightningModule):
         if self.metrics_enabled:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
+            target_denorm = target_denorm.contiguous()
             self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss_val", loss, **self.log_args)
             self.log("RegLoss_val", reg_loss, **self.log_args)
@@ -877,7 +879,7 @@ class TimeNet(pl.LightningModule):
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
             # target_denorm = target_denorm.detach().clone()
-
+            target_denorm = target_denorm.contiguous()
             self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss_test", loss, **self.log_args)
             self.log("RegLoss_test", reg_loss, **self.log_args)
