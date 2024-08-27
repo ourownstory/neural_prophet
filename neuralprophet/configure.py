@@ -114,6 +114,7 @@ class Train:
     optimizer_args: dict = field(default_factory=dict)
     scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None
     scheduler_args: dict = field(default_factory=dict)
+    early_stopping: Optional[bool] = False
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
@@ -122,9 +123,7 @@ class Train:
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
     lr_finder_args: dict = field(default_factory=dict)
-    optimizer_state: dict = field(default_factory=dict)
-    continue_training: bool = False
-    trainer_config: dict = field(default_factory=dict)
+    pl_trainer_config: dict = field(default_factory=dict)
 
     def __post_init__(self):
         assert self.newer_samples_weight >= 1.0
@@ -217,14 +216,6 @@ class Train:
         Set the scheduler and scheduler arg depending on the user selection.
         The scheduler is not initialized yet as this is done in configure_optimizers in TimeNet.
         """
-        if self.continue_training:
-            if (isinstance(self.scheduler, str) and self.scheduler.lower() == "onecyclelr") or isinstance(
-                self.scheduler, torch.optim.lr_scheduler.OneCycleLR
-            ):
-                log.warning(
-                    "OneCycleLR scheduler is not supported for continued training. Please set another scheduler. Falling back to ExponentialLR scheduler"
-                )
-                self.scheduler = "exponentiallr"
 
         if self.scheduler is None:
             log.warning("No scheduler specified. Falling back to ExponentialLR scheduler.")
@@ -289,9 +280,8 @@ class Train:
             }
         )
 
-    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
+    def get_reg_delay_weight(self, progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
         # Ignore type warning of epochs possibly being None (does not work with dataclasses)
-        progress = (e + iter_progress) / float(self.epochs)  # type: ignore
         if reg_start_pct == reg_full_pct:
             reg_progress = float(progress > reg_start_pct)
         else:
@@ -303,9 +293,6 @@ class Train:
         else:
             delay_weight = 1
         return delay_weight
-
-    def set_optimizer_state(self, optimizer_state: dict):
-        self.optimizer_state = optimizer_state
 
 
 @dataclass

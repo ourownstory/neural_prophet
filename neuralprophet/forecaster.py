@@ -236,7 +236,7 @@ class NeuralProphet:
         Train Config
         COMMENT
         learning_rate : float
-            Maximum learning rate setting for 1cycle policy scheduler.
+            Maximum learning rate setting for lr scheduler.
 
             Note
             ----
@@ -313,8 +313,7 @@ class NeuralProphet:
             Examples
             --------
             >>> from neuralprophet import NeuralProphet
-            >>> # Step Learning Rate scheduler
-            >>> m = NeuralProphet(scheduler="StepLR")
+            >>> m = NeuralProphet(scheduler="ExponentialLR", scheduler_args={"gamma": 0.99})
 
         COMMENT
         Uncertainty Estimation
@@ -379,7 +378,7 @@ class NeuralProphet:
             select an available accelerator.
             Provide `None` to deactivate the use of accelerators.
         trainer_config: dict
-            Dictionary of additional trainer configuration parameters.
+            Dictionary of additional Pytorch Lighning Trainer configuration parameters.
         prediction_frequency: dict
             Set a periodic interval in which forecasts should be made.
 
@@ -525,17 +524,19 @@ class NeuralProphet:
         )
 
         # Training
-        self.learning_rate = learning_rate
-        self.scheduler = scheduler
-        self.scheduler_args = scheduler_args
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.loss_func = loss_func
-        self.optimizer = optimizer
-        self.newer_samples_weight = newer_samples_weight
-        self.newer_samples_start = newer_samples_start
-        self.trend_reg_threshold = self.config_trend.trend_reg_threshold
-        self.continue_training = False
+        self.config_train = configure.Train(
+            learning_rate=learning_rate,
+            scheduler=scheduler,
+            scheduler_args=scheduler_args,
+            epochs=epochs,
+            batch_size=batch_size,
+            loss_func=loss_func,
+            optimizer=optimizer,
+            newer_samples_weight=newer_samples_weight,
+            newer_samples_start=newer_samples_start,
+            early_stopping=False,
+            pl_trainer_config=trainer_config,
+        )
 
         # Seasonality
         self.config_seasonality = configure.ConfigSeasonality(
@@ -573,7 +574,6 @@ class NeuralProphet:
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
         self.accelerator = accelerator
-        self.trainer_config = trainer_config if trainer_config is not None else {}
 
         # set during prediction
         self.future_periods = None
@@ -936,7 +936,6 @@ class NeuralProphet:
         metrics: Optional[np_types.CollectMetricsMode] = None,
         progress: Optional[str] = "bar",
         checkpointing: bool = False,
-        continue_training: bool = False,
         num_workers: int = 0,
         deterministic: bool = False,
         scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
@@ -986,8 +985,6 @@ class NeuralProphet:
                 * `None`
             checkpointing : bool
                 Flag whether to save checkpoints during training
-            continue_training : bool
-                Flag whether to continue training from the last checkpoint
             num_workers : int
                 Number of workers for data loading. If 0, data will be loaded in the main process.
                 Note: using multiple workers and therefore distributed training might significantly increase
@@ -1012,40 +1009,28 @@ class NeuralProphet:
             self.metrics = False
             progress = None
 
-        if self.fitted and not continue_training:
-            raise RuntimeError(
-                "Model has been fitted already. If you want to continue training please set the flag continue_training."
-            )
+        if self.fitted:
+            raise RuntimeError("Model has been fitted already.")
 
-        if continue_training:
-            if epochs is None:
-                raise ValueError("Continued training requires setting the number of epochs to train for.")
-
-            if continue_training and self.metrics_logger.checkpoint_path is None:
-                log.error("Continued training requires checkpointing in model to continue from last epoch.")
-
-        # Configuration
-        self.config_train = configure.Train(
-            learning_rate=self.learning_rate if learning_rate is None else learning_rate,
-            scheduler=self.scheduler if scheduler is None else scheduler,
-            scheduler_args=self.scheduler_args if scheduler is None else scheduler_args,
-            epochs=self.epochs if epochs is None else epochs,
-            batch_size=self.batch_size if batch_size is None else batch_size,
-            loss_func=self.loss_func,
-            optimizer=self.optimizer,
-            newer_samples_weight=self.newer_samples_weight,
-            newer_samples_start=self.newer_samples_start,
-            trend_reg_threshold=self.config_trend.trend_reg_threshold,
-            continue_training=continue_training,
-            trainer_config=self.trainer_config if trainer_config is None else trainer_config,
-        )
+        # Train Configuration: overwrite self.config_train with user provided values
+        if learning_rate is not None:
+            self.config_train.learning_rate = learning_rate
+        if scheduler is not None:
+            self.config_train.scheduler = scheduler
+        if scheduler_args is not None:
+            self.config_train.scheduler_args = scheduler_args
+        if epochs is not None:
+            self.config_train.epochs = epochs
+        if batch_size is not None:
+            self.config_train.batch_size = batch_size
+        if trainer_config is not None:
+            self.config_train.pl_trainer_config = trainer_config
+        if early_stopping is not None:
+            self.config_train.early_stopping = early_stopping
         self.config_train.set_loss_func(quantiles=self.config_model.quantiles)
 
-        if early_stopping is not None:
-            self.early_stopping = early_stopping
-
         # Warnings
-        if early_stopping:
+        if self.config_train.early_stopping:
             reg_enabled = utils.check_for_regularization(
                 [
                     self.config_seasonality,
@@ -1128,7 +1113,6 @@ class NeuralProphet:
                 progress_bar_enabled=bool(progress),
                 metrics_enabled=bool(self.metrics),
                 checkpointing_enabled=checkpointing,
-                continue_training=continue_training,
                 num_workers=num_workers,
                 deterministic=deterministic,
             )
@@ -1153,7 +1137,6 @@ class NeuralProphet:
                 progress_bar_enabled=bool(progress),
                 metrics_enabled=bool(self.metrics),
                 checkpointing_enabled=checkpointing,
-                continue_training=continue_training,
                 num_workers=num_workers,
                 deterministic=deterministic,
             )
@@ -2771,7 +2754,6 @@ class NeuralProphet:
         progress_bar_enabled: bool = True,
         metrics_enabled: bool = False,
         checkpointing_enabled: bool = False,
-        continue_training=False,
         num_workers=0,
         deterministic: bool = False,
     ):
@@ -2790,8 +2772,6 @@ class NeuralProphet:
                 whether to collect metrics during training
             checkpointing_enabled : bool
                 whether to save checkpoints during training
-            continue_training : bool
-                whether to continue training from the last checkpoint
             num_workers : int
                 number of workers for data loading
 
@@ -2808,35 +2788,16 @@ class NeuralProphet:
         # Internal flag to check if validation is enabled
         validation_enabled = df_val is not None
 
-        # Load model and optimizer state from checkpoint if continue_training is True
-        if continue_training:
-            checkpoint_path = self.metrics_logger.checkpoint_path
-            checkpoint = torch.load(checkpoint_path)
-
-            checkpoint_epoch = checkpoint["epoch"] if "epoch" in checkpoint else 0
-            previous_epoch = max(self.model.current_epoch, checkpoint_epoch)
-
-            # Set continue_training flag in model to update scheduler correctly
-            self.model.continue_training = True
-            self.model.start_epoch = previous_epoch
-
-            # Adjust epochs
-            new_total_epochs = previous_epoch + self.config_train.epochs
-            self.config_train.epochs = new_total_epochs
-
-            self.config_train.set_optimizer_state(checkpoint["optimizer_states"][0])
-
-        else:
-            self._init_model()
+        self._init_model()
 
         self.model.train_loader = train_loader
 
         # Init the Trainer
         self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
-            config=self.config_train.trainer_config,
+            config=self.config_train.pl_trainer_config,
             metrics_logger=self.metrics_logger,
-            early_stopping=self.early_stopping,
+            early_stopping=self.config_train.early_stopping,
             early_stopping_target="Loss_val" if validation_enabled else "Loss",
             accelerator=self.accelerator,
             progress_bar_enabled=progress_bar_enabled,
@@ -2852,7 +2813,7 @@ class NeuralProphet:
             df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             val_loader = self._init_val_loader(df_val)
 
-            if not continue_training and not self.config_train.learning_rate:
+            if not self.config_train.learning_rate:
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
@@ -2871,10 +2832,9 @@ class NeuralProphet:
                 self.model,
                 train_loader,
                 val_loader,
-                ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
         else:
-            if not continue_training and not self.config_train.learning_rate:
+            if not self.config_train.learning_rate:
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
@@ -2891,7 +2851,6 @@ class NeuralProphet:
             self.trainer.fit(
                 self.model,
                 train_loader,
-                ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
 
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
@@ -2909,16 +2868,7 @@ class NeuralProphet:
             return None
 
         # Return metrics collected in logger as dataframe
-        if self.metrics_logger.history is not None:
-            # avoid array mismatch when continuing training
-            history = self.metrics_logger.history
-            max_length = max(len(lst) for lst in history.values())
-            for key in history:
-                while len(history[key]) < max_length:
-                    history[key].append(None)
-            metrics_df = pd.DataFrame(history)
-        else:
-            metrics_df = pd.DataFrame()
+        metrics_df = pd.DataFrame(self.metrics_logger.history)
         return metrics_df
 
     def restore_trainer(self, accelerator: Optional[str] = None):
@@ -2932,9 +2882,9 @@ class NeuralProphet:
         """
         self.trainer, _ = utils.configure_trainer(
             config_train=self.config_train,
-            config=self.config_train.trainer_config,
+            config=self.config_train.pl_trainer_config,
             metrics_logger=self.metrics_logger,
-            early_stopping=self.early_stopping,
+            early_stopping=self.self.config_train.early_stopping,
             accelerator=accelerator,
             metrics_enabled=bool(self.metrics),
         )
