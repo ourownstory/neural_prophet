@@ -20,7 +20,7 @@ Homepage = "https://github.com/ourownstory/neural_prophet"
 python = ">=3.9,<3.13"
 numpy = ">=1.25.0,<2.0.0"
 pandas = ">=2.0.0"
-torch = ">=2.0.0"
+torch = ">=2.0.0,<2.4.0"
 # Note: torch defaults to already installed version or installs CUDA version
 # If you want CPU-only torch, install that before installing neuralprophet.
 pytorch-lightning = ">=2.0.0,<2.4.0"
@@ -34,7 +34,7 @@ plotly = ">=5.13.1"
 kaleido = "0.2.1" # required for plotly static image export
 plotly-resampler = { version = ">=0.9.2", optional = true }
 livelossplot = { version = ">=0.5.5", optional = true }
-lightning-fabric = ">=2.0.0"
+lightning-fabric = ">=2.0.0,<2.4.0"
 
 [tool.poetry.extras]
 plotly-resampler = ["plotly-resampler"]
