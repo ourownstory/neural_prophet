@@ -2880,9 +2880,7 @@ class NeuralProphet:
         """
         self.trainer, _ = utils.configure_trainer(
             config_train=self.config_train,
-            pl_trainer_config=self.config_train.pl_trainer_config,
             metrics_logger=self.metrics_logger,
-            early_stopping=self.self.config_train.early_stopping,
             accelerator=accelerator,
             metrics_enabled=bool(self.metrics),
         )
