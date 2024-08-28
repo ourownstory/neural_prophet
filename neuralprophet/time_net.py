@@ -868,8 +868,8 @@ class TimeNet(pl.LightningModule):
         return prediction, components
 
     def configure_optimizers(self):
-        self.train_steps_per_epoch = len(self.trainer.train_dataloader)
-        assert self.train_steps_per_epoch * self.config_train.epochs == self.trainer.num_training_batches
+        self.train_steps_per_epoch = len(self.train_loader)
+        # self.trainer.num_training_batches = self.train_steps_per_epoch * self.config_train.epochs
 
         self.config_train.set_optimizer()
         self.config_train.set_scheduler()

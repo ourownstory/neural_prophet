@@ -68,7 +68,7 @@ def test_regularization_holidays():
         daily_seasonality=False,
         growth="off",
     )
-    m = m.add_country_holidays("US", regularization=0.001)
+    m = m.add_country_holidays("US", regularization=0.0001)
     m.fit(df, freq="D")
 
     to_reduce = []

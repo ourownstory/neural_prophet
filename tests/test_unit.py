@@ -474,6 +474,7 @@ def test_reg_delay():
     )
     m.fit(df, freq="D")
     c = m.config_train
+    # weight, epoch, epoch_iteration_progress
     for w, e, i in [
         (0, 0, 1),
         (0, 3, 0),
@@ -484,7 +485,8 @@ def test_reg_delay():
         (1, 7, 1),
         (1, 8, 0),
     ]:
-        weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
+        progress = float(e + i) / 10.0
+        weight = c.get_reg_delay_weight(progress=progress, reg_start_pct=0.5, reg_full_pct=0.8)
         assert weight == w
 
 

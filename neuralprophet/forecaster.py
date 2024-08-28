@@ -2795,9 +2795,7 @@ class NeuralProphet:
         # Init the Trainer
         self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
-            config=self.config_train.pl_trainer_config,
             metrics_logger=self.metrics_logger,
-            early_stopping=self.config_train.early_stopping,
             early_stopping_target="Loss_val" if validation_enabled else "Loss",
             accelerator=self.accelerator,
             progress_bar_enabled=progress_bar_enabled,
@@ -2882,7 +2880,7 @@ class NeuralProphet:
         """
         self.trainer, _ = utils.configure_trainer(
             config_train=self.config_train,
-            config=self.config_train.pl_trainer_config,
+            pl_trainer_config=self.config_train.pl_trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping=self.self.config_train.early_stopping,
             accelerator=accelerator,

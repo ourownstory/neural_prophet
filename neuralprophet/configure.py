@@ -247,6 +247,12 @@ class Train:
                 defaults = {
                     "T_max": 50,
                 }
+            elif self.scheduler.lower() == "cosineannealingwarmrestarts":
+                self.scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+                defaults = {
+                    "T_0": 5,
+                    "T_mult": 2,
+                }
             else:
                 raise NotImplementedError(
                     f"Scheduler {self.scheduler} is not supported from string. Please pass the scheduler class."

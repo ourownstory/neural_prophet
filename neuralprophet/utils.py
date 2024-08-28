@@ -823,9 +823,7 @@ def _smooth_loss(loss, beta=0.9):
 
 def configure_trainer(
     config_train: Train,
-    config: dict,
     metrics_logger,
-    early_stopping: bool = False,
     early_stopping_target: str = "Loss",
     accelerator: Optional[str] = None,
     progress_bar_enabled: bool = True,
@@ -841,12 +839,8 @@ def configure_trainer(
     ----------
         config_train : Dict
             dictionary containing the overall training configuration.
-        config : dict
-            dictionary containing the custom PyTorch Lightning trainer configuration.
         metrics_logger : MetricsLogger
             MetricsLogger object to log metrics to.
-        early_stopping: bool
-            If True, early stopping is enabled.
         early_stopping_target : str
             Target metric to use for early stopping.
         accelerator : str
@@ -868,52 +862,58 @@ def configure_trainer(
         checkpoint_callback
             PyTorch Lightning checkpoint callback to load the best model
     """
-    config = config.copy()
+    if config_train.pl_trainer_config is None:
+        config_train.pl_trainer_config = {}
+
+    pl_trainer_config = config_train.pl_trainer_config
+    # pl_trainer_config = pl_trainer_config.copy()
 
     # Set max number of epochs
     if hasattr(config_train, "epochs"):
         if config_train.epochs is not None:
-            config["max_epochs"] = config_train.epochs
+            pl_trainer_config["max_epochs"] = config_train.epochs
 
     # Configure the Ligthing-logs directory
-    if "default_root_dir" not in config.keys():
-        config["default_root_dir"] = os.getcwd()
+    if "default_root_dir" not in pl_trainer_config.keys():
+        pl_trainer_config["default_root_dir"] = os.getcwd()
 
     # Accelerator
     if isinstance(accelerator, str):
         if (accelerator == "auto" and torch.cuda.is_available()) or accelerator == "gpu":
-            config["accelerator"] = "gpu"
-            config["devices"] = -1
+            pl_trainer_config["accelerator"] = "gpu"
+            pl_trainer_config["devices"] = -1
         elif (accelerator == "auto" and hasattr(torch.backends, "mps")) or accelerator == "mps":
             if torch.backends.mps.is_available():
-                config["accelerator"] = "mps"
-                config["devices"] = 1
+                pl_trainer_config["accelerator"] = "mps"
+                pl_trainer_config["devices"] = 1
         elif accelerator != "auto":
-            config["accelerator"] = accelerator
-            config["devices"] = 1
+            pl_trainer_config["accelerator"] = accelerator
+            pl_trainer_config["devices"] = 1
 
-        if "accelerator" in config:
-            log.info(f"Using accelerator {config['accelerator']} with {config['devices']} device(s).")
+        if "accelerator" in pl_trainer_config:
+            log.info(
+                f"Using accelerator {pl_trainer_config['accelerator']} with {pl_trainer_config['devices']} device(s)."
+            )
         else:
             log.info("No accelerator available. Using CPU for training.")
 
     # Configure metrics
     if metrics_enabled:
-        config["logger"] = metrics_logger
+        pl_trainer_config["logger"] = metrics_logger
     else:
-        config["logger"] = False
+        pl_trainer_config["logger"] = False
 
-    config["deterministic"] = deterministic
+    pl_trainer_config["deterministic"] = deterministic
 
     # Configure callbacks
     callbacks = []
-    has_custom_callbacks = True if "callbacks" in config else False
+    has_custom_callbacks = True if "callbacks" in pl_trainer_config else False
 
     # Configure checkpointing
     has_modelcheckpoint_callback = (
         True
         if has_custom_callbacks
-        and any(isinstance(callback, pl.callbacks.ModelCheckpoint) for callback in config["callbacks"])
+        and any(isinstance(callback, pl.callbacks.ModelCheckpoint) for callback in pl_trainer_config["callbacks"])
         else False
     )
     if has_modelcheckpoint_callback and not checkpointing_enabled:
@@ -930,17 +930,19 @@ def configure_trainer(
             callbacks.append(checkpoint_callback)
         else:
             checkpoint_callback = next(
-                callback for callback in config["callbacks"] if isinstance(callback, pl.callbacks.ModelCheckpoint)
+                callback
+                for callback in pl_trainer_config["callbacks"]
+                if isinstance(callback, pl.callbacks.ModelCheckpoint)
             )
     else:
-        config["enable_checkpointing"] = False
+        pl_trainer_config["enable_checkpointing"] = False
         checkpoint_callback = None
 
     # Configure the progress bar, refresh every epoch
     has_progressbar_callback = (
         True
         if has_custom_callbacks
-        and any(isinstance(callback, pl.callbacks.ProgressBar) for callback in config["callbacks"])
+        and any(isinstance(callback, pl.callbacks.ProgressBar) for callback in pl_trainer_config["callbacks"])
         else False
     )
     if has_progressbar_callback and not progress_bar_enabled:
@@ -953,21 +955,21 @@ def configure_trainer(
             prog_bar_callback = ProgressBar(refresh_rate=num_batches_per_epoch, epochs=config_train.epochs)
             callbacks.append(prog_bar_callback)
     else:
-        config["enable_progress_bar"] = False
+        pl_trainer_config["enable_progress_bar"] = False
 
     # Early stopping monitor
     has_earlystopping_callback = (
         True
         if has_custom_callbacks
-        and any(isinstance(callback, pl.callbacks.EarlyStopping) for callback in config["callbacks"])
+        and any(isinstance(callback, pl.callbacks.EarlyStopping) for callback in pl_trainer_config["callbacks"])
         else False
     )
-    if has_earlystopping_callback and not early_stopping:
+    if has_earlystopping_callback and not config_train.early_stopping:
         raise ValueError(
             "Early stopping is disabled but an EarlyStopping callback is provided. Please enable early stopping or "
             "remove the callback."
         )
-    if early_stopping:
+    if config_train.early_stopping:
         if not metrics_enabled:
             raise ValueError("Early stopping requires metrics to be enabled.")
         if not has_earlystopping_callback:
@@ -977,13 +979,13 @@ def configure_trainer(
             callbacks.append(early_stop_callback)
 
     if has_custom_callbacks:
-        config["callbacks"].extend(callbacks)
+        pl_trainer_config["callbacks"].extend(callbacks)
     else:
-        config["callbacks"] = callbacks
-    config["num_sanity_val_steps"] = 0
-    config["enable_model_summary"] = False
+        pl_trainer_config["callbacks"] = callbacks
+    pl_trainer_config["num_sanity_val_steps"] = 0
+    pl_trainer_config["enable_model_summary"] = False
     # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
     # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#replace-sampler-ddp
     # config["replace_sampler_ddp"] = False
 
-    return pl.Trainer(**config), checkpoint_callback
+    return pl.Trainer(**pl_trainer_config), checkpoint_callback
