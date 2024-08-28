@@ -298,6 +298,20 @@ class NeuralProphet:
             >>> m = NeuralProphet(collect_metrics=["MSE", "MAE", "RMSE"])
             >>> # use custorm torchmetrics names
             >>> m = NeuralProphet(collect_metrics={"MAPE": "MeanAbsolutePercentageError", "MSLE": "MeanSquaredLogError",
+        scheduler : str, torch.optim.lr_scheduler._LRScheduler
+            Type of learning rate scheduler to use.
+
+            Options
+                * (default) ``OneCycleLR``: One Cycle Learning Rate scheduler
+                * ``StepLR``: Step Learning Rate scheduler
+                * ``ExponentialLR``: Exponential Learning Rate scheduler
+                * ``CosineAnnealingLR``: Cosine Annealing Learning Rate scheduler
+
+            Examples
+            --------
+            >>> from neuralprophet import NeuralProphet
+            >>> # Step Learning Rate scheduler
+            >>> m = NeuralProphet(scheduler="StepLR")
 
         COMMENT
         Uncertainty Estimation
@@ -432,6 +446,7 @@ class NeuralProphet:
         batch_size: Optional[int] = None,
         loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "SmoothL1Loss",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "AdamW",
+        scheduler: Optional[str] = "onecyclelr",
         newer_samples_weight: float = 2,
         newer_samples_start: float = 0.0,
         quantiles: List[float] = [],
@@ -505,6 +520,7 @@ class NeuralProphet:
         self.config_train = configure.Train(
             quantiles=quantiles,
             learning_rate=learning_rate,
+            scheduler=scheduler,
             epochs=epochs,
             batch_size=batch_size,
             loss_func=loss_func,
@@ -916,6 +932,7 @@ class NeuralProphet:
         continue_training: bool = False,
         num_workers: int = 0,
         deterministic: bool = False,
+        scheduler: Optional[str] = None,
     ):
         """Train, and potentially evaluate model.
 
@@ -967,14 +984,38 @@ class NeuralProphet:
                 Note: using multiple workers and therefore distributed training might significantly increase
                 the training time since each batch needs to be copied to each worker for each epoch. Keeping
                 all data on the main process might be faster for most datasets.
+            scheduler : str
+                Type of learning rate scheduler to use for continued training. If None, uses ExponentialLR as
+                default as specified in the model config.
+                Options
+                * ``StepLR``: Step Learning Rate scheduler
+                * ``ExponentialLR``: Exponential Learning Rate scheduler
+                * ``CosineAnnealingLR``: Cosine Annealing Learning Rate scheduler
 
         Returns
         -------
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
-        if self.fitted:
-            raise RuntimeError("Model has been fitted already. Please initialize a new model to fit again.")
+        if self.fitted and not continue_training:
+            raise RuntimeError(
+                "Model has been fitted already. If you want to continue training please set the flag continue_training."
+            )
+
+        if continue_training and epochs is None:
+            raise ValueError("Continued training requires setting the number of epochs to train for.")
+
+        if continue_training:
+            if scheduler is not None:
+                self.config_train.scheduler = scheduler
+            else:
+                self.config_train.scheduler = None
+            self.config_train.set_scheduler()
+
+        if scheduler is not None and not continue_training:
+            log.warning(
+                "Scheduler can only be set in fit when continuing training. Please set the scheduler when initializing the model."
+            )
 
         # Configuration
         if epochs is not None:
@@ -1060,8 +1101,9 @@ class NeuralProphet:
             or any(value != 1 for value in self.num_seasonalities_modelled_dict.values())
         )
 
-        if self.fitted is True and not continue_training:
-            log.error("Model has already been fitted. Re-fitting may break or produce different results.")
+        if continue_training and self.metrics_logger.checkpoint_path is None:
+            log.error("Continued training requires checkpointing in model to continue from last epoch.")
+
         self.max_lags = df_utils.get_max_num_lags(
             n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors
         )
@@ -2661,23 +2703,23 @@ class NeuralProphet:
             torch DataLoader
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)  # TODO: Can this call be avoided?
-        # if not self.fitted:
-        self.config_normalization.init_data_params(
-            df=df,
-            config_lagged_regressors=self.config_lagged_regressors,
-            config_regressors=self.config_regressors,
-            config_events=self.config_events,
-            config_seasonality=self.config_seasonality,
-        )
+        if not self.fitted:
+            self.config_normalization.init_data_params(
+                df=df,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+                config_events=self.config_events,
+                config_seasonality=self.config_seasonality,
+            )
 
         df = _normalize(df=df, config_normalization=self.config_normalization)
-        # if not self.fitted:
-        if self.config_trend.changepoints is not None:
-            # scale user-specified changepoint times
-            df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
+        if not self.fitted:
+            if self.config_trend.changepoints is not None:
+                # scale user-specified changepoint times
+                df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
 
-            df_normalized = _normalize(df=df_aux, config_normalization=self.config_normalization)
-            self.config_trend.changepoints = df_normalized["t"].values  # type: ignore
+                df_normalized = _normalize(df=df_aux, config_normalization=self.config_normalization)
+                self.config_trend.changepoints = df_normalized["t"].values  # type: ignore
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
@@ -2765,12 +2807,24 @@ class NeuralProphet:
         # Internal flag to check if validation is enabled
         validation_enabled = df_val is not None
 
-        # Init the model, if not continue from checkpoint
+        # Load model and optimizer state from checkpoint if continue_training is True
         if continue_training:
-            raise NotImplementedError(
-                "Continuing training from checkpoint is not implemented yet. This feature is planned for one of the \
-                    upcoming releases."
-            )
+            checkpoint_path = self.metrics_logger.checkpoint_path
+            checkpoint = torch.load(checkpoint_path)
+
+            checkpoint_epoch = checkpoint["epoch"] if "epoch" in checkpoint else 0
+            previous_epoch = max(self.model.current_epoch, checkpoint_epoch)
+
+            # Set continue_training flag in model to update scheduler correctly
+            self.model.continue_training = True
+            self.model.start_epoch = previous_epoch
+
+            # Adjust epochs
+            new_total_epochs = previous_epoch + self.config_train.epochs
+            self.config_train.epochs = new_total_epochs
+
+            self.config_train.set_optimizer_state(checkpoint["optimizer_states"][0])
+
         else:
             self.model = self._init_model()
 
@@ -2852,8 +2906,18 @@ class NeuralProphet:
 
         if not metrics_enabled:
             return None
+
         # Return metrics collected in logger as dataframe
-        metrics_df = pd.DataFrame(self.metrics_logger.history)
+        if self.metrics_logger.history is not None:
+            # avoid array mismatch when continuing training
+            history = self.metrics_logger.history
+            max_length = max(len(lst) for lst in history.values())
+            for key in history:
+                while len(history[key]) < max_length:
+                    history[key].append(None)
+            metrics_df = pd.DataFrame(history)
+        else:
+            metrics_df = pd.DataFrame()
         return metrics_df
 
     def restore_trainer(self, accelerator: Optional[str] = None):

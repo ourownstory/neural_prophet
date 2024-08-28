@@ -21,6 +21,7 @@ AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 512
 EPOCHS = 10
+ADDITIONAL_EPOCHS = 5
 LR = 1.0
 BATCH_SIZE = 64
 
@@ -101,17 +102,47 @@ def test_save_load_io():
     pd.testing.assert_frame_equal(forecast, forecast3)
 
 
-# TODO: add functionality to continue training
-# def test_continue_training():
-#     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-#     m = NeuralProphet(
-#         epochs=EPOCHS,
-#         batch_size=BATCH_SIZE,
-#         learning_rate=LR,
-#         n_lags=6,
-#         n_forecasts=3,
-#         n_changepoints=0,
-#     )
-#     metrics = m.fit(df, freq="D")
-#     metrics2 = m.fit(df, freq="D", continue_training=True)
-#     assert metrics1["Loss"].sum() >= metrics2["Loss"].sum()
+def test_continue_training():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=6,
+        n_forecasts=3,
+        n_changepoints=0,
+    )
+    metrics = m.fit(df, checkpointing=True, freq="D")
+    metrics2 = m.fit(df, freq="D", continue_training=True, epochs=ADDITIONAL_EPOCHS)
+    assert metrics["Loss"].min() >= metrics2["Loss"].min()
+
+
+def test_continue_training_with_scheduler_selection():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=6,
+        n_forecasts=3,
+        n_changepoints=0,
+    )
+    metrics = m.fit(df, checkpointing=True, freq="D")
+    # Continue training with StepLR
+    metrics2 = m.fit(df, freq="D", continue_training=True, epochs=ADDITIONAL_EPOCHS, scheduler="StepLR")
+    assert metrics["Loss"].min() >= metrics2["Loss"].min()
+
+
+def test_save_load_continue_training():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        n_lags=6,
+        n_forecasts=3,
+        n_changepoints=0,
+    )
+    metrics = m.fit(df, checkpointing=True, freq="D")
+    save(m, "test_model.pt")
+    m2 = load("test_model.pt")
+    metrics2 = m2.fit(df, continue_training=True, epochs=ADDITIONAL_EPOCHS, scheduler="StepLR")
+    assert metrics["Loss"].min() >= metrics2["Loss"].min()
