@@ -797,8 +797,11 @@ class TimeNet(pl.LightningModule):
         optimizer.step()
 
         scheduler = self.lr_schedulers()
-        scheduler.step()
-        # scheduler.step(epoch=self.train_progress)
+        if self.config_train.scheduler == torch.optim.lr_scheduler.OneCycleLR:
+            # is configured with total_steps (not epochs)
+            scheduler.step()
+        else:
+            scheduler.step(epoch=self.train_progress)
 
         if self.finding_lr:
             # Manually track the loss for the lr finder
@@ -812,6 +815,8 @@ class TimeNet(pl.LightningModule):
             self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss", loss, **self.log_args)
             self.log("RegLoss", reg_loss, **self.log_args)
+            self.log("TrainProgress", self.train_progress, **self.log_args)
+            self.log("LR", scheduler.get_last_lr()[0], **self.log_args)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -873,6 +878,8 @@ class TimeNet(pl.LightningModule):
         self.config_train.set_scheduler()
 
         # Optimizer
+        if self.finding_lr and self.learning_rate is None:
+            self.learning_rate = self.config_train.lr_finder_args["min_lr"]
         optimizer = self.config_train.optimizer(
             self.parameters(),
             lr=self.learning_rate,
