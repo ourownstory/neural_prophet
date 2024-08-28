@@ -23,7 +23,7 @@ pandas = ">=2.0.0"
 torch = ">=2.0.0"
 # Note: torch defaults to already installed version or installs CUDA version
 # If you want CPU-only torch, install that before installing neuralprophet.
-pytorch-lightning = ">=2.0.0"
+pytorch-lightning = ">=2.0.0,<2.4.0"
 tensorboard = ">=2.11.2"
 torchmetrics = ">=1.0.0"
 typing-extensions = ">=4.5.0"
