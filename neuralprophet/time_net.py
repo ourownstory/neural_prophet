@@ -562,7 +562,6 @@ class TimeNet(pl.LightningModule):
         # Unpack and process seasonalities
         seasonalities_input = None
         if self.config_seasonality and self.config_seasonality.periods:
-            print("++++seasonalities ++++")
             seasonalities_input = unpack_seasonalities(
                 input_tensor,
                 self.n_lags,
