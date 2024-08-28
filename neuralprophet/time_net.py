@@ -158,11 +158,6 @@ class TimeNet(pl.LightningModule):
         self.config_normalization = config_normalization
         self.compute_components_flag = compute_components_flag
 
-        # Optimizer and LR Scheduler
-        # self.config_train.set_optimizer()
-        # self.config_train.set_scheduler()
-        # self._optimizer = self.config_train.optimizer
-        # self._scheduler = self.config_train.scheduler
         # Manual optimization: we are responsible for calling .backward(), .step(), .zero_grad().
         self.automatic_optimization = False
 
@@ -801,7 +796,8 @@ class TimeNet(pl.LightningModule):
         optimizer.step()
 
         scheduler = self.lr_schedulers()
-        scheduler.step(epoch=self.train_progress)
+        scheduler.step()
+        # scheduler.step(epoch=self.train_progress)
 
         # Manually track the loss for the lr finder
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
@@ -873,22 +869,25 @@ class TimeNet(pl.LightningModule):
 
         self.config_train.set_optimizer()
         self.config_train.set_scheduler()
-        self._optimizer = self.config_train.optimizer
-        self._scheduler = self.config_train.scheduler
 
         # Optimizer
-        optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
+        optimizer = self.config_train.optimizer(
+            self.parameters(),
+            lr=self.learning_rate,
+            **self.config_train.optimizer_args,
+        )
 
         # Scheduler
-        if self._scheduler == torch.optim.lr_scheduler.OneCycleLR:
-            lr_scheduler = self._scheduler(
+        if self.config_train.scheduler == torch.optim.lr_scheduler.OneCycleLR:
+            lr_scheduler = self.config_train.scheduler(
                 optimizer,
                 max_lr=self.learning_rate,
-                total_steps=self.config_train.epochs,
+                total_steps=self.trainer.estimated_stepping_batches,
+                # total_steps=self.config_train.epochs, # if using self.lr_schedulers().step(epoch=self.train_progress)
                 **self.config_train.scheduler_args,
             )
         else:
-            lr_scheduler = self._scheduler(
+            lr_scheduler = self.config_train.scheduler(
                 optimizer,
                 **self.config_train.scheduler_args,
             )
@@ -896,7 +895,6 @@ class TimeNet(pl.LightningModule):
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
     def _get_time_based_sample_weight(self, t):
-        weight = torch.ones_like(t)
         end_w = self.config_train.newer_samples_weight
         start_t = self.config_train.newer_samples_start
         time = (t.detach() - start_t) / (1.0 - start_t)
@@ -906,7 +904,9 @@ class TimeNet(pl.LightningModule):
         # scales end to be end weight times bigger than start weight
         # with end weight being 1.0
         weight = (1.0 + time * (end_w - 1.0)) / end_w
-        return weight.unsqueeze(dim=2)  # add an extra dimension for the quantiles
+        # add an extra dimension for the quantiles
+        weight = weight.unsqueeze(dim=2)
+        return weight
 
     def _add_batch_regularizations(self, loss, progress):
         """Add regularization terms to loss, if applicable
