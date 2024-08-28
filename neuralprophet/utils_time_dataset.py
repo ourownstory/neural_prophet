@@ -1,230 +1,177 @@
 from collections import OrderedDict
 
 
-def unpack_targets(
-    sliced_tensor,
-    n_forecasts,
-    max_lags,
-    feature_indices,
-):
-    """
-    Unpacks the target values from the sliced tensor based on the given feature indices.
+class FeatureExtractor:
+    def __init__(
+        self,
+        n_lags,
+        n_forecasts,
+        max_lags,
+        data_tensor=None,
+        feature_indices=None,
+        config_seasonality=None,
+        lagged_regressor_config=None,
+    ):
+        """
+        Initializes the FeatureExtractor with the necessary parameters.
 
-    Args:
-        sliced_tensor (torch.Tensor): The tensor containing all features, sliced according to indices.
-        n_forecasts (int): Number of forecasts to be made.
-        max_lags (int): Maximum number of lags used in the model.
-        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
+        Args:
+            data_tensor (torch.Tensor): The tensor containing all features, sliced according to indices.
+            n_lags (int): Number of lags used in the model.
+            n_forecasts (int): Number of forecasts to be made.
+            max_lags (int): Maximum number of lags used in the model.
+            feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
+            config_seasonality (object, optional): Configuration object that defines the seasonality periods.
+            lagged_regressor_config (dict, optional): Configuration dictionary that defines the lagged regressors and their properties.
+        """
+        self.data_tensor = data_tensor
+        self.n_lags = n_lags
+        self.n_forecasts = n_forecasts
+        self.max_lags = max_lags
+        self.feature_indices = feature_indices
+        self.config_seasonality = config_seasonality
+        self.lagged_regressor_config = lagged_regressor_config
 
-    Returns:
-        torch.Tensor: A tensor containing the target values, with an extra dimension added.
-    """
-    targets_start_idx, targets_end_idx = feature_indices["targets"]
-    if max_lags > 0:
-        return sliced_tensor[:, max_lags : max_lags + n_forecasts, targets_start_idx].unsqueeze(2)
-    else:
-        return sliced_tensor[:, targets_start_idx : targets_end_idx + 1].unsqueeze(1)
+    def update_data_inputs(self, data_tensor, feature_indices):
+        """
+        Updates the data tensor with a new tensor.
 
+        Args:
+            data_tensor (torch.Tensor): The new tensor containing all features.
+        """
+        self.data_tensor = data_tensor
+        self.feature_indices = feature_indices
 
-def unpack_time(sliced_tensor, n_lags, n_forecasts, max_lags, feature_indices):
-    """
-    Unpacks the time features from the sliced tensor.
+    def extract(self, component_name):
+        """
+        Routes the extraction process to the appropriate function based on the component name.
 
-    Args:
-        sliced_tensor (torch.Tensor): The tensor containing all features, sliced according to indices.
-        n_lags (int): Number of lags used in the model.
-        n_forecasts (int): Number of forecasts to be made.
-        max_lags (int): Maximum number of lags used in the model.
-        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
+        Args:
+            component_name (str): The name of the component to extract.
 
-    Returns:
-        torch.Tensor: A tensor containing the time features.
-    """
-    start_idx, end_idx = feature_indices["time"]
-    if max_lags > 0:
-        return sliced_tensor[:, max_lags - n_lags : max_lags + n_forecasts, start_idx]
-    else:
-        return sliced_tensor[:, start_idx : end_idx + 1]
+        Returns:
+            Various: The output of the specific extraction function.
+        """
+        if component_name == "targets":
+            return self.extract_targets()
+        elif component_name == "time":
+            return self.extract_time()
+        elif component_name == "seasonalities":
+            return self.extract_seasonalities()
+        elif component_name == "lagged_regressors":
+            return self.extract_lagged_regressors()
+        elif component_name == "lags":
+            return self.extract_lags()
+        elif component_name == "additive_events":
+            return self.extract_additive_events()
+        elif component_name == "multiplicative_events":
+            return self.extract_multiplicative_events()
+        elif component_name == "additive_regressors":
+            return self.extract_additive_regressors()
+        elif component_name == "multiplicative_regressors":
+            return self.extract_multiplicative_regressors()
+        else:
+            raise ValueError(f"Unknown component name: {component_name}")
 
+    def extract_targets(self):
+        targets_start_idx, targets_end_idx = self.feature_indices["targets"]
+        if self.max_lags > 0:
+            return self.data_tensor[:, self.max_lags : self.max_lags + self.n_forecasts, targets_start_idx].unsqueeze(2)
+        else:
+            return self.data_tensor[:, targets_start_idx : targets_end_idx + 1].unsqueeze(1)
 
-def unpack_seasonalities(sliced_tensor, n_lags, n_forecasts, max_lags, feature_indices, config_seasonality):
-    """
-    Unpacks the seasonality features from the sliced tensor.
+    def extract_time(self):
+        start_idx, end_idx = self.feature_indices["time"]
+        if self.max_lags > 0:
+            return self.data_tensor[:, self.max_lags - self.n_lags : self.max_lags + self.n_forecasts, start_idx]
+        else:
+            return self.data_tensor[:, start_idx : end_idx + 1]
 
-    Args:
-        sliced_tensor (torch.Tensor): The tensor containing all features, sliced according to indices.
-        n_lags (int): Number of lags used in the model.
-        n_forecasts (int): Number of forecasts to be made.
-        max_lags (int): Maximum number of lags used in the model.
-        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
-        config_seasonality (object): Configuration object that defines the seasonality periods.
+    def extract_lags(self):
+        lags_start_idx, _ = self.feature_indices["lags"]
+        return self.data_tensor[:, self.max_lags - self.n_lags : self.max_lags, lags_start_idx]
 
-    Returns:
-        OrderedDict: A dictionary containing the seasonality features for each period.
-    """
-    seasonalities = OrderedDict()
-    if max_lags > 0:
-        for seasonality_name in config_seasonality.periods.keys():
-            seasonality_key = f"seasonality_{seasonality_name}"
-            if seasonality_key in feature_indices:
-                seasonality_start_idx, seasonality_end_idx = feature_indices[seasonality_key]
-                seasonalities[seasonality_name] = sliced_tensor[
-                    :,
-                    max_lags - n_lags : max_lags + n_forecasts,
-                    seasonality_start_idx:seasonality_end_idx,
-                ]
-    else:
-        for seasonality_name in config_seasonality.periods.keys():
-            seasonality_key = f"seasonality_{seasonality_name}"
-            if seasonality_key in feature_indices:
-                seasonality_start_idx, seasonality_end_idx = feature_indices[seasonality_key]
-                seasonalities[seasonality_name] = sliced_tensor[:, seasonality_start_idx:seasonality_end_idx].unsqueeze(
-                    1
-                )
-    return seasonalities
+    def extract_lagged_regressors(self):
+        lagged_regressors = OrderedDict()
+        if self.lagged_regressor_config:
+            for name, lagged_regressor in self.lagged_regressor_config.items():
+                lagged_regressor_key = f"lagged_regressor_{name}"
+                if lagged_regressor_key in self.feature_indices:
+                    lagged_regressor_start_idx, _ = self.feature_indices[lagged_regressor_key]
+                    covar_lags = lagged_regressor.n_lags
+                    lagged_regressor_offset = self.max_lags - covar_lags
+                    lagged_regressors[name] = self.data_tensor[
+                        :,
+                        lagged_regressor_offset : lagged_regressor_offset + covar_lags,
+                        lagged_regressor_start_idx,
+                    ]
+        return lagged_regressors
 
+    def extract_seasonalities(self):
+        seasonalities = OrderedDict()
+        if self.max_lags > 0:
+            for seasonality_name in self.config_seasonality.periods.keys():
+                seasonality_key = f"seasonality_{seasonality_name}"
+                if seasonality_key in self.feature_indices:
+                    seasonality_start_idx, seasonality_end_idx = self.feature_indices[seasonality_key]
+                    seasonalities[seasonality_name] = self.data_tensor[
+                        :,
+                        self.max_lags - self.n_lags : self.max_lags + self.n_forecasts,
+                        seasonality_start_idx:seasonality_end_idx,
+                    ]
+        else:
+            for seasonality_name in self.config_seasonality.periods.keys():
+                seasonality_key = f"seasonality_{seasonality_name}"
+                if seasonality_key in self.feature_indices:
+                    seasonality_start_idx, seasonality_end_idx = self.feature_indices[seasonality_key]
+                    seasonalities[seasonality_name] = self.data_tensor[
+                        :, seasonality_start_idx:seasonality_end_idx
+                    ].unsqueeze(1)
 
-def unpack_lagged_regressors(sliced_tensor, max_lags, feature_indices, config_lagged_regressors):
-    """
-    Unpacks the lagged regressors from the sliced tensor.
+        return seasonalities
 
-    Args:
-        sliced_tensor (torch.Tensor): The tensor containing all features, sliced according to indices.
-        max_lags (int): Maximum number of lags used in the model.
-        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
-        config_lagged_regressors (dict): Configuration dictionary that defines the lagged regressors and their properties.
+    def extract_additive_events(self):
+        if self.max_lags > 0:
+            events_start_idx, events_end_idx = self.feature_indices["additive_events"]
+            future_offset = self.max_lags - self.n_lags
+            return self.data_tensor[
+                :, future_offset : future_offset + self.n_forecasts + self.n_lags, events_start_idx : events_end_idx + 1
+            ]
+        else:
+            events_start_idx, events_end_idx = self.feature_indices["additive_events"]
+            return self.data_tensor[:, events_start_idx : events_end_idx + 1].unsqueeze(1)
 
-    Returns:
-        OrderedDict: A dictionary containing the lagged regressor features.
-    """
-    lagged_regressors = OrderedDict()
-    if config_lagged_regressors:
-        for name, lagged_regressor in config_lagged_regressors.items():
-            lagged_regressor_key = f"lagged_regressor_{name}"
-            if lagged_regressor_key in feature_indices:
-                lagged_regressor_start_idx, _ = feature_indices[lagged_regressor_key]
-                covar_lags = lagged_regressor.n_lags
-                lagged_regressor_offset = max_lags - covar_lags
-                lagged_regressors[name] = sliced_tensor[
-                    :,
-                    lagged_regressor_offset : lagged_regressor_offset + covar_lags,
-                    lagged_regressor_start_idx,
-                ]
-    return lagged_regressors
+    def extract_multiplicative_events(self):
+        if self.max_lags > 0:
+            events_start_idx, events_end_idx = self.feature_indices["multiplicative_events"]
+            return self.data_tensor[
+                :, self.max_lags - self.n_lags : self.max_lags + self.n_forecasts, events_start_idx : events_end_idx + 1
+            ]
+        else:
+            events_start_idx, events_end_idx = self.feature_indices["multiplicative_events"]
+            return self.data_tensor[:, events_start_idx : events_end_idx + 1].unsqueeze(1)
 
+    def extract_additive_regressors(self):
+        if self.max_lags > 0:
+            regressors_start_idx, regressors_end_idx = self.feature_indices["additive_regressors"]
+            return self.data_tensor[
+                :,
+                self.max_lags - self.n_lags : self.max_lags + self.n_forecasts,
+                regressors_start_idx : regressors_end_idx + 1,
+            ]
+        else:
+            regressors_start_idx, regressors_end_idx = self.feature_indices["additive_regressors"]
+            return self.data_tensor[:, regressors_start_idx : regressors_end_idx + 1].unsqueeze(1)
 
-def unpack_lags(sliced_tensor, n_lags, max_lags, feature_indices):
-    """
-    Unpacks the lagged features from the sliced tensor.
-
-    Args:
-        sliced_tensor (torch.Tensor): The tensor containing all features, sliced according to indices.
-        n_lags (int): Number of lags used in the model.
-        max_lags (int): Maximum number of lags used in the model.
-        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
-
-    Returns:
-        torch.Tensor: A tensor containing the lagged features.
-    """
-    lags_start_idx, _ = feature_indices["lags"]
-    return sliced_tensor[:, max_lags - n_lags : max_lags, lags_start_idx]
-
-
-def unpack_additive_events(sliced_tensor, n_lags, n_forecasts, max_lags, feature_indices):
-    """
-    Unpacks the additive events features from the sliced tensor.
-
-    Args:
-        sliced_tensor (torch.Tensor): The tensor containing all features, sliced according to indices.
-        n_lags (int): Number of lags used in the model.
-        n_forecasts (int): Number of forecasts to be made.
-        max_lags (int): Maximum number of lags used in the model.
-        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
-
-    Returns:
-        torch.Tensor: A tensor containing the additive events features.
-    """
-    if max_lags > 0:
-        events_start_idx, events_end_idx = feature_indices["additive_events"]
-        future_offset = max_lags - n_lags
-        return sliced_tensor[
-            :, future_offset : future_offset + n_forecasts + n_lags, events_start_idx : events_end_idx + 1
-        ]
-    else:
-        events_start_idx, events_end_idx = feature_indices["additive_events"]
-        return sliced_tensor[:, events_start_idx : events_end_idx + 1].unsqueeze(1)
-
-
-def unpack_multiplicative_events(sliced_tensor, n_lags, n_forecasts, max_lags, feature_indices):
-    """
-    Unpacks the multiplicative events features from the sliced tensor.
-
-    Args:
-        sliced_tensor (torch.Tensor): The tensor containing all features, sliced according to indices.
-        n_lags (int): Number of lags used in the model.
-        n_forecasts (int): Number of forecasts to be made.
-        max_lags (int): Maximum number of lags used in the model.
-        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
-
-    Returns:
-        torch.Tensor: A tensor containing the multiplicative events features.
-    """
-    if max_lags > 0:
-        events_start_idx, events_end_idx = feature_indices["multiplicative_events"]
-        return sliced_tensor[:, max_lags - n_lags : max_lags + n_forecasts, events_start_idx : events_end_idx + 1]
-    else:
-        events_start_idx, events_end_idx = feature_indices["multiplicative_events"]
-        return sliced_tensor[:, events_start_idx : events_end_idx + 1].unsqueeze(1)
-
-
-def unpack_additive_regressor(sliced_tensor, n_lags, n_forecasts, max_lags, feature_indices):
-    """
-    Unpacks the additive regressor features from the sliced tensor.
-
-    Args:
-        sliced_tensor (torch.Tensor): The tensor containing all features, sliced according to indices.
-        n_lags (int): Number of lags used in the model.
-        n_forecasts (int): Number of forecasts to be made.
-        max_lags (int): Maximum number of lags used in the model.
-        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
-
-    Returns:
-        torch.Tensor: A tensor containing the additive regressor features.
-    """
-    if max_lags > 0:
-        regressors_start_idx, regressors_end_idx = feature_indices["additive_regressors"]
-        return sliced_tensor[
-            :,
-            max_lags - n_lags : max_lags + n_forecasts,
-            regressors_start_idx : regressors_end_idx + 1,
-        ]
-    else:
-        regressors_start_idx, regressors_end_idx = feature_indices["additive_regressors"]
-        return sliced_tensor[:, regressors_start_idx : regressors_end_idx + 1].unsqueeze(1)
-
-
-def unpack_multiplicative_regressor(sliced_tensor, n_lags, n_forecasts, max_lags, feature_indices):
-    """
-    Unpacks the multiplicative regressor features from the sliced tensor.
-
-    Args:
-        sliced_tensor (torch.Tensor): The tensor containing all features, sliced according to indices.
-        n_lags (int): Number of lags used in the model.
-        n_forecasts (int): Number of forecasts to be made.
-        max_lags (int): Maximum number of lags used in the model.
-        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
-
-    Returns:
-        torch.Tensor: A tensor containing the multiplicative regressor features.
-    """
-    if max_lags > 0:
-        regressors_start_idx, regressors_end_idx = feature_indices["multiplicative_regressors"]
-        future_offset = max_lags - n_lags
-        return sliced_tensor[
-            :,
-            future_offset : future_offset + n_forecasts + n_lags,
-            regressors_start_idx : regressors_end_idx + 1,
-        ]
-    else:
-        regressors_start_idx, regressors_end_idx = feature_indices["multiplicative_regressors"]
-        return sliced_tensor[:, regressors_start_idx : regressors_end_idx + 1].unsqueeze(1)
+    def extract_multiplicative_regressors(self):
+        if self.max_lags > 0:
+            regressors_start_idx, regressors_end_idx = self.feature_indices["multiplicative_regressors"]
+            future_offset = self.max_lags - self.n_lags
+            return self.data_tensor[
+                :,
+                future_offset : future_offset + self.n_forecasts + self.n_lags,
+                regressors_start_idx : regressors_end_idx + 1,
+            ]
+        else:
+            regressors_start_idx, regressors_end_idx = self.feature_indices["multiplicative_regressors"]
+            return self.data_tensor[:, regressors_start_idx : regressors_end_idx + 1].unsqueeze(1)
