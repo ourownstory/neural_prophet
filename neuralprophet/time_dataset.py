@@ -224,17 +224,6 @@ class TimeDataset(Dataset):
             )
             current_idx += additive_regressors_tensor.size(1)
 
-        if self.config_seasonality and self.config_seasonality.periods:
-            for seasonality_name, features in self.seasonalities.items():
-                seasonal_tensor = features
-                print(f"Seasonality tensor shape for {seasonality_name}: {seasonal_tensor.shape}")
-                feature_list.append(seasonal_tensor)
-                self.feature_indices[f"seasonality_{seasonality_name}"] = (
-                    current_idx,
-                    current_idx + seasonal_tensor.size(1),
-                )
-                current_idx += seasonal_tensor.size(1)
-
         # Stack multiplicative regressor features
         if self.multiplicative_regressors_names:
             multiplicative_regressors_tensor = torch.cat(
@@ -246,6 +235,17 @@ class TimeDataset(Dataset):
                 current_idx + len(self.multiplicative_regressors_names) - 1,
             )
             current_idx += len(self.multiplicative_regressors_names)
+
+        if self.config_seasonality and self.config_seasonality.periods:
+            for seasonality_name, features in self.seasonalities.items():
+                seasonal_tensor = features
+                print(f"Seasonality tensor shape for {seasonality_name}: {seasonal_tensor.shape}")
+                feature_list.append(seasonal_tensor)
+                self.feature_indices[f"seasonality_{seasonality_name}"] = (
+                    current_idx,
+                    current_idx + seasonal_tensor.size(1),
+                )
+                current_idx += seasonal_tensor.size(1)
 
         # Concatenate all features into one big tensor
         self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the third dimension
@@ -271,21 +271,6 @@ class TimeDataset(Dataset):
                     condition_values = self.df_tensors[period.condition_name].unsqueeze(1)
                     features *= condition_values
                 self.seasonalities[name] = features
-
-    def get_sample_seasonalities(self, df_tensors, origin_index, n_forecasts, max_lags, n_lags, config_seasonality):
-        seasonalities = OrderedDict({})
-
-        # Determine the range of indices based on whether lags are used
-        if max_lags == 0:
-            indices = [origin_index]
-        else:
-            indices = list(range(origin_index - n_lags + 1, origin_index + n_forecasts + 1))
-
-        # Extract the precomputed seasonalities from self.seasonalities
-        for name, features in self.seasonalities.items():
-            seasonalities[name] = features[indices, :]
-
-        return seasonalities
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -671,83 +656,6 @@ class TimeDataset(Dataset):
                 else:
                     multiplicative_regressors_names.append(reg)
         return additive_regressors_names, multiplicative_regressors_names
-
-    def get_sample_targets(self, df_tensors, origin_index, n_forecasts, max_lags, predict_mode):
-        if "y_scaled" in self.df_tensors:
-            if max_lags == 0:
-                targets = df_tensors["y_scaled"][origin_index].unsqueeze(0).unsqueeze(1)
-            else:
-                targets = df_tensors["y_scaled"][origin_index + 1 : origin_index + n_forecasts + 1]
-                targets = targets.unsqueeze(1)
-            return targets
-        return torch.zeros((n_forecasts, 1), dtype=torch.float32)
-
-    def get_sample_lagged_regressors(self, df_tensors, origin_index, config_lagged_regressors):
-        lagged_regressors = OrderedDict({})
-        # Future TODO: optimize this computation for many lagged_regressors
-        for name, lagged_regressor in config_lagged_regressors.items():
-            covar_lags = lagged_regressor.n_lags
-            assert covar_lags > 0
-            # Indexing tensors instead of DataFrame
-            lagged_regressors[name] = df_tensors[name][origin_index - covar_lags + 1 : origin_index + 1]
-        return lagged_regressors
-
-    def get_sample_future_regressors(
-        self,
-        df_tensors,
-        origin_index,
-        n_forecasts,
-        max_lags,
-        n_lags,
-        additive_regressors_names,
-        multiplicative_regressors_names,
-    ):
-        regressors = OrderedDict({})
-        if max_lags == 0:
-            if additive_regressors_names:
-                regressors["additive"] = df_tensors["additive_regressors"][origin_index, :].unsqueeze(0)
-
-            if multiplicative_regressors_names:
-                regressors["multiplicative"] = df_tensors["multiplicative_regressors"][origin_index, :].unsqueeze(0)
-
-        else:
-            if additive_regressors_names:
-                regressors["additive"] = df_tensors["additive_regressors"][
-                    origin_index + 1 - n_lags : origin_index + n_forecasts + 1, :
-                ]
-            if multiplicative_regressors_names:
-                regressors["multiplicative"] = df_tensors["multiplicative_regressors"][
-                    origin_index + 1 - n_lags : origin_index + n_forecasts + 1, :
-                ]
-
-        return regressors
-
-    def get_sample_future_events(
-        self,
-        df_tensors,
-        origin_index,
-        n_forecasts,
-        max_lags,
-        n_lags,
-        additive_event_and_holiday_names,
-        multiplicative_event_and_holiday_names,
-    ):
-        events = OrderedDict({})
-        if max_lags == 0:
-            if additive_event_and_holiday_names:
-                events["additive"] = df_tensors["additive_event_and_holiday"][origin_index, :].unsqueeze(0)
-            if multiplicative_event_and_holiday_names:
-                events["multiplicative"] = df_tensors["multiplicative_event_and_holiday"][origin_index, :].unsqueeze(0)
-        else:
-            if additive_event_and_holiday_names:
-                events["additive"] = df_tensors["additive_event_and_holiday"][
-                    origin_index + 1 - n_lags : origin_index + n_forecasts + 1, :
-                ]
-            if multiplicative_event_and_holiday_names:
-                events["multiplicative"] = df_tensors["multiplicative_event_and_holiday"][
-                    origin_index + 1 - n_lags : origin_index + n_forecasts + 1, :
-                ]
-        return events
 
 
 class GlobalTimeDataset(TimeDataset):
