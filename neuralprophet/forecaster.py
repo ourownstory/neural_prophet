@@ -747,7 +747,7 @@ class NeuralProphet:
             upper_window : int
                 the upper window for the events in the list of events
             regularization : float
-                optional  scale for regularization strength
+                optional  scale for regularization strength (try values ~0.00001-0.001)
             mode : str
                 ``additive`` (default) or ``multiplicative``.
 
@@ -806,7 +806,7 @@ class NeuralProphet:
             upper_window : int
                 the upper window for all the country holidays
             regularization : float
-                optional  scale for regularization strength
+                optional  scale for regularization strength (try values ~0.00001-0.001)
             mode : str
                 ``additive`` (default) or ``multiplicative``.
         """
