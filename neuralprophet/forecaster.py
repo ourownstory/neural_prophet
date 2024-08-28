@@ -35,7 +35,7 @@ from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly, select_plotting_backend
 from neuralprophet.uncertainty import Conformal
-from neuralprophet.utils import unpack_seasonalities, unpack_time_feature
+from neuralprophet.utils_time_dataset import unpack_seasonalities, unpack_time
 
 log = logging.getLogger("NP.forecaster")
 
@@ -1907,18 +1907,24 @@ class NeuralProphet:
                     meta_name_tensor = None
                 elif self.model.config_seasonality.global_local in ["local", "glocal"]:
                     meta = OrderedDict()
-                    time_input = unpack_time_feature(inputs_tensor, 0, 1, 0, self.config_model.features_map)
+                    time_input = unpack_time(
+                        sliced_tensor=inputs_tensor,
+                        n_lags=0,
+                        n_forecasts=1,
+                        max_lags=0,
+                        feature_indices=self.config_model.features_map,
+                    )
                     meta["df_name"] = [df_name for _ in range(time_input.shape[0])]
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
                 else:
                     meta_name_tensor = None
                 seasonalities_input = unpack_seasonalities(
-                    inputs_tensor,
-                    0,
-                    1,
-                    0,
-                    self.config_model.features_map,
-                    self.config_seasonality,
+                    sliced_tensor=inputs_tensor,
+                    n_lags=0,
+                    n_forecasts=1,
+                    max_lags=0,
+                    feature_indices=self.config_model.features_map,
+                    config_seasonality=self.config_seasonality,
                 )
                 for name in self.config_seasonality.periods:
                     features = seasonalities_input[name]

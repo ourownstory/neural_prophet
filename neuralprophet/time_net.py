@@ -21,6 +21,8 @@ from neuralprophet.utils import (
     reg_func_seasonality_glocal,
     reg_func_trend,
     reg_func_trend_glocal,
+)
+from neuralprophet.utils_time_dataset import (
     unpack_additive_events,
     unpack_additive_regressor,
     unpack_lagged_regressors,
@@ -29,7 +31,7 @@ from neuralprophet.utils import (
     unpack_multiplicative_regressor,
     unpack_seasonalities,
     unpack_targets,
-    unpack_time_feature,
+    unpack_time,
 )
 from neuralprophet.utils_torch import init_parameter, interprete_model
 
@@ -530,7 +532,7 @@ class TimeNet(pl.LightningModule):
     ) -> torch.Tensor:
         """This method defines the model forward pass."""
 
-        time_input = unpack_time_feature(
+        time_input = unpack_time(
             input_tensor, self.n_lags, self.n_forecasts, self.max_lags, self.config_model.features_map
         )
         # Handle meta argument
@@ -812,9 +814,7 @@ class TimeNet(pl.LightningModule):
             self.max_lags,
             self.config_model.features_map,
         )
-        time = unpack_time_feature(
-            inputs_tensor, self.n_lags, self.n_forecasts, self.max_lags, self.config_model.features_map
-        )
+        time = unpack_time(inputs_tensor, self.n_lags, self.n_forecasts, self.max_lags, self.config_model.features_map)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
@@ -859,9 +859,7 @@ class TimeNet(pl.LightningModule):
             self.max_lags,
             self.config_model.features_map,
         )
-        time = unpack_time_feature(
-            inputs_tensor, self.n_lags, self.n_forecasts, self.max_lags, self.config_model.features_map
-        )
+        time = unpack_time(inputs_tensor, self.n_lags, self.n_forecasts, self.max_lags, self.config_model.features_map)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
@@ -889,9 +887,7 @@ class TimeNet(pl.LightningModule):
             self.max_lags,
             self.config_model.features_map,
         )
-        time = unpack_time_feature(
-            inputs_tensor, self.n_lags, self.n_forecasts, self.max_lags, self.config_model.features_map
-        )
+        time = unpack_time(inputs_tensor, self.n_lags, self.n_forecasts, self.max_lags, self.config_model.features_map)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
