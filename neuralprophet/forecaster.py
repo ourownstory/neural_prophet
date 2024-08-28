@@ -1,7 +1,9 @@
 import logging
+import math
 import os
 import time
 from collections import OrderedDict
+from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple, Type, Union
 
 import matplotlib
@@ -299,6 +301,21 @@ class NeuralProphet:
             >>> # use custorm torchmetrics names
             >>> m = NeuralProphet(collect_metrics={"MAPE": "MeanAbsolutePercentageError", "MSLE": "MeanSquaredLogError",
 
+        scheduler : str, torch.optim.lr_scheduler._LRScheduler
+            Type of learning rate scheduler to use.
+
+            Options
+                * (default) ``OneCycleLR``: One Cycle Learning Rate scheduler
+                * ``StepLR``: Step Learning Rate scheduler
+                * ``ExponentialLR``: Exponential Learning Rate scheduler
+                * ``CosineAnnealingLR``: Cosine Annealing Learning Rate scheduler
+
+            Examples
+            --------
+            >>> from neuralprophet import NeuralProphet
+            >>> # Step Learning Rate scheduler
+            >>> m = NeuralProphet(scheduler="StepLR")
+
         COMMENT
         Uncertainty Estimation
         COMMENT
@@ -432,9 +449,11 @@ class NeuralProphet:
         batch_size: Optional[int] = None,
         loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "SmoothL1Loss",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "AdamW",
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = "onecyclelr",
+        scheduler_args: Optional[dict] = None,
         newer_samples_weight: float = 2,
         newer_samples_start: float = 0.0,
-        quantiles: List[float] = [],
+        quantiles: Optional[List[float]] = None,
         impute_missing: bool = True,
         impute_linear: int = 10,
         impute_rolling: int = 10,
@@ -445,7 +464,7 @@ class NeuralProphet:
         global_time_normalization: bool = True,
         unknown_data_normalization: bool = False,
         accelerator: Optional[str] = None,
-        trainer_config: dict = {},
+        trainer_config: Optional[dict] = None,
         prediction_frequency: Optional[dict] = None,
     ):
         self.config = locals()
@@ -487,7 +506,11 @@ class NeuralProphet:
         self.max_lags = self.n_lags
 
         # Model
-        self.config_model = configure.Model(lagged_reg_layers=lagged_reg_layers)
+        self.config_model = configure.Model(
+            lagged_reg_layers=lagged_reg_layers,
+            quantiles=quantiles,
+        )
+        self.config_model.setup_quantiles()
 
         # Trend
         self.config_trend = configure.Trend(
@@ -502,17 +525,17 @@ class NeuralProphet:
         )
 
         # Training
-        self.config_train = configure.Train(
-            quantiles=quantiles,
-            learning_rate=learning_rate,
-            epochs=epochs,
-            batch_size=batch_size,
-            loss_func=loss_func,
-            optimizer=optimizer,
-            newer_samples_weight=newer_samples_weight,
-            newer_samples_start=newer_samples_start,
-            trend_reg_threshold=self.config_trend.trend_reg_threshold,
-        )
+        self.learning_rate = learning_rate
+        self.scheduler = scheduler
+        self.scheduler_args = scheduler_args
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.loss_func = loss_func
+        self.optimizer = optimizer
+        self.newer_samples_weight = newer_samples_weight
+        self.newer_samples_start = newer_samples_start
+        self.trend_reg_threshold = self.config_trend.trend_reg_threshold
+        self.continue_training = False
 
         # Seasonality
         self.config_seasonality = configure.ConfigSeasonality(
@@ -550,7 +573,7 @@ class NeuralProphet:
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
         self.accelerator = accelerator
-        self.trainer_config = trainer_config
+        self.trainer_config = trainer_config if trainer_config is not None else {}
 
         # set during prediction
         self.future_periods = None
@@ -916,6 +939,9 @@ class NeuralProphet:
         continue_training: bool = False,
         num_workers: int = 0,
         deterministic: bool = False,
+        scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None,
+        scheduler_args: Optional[dict] = None,
+        trainer_config: Optional[dict] = None,
     ):
         """Train, and potentially evaluate model.
 
@@ -967,30 +993,56 @@ class NeuralProphet:
                 Note: using multiple workers and therefore distributed training might significantly increase
                 the training time since each batch needs to be copied to each worker for each epoch. Keeping
                 all data on the main process might be faster for most datasets.
+            scheduler : str
+                Type of learning rate scheduler to use for continued training. If None, uses ExponentialLR as
+                default as specified in the model config.
+                Options
+                * ``StepLR``: Step Learning Rate scheduler
+                * ``ExponentialLR``: Exponential Learning Rate scheduler
+                * ``CosineAnnealingLR``: Cosine Annealing Learning Rate scheduler
 
         Returns
         -------
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
-        if self.fitted:
-            raise RuntimeError("Model has been fitted already. Please initialize a new model to fit again.")
+        if minimal:
+            # overrides these settings:
+            checkpointing = False
+            self.metrics = False
+            progress = None
+
+        if self.fitted and not continue_training:
+            raise RuntimeError(
+                "Model has been fitted already. If you want to continue training please set the flag continue_training."
+            )
+
+        if continue_training:
+            if epochs is None:
+                raise ValueError("Continued training requires setting the number of epochs to train for.")
+
+            if continue_training and self.metrics_logger.checkpoint_path is None:
+                log.error("Continued training requires checkpointing in model to continue from last epoch.")
 
         # Configuration
-        if epochs is not None:
-            self.config_train.epochs = epochs
-
-        if batch_size is not None:
-            self.config_train.batch_size = batch_size
-
-        if learning_rate is not None:
-            self.config_train.learning_rate = learning_rate
+        self.config_train = configure.Train(
+            learning_rate=self.learning_rate if learning_rate is None else learning_rate,
+            scheduler=self.scheduler if scheduler is None else scheduler,
+            scheduler_args=self.scheduler_args if scheduler is None else scheduler_args,
+            epochs=self.epochs if epochs is None else epochs,
+            batch_size=self.batch_size if batch_size is None else batch_size,
+            loss_func=self.loss_func,
+            optimizer=self.optimizer,
+            newer_samples_weight=self.newer_samples_weight,
+            newer_samples_start=self.newer_samples_start,
+            trend_reg_threshold=self.config_trend.trend_reg_threshold,
+            continue_training=continue_training,
+            trainer_config=self.trainer_config if trainer_config is None else trainer_config,
+        )
+        self.config_train.set_loss_func(quantiles=self.config_model.quantiles)
 
         if early_stopping is not None:
             self.early_stopping = early_stopping
-
-        if metrics is not None:
-            self.metrics = utils_metrics.get_metrics(metrics)
 
         # Warnings
         if early_stopping:
@@ -1012,17 +1064,15 @@ class NeuralProphet:
                         number of epochs to train for."
                 )
 
-        if progress == "plot" and metrics is False:
-            log.info("Progress plot requires metrics to be enabled. Enabling the default metrics.")
-            metrics = utils_metrics.get_metrics(True)
+        if metrics:
+            self.metrics = utils_metrics.get_metrics(metrics)
+
+        if progress == "plot" and not metrics:
+            log.info("Progress plot requires metrics to be enabled. Disabling progress plot.")
+            progress = None
 
         if not self.config_normalization.global_normalization:
             log.info("When Global modeling with local normalization, metrics are displayed in normalized scale.")
-
-        if minimal:
-            checkpointing = False
-            self.metrics = False
-            progress = None
 
         # Pre-processing
         # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
@@ -1060,8 +1110,6 @@ class NeuralProphet:
             or any(value != 1 for value in self.num_seasonalities_modelled_dict.values())
         )
 
-        if self.fitted is True and not continue_training:
-            log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         self.max_lags = df_utils.get_max_num_lags(
             n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors
         )
@@ -1191,7 +1239,7 @@ class NeuralProphet:
                     dates=dates,
                     predicted=predicted,
                     n_forecasts=self.n_forecasts,
-                    quantiles=self.config_train.quantiles,
+                    quantiles=self.config_model.quantiles,
                     components=components,
                 )
                 if auto_extend and periods_added[df_name] > 0:
@@ -1206,7 +1254,7 @@ class NeuralProphet:
                     n_forecasts=self.n_forecasts,
                     max_lags=self.max_lags,
                     freq=self.data_freq,
-                    quantiles=self.config_train.quantiles,
+                    quantiles=self.config_model.quantiles,
                     config_lagged_regressors=self.config_lagged_regressors,
                 )
                 if auto_extend and periods_added[df_name] > 0:
@@ -1847,7 +1895,7 @@ class NeuralProphet:
             else:
                 meta_name_tensor = None
 
-            quantile_index = self.config_train.quantiles.index(quantile)
+            quantile_index = self.config_model.quantiles.index(quantile)
             trend = self.model.trend(t, meta_name_tensor).detach().numpy()[:, :, quantile_index].squeeze()
 
             data_params = self.config_normalization.get_data_params(df_name)
@@ -1912,7 +1960,7 @@ class NeuralProphet:
 
                 for name in self.config_seasonality.periods:
                     features = inputs["seasonalities"][name]
-                    quantile_index = self.config_train.quantiles.index(quantile)
+                    quantile_index = self.config_model.quantiles.index(quantile)
                     y_season = torch.squeeze(
                         self.model.seasonality.compute_fourier(features=features, name=name, meta=meta_name_tensor)[
                             :, :, quantile_index
@@ -2044,7 +2092,7 @@ class NeuralProphet:
                 log.info(f"Plotting data from ID {df_name}")
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
-        if len(self.config_train.quantiles) > 1:
+        if len(self.config_model.quantiles) > 1:
             if (self.highlight_forecast_step_n) is None and (
                 self.n_forecasts > 1 or self.n_lags > 0
             ):  # rather query if n_forecasts >1 than n_lags>1
@@ -2084,7 +2132,7 @@ class NeuralProphet:
         if plotting_backend.startswith("plotly"):
             return plot_plotly(
                 fcst=fcst,
-                quantiles=self.config_train.quantiles,
+                quantiles=self.config_model.quantiles,
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
@@ -2095,7 +2143,7 @@ class NeuralProphet:
         else:
             return plot(
                 fcst=fcst,
-                quantiles=self.config_train.quantiles,
+                quantiles=self.config_model.quantiles,
                 ax=ax,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -2164,7 +2212,7 @@ class NeuralProphet:
         elif include_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_latest_forecast(
-            fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
+            fcst, self.config_model.quantiles, n_last=1 + include_previous_forecasts
         )
         return fcst
 
@@ -2233,7 +2281,7 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
-        if len(self.config_train.quantiles) > 1:
+        if len(self.config_model.quantiles) > 1:
             log.warning(
                 "Plotting latest forecasts when uncertainty estimation enabled"
                 " plots only the median quantile forecasts."
@@ -2245,7 +2293,7 @@ class NeuralProphet:
         elif plot_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_latest_forecast(
-            fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
+            fcst, self.config_model.quantiles, n_last=1 + include_previous_forecasts
         )
 
         # Check whether a local or global plotting backend is set.
@@ -2255,7 +2303,7 @@ class NeuralProphet:
         if plotting_backend.startswith("plotly"):
             return plot_plotly(
                 fcst=fcst,
-                quantiles=self.config_train.quantiles,
+                quantiles=self.config_model.quantiles,
                 ylabel=ylabel,
                 xlabel=xlabel,
                 figsize=tuple(x * 70 for x in figsize),
@@ -2267,7 +2315,7 @@ class NeuralProphet:
         else:
             return plot(
                 fcst=fcst,
-                quantiles=self.config_train.quantiles,
+                quantiles=self.config_model.quantiles,
                 ax=ax,
                 ylabel=ylabel,
                 xlabel=xlabel,
@@ -2433,7 +2481,7 @@ class NeuralProphet:
                 m=self,
                 fcst=fcst,
                 plot_configuration=valid_plot_configuration,
-                quantile=self.config_train.quantiles[0],  # plot components only for median quantile
+                quantile=self.config_model.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
                 df_name=df_name,
                 one_period_per_season=one_period_per_season,
@@ -2543,11 +2591,11 @@ class NeuralProphet:
             if not (0 < quantile < 1):
                 raise ValueError("The quantile selected needs to be a float in-between (0,1)")
             # ValueError if selected quantile is out of range
-            if quantile not in self.config_train.quantiles:
+            if quantile not in self.config_model.quantiles:
                 raise ValueError("Selected quantile is not specified in the model configuration.")
         else:
             # plot parameters for median quantile if not specified
-            quantile = self.config_train.quantiles[0]
+            quantile = self.config_model.quantiles[0]
 
         # Validate components to be plotted
         valid_parameters_set = [
@@ -2615,13 +2663,9 @@ class NeuralProphet:
             )
 
     def _init_model(self):
-        """Build Pytorch model with configured hyperparamters.
-
-        Returns
-        -------
-            TimeNet model
-        """
+        """Build Pytorch model with configured hyperparamters."""
         self.model = time_net.TimeNet(
+            config_model=self.config_model,
             config_train=self.config_train,
             config_trend=self.config_trend,
             config_ar=self.config_ar,
@@ -2644,7 +2688,6 @@ class NeuralProphet:
             meta_used_in_model=self.meta_used_in_model,
         )
         log.debug(self.model)
-        return self.model
 
     def _init_train_loader(self, df, num_workers=0):
         """Executes data preparation steps and initiates training procedure.
@@ -2661,23 +2704,23 @@ class NeuralProphet:
             torch DataLoader
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)  # TODO: Can this call be avoided?
-        # if not self.fitted:
-        self.config_normalization.init_data_params(
-            df=df,
-            config_lagged_regressors=self.config_lagged_regressors,
-            config_regressors=self.config_regressors,
-            config_events=self.config_events,
-            config_seasonality=self.config_seasonality,
-        )
+        if not self.fitted:
+            self.config_normalization.init_data_params(
+                df=df,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+                config_events=self.config_events,
+                config_seasonality=self.config_seasonality,
+            )
 
         df = _normalize(df=df, config_normalization=self.config_normalization)
-        # if not self.fitted:
-        if self.config_trend.changepoints is not None:
-            # scale user-specified changepoint times
-            df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
+        if not self.fitted:
+            if self.config_trend.changepoints is not None:
+                # scale user-specified changepoint times
+                df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
 
-            df_normalized = _normalize(df=df_aux, config_normalization=self.config_normalization)
-            self.config_trend.changepoints = df_normalized["t"].values  # type: ignore
+                df_normalized = _normalize(df=df_aux, config_normalization=self.config_normalization)
+                self.config_trend.changepoints = df_normalized["t"].values  # type: ignore
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
@@ -2765,21 +2808,33 @@ class NeuralProphet:
         # Internal flag to check if validation is enabled
         validation_enabled = df_val is not None
 
-        # Init the model, if not continue from checkpoint
+        # Load model and optimizer state from checkpoint if continue_training is True
         if continue_training:
-            raise NotImplementedError(
-                "Continuing training from checkpoint is not implemented yet. This feature is planned for one of the \
-                    upcoming releases."
-            )
+            checkpoint_path = self.metrics_logger.checkpoint_path
+            checkpoint = torch.load(checkpoint_path)
+
+            checkpoint_epoch = checkpoint["epoch"] if "epoch" in checkpoint else 0
+            previous_epoch = max(self.model.current_epoch, checkpoint_epoch)
+
+            # Set continue_training flag in model to update scheduler correctly
+            self.model.continue_training = True
+            self.model.start_epoch = previous_epoch
+
+            # Adjust epochs
+            new_total_epochs = previous_epoch + self.config_train.epochs
+            self.config_train.epochs = new_total_epochs
+
+            self.config_train.set_optimizer_state(checkpoint["optimizer_states"][0])
+
         else:
-            self.model = self._init_model()
+            self._init_model()
 
         self.model.train_loader = train_loader
 
         # Init the Trainer
         self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
-            config=self.trainer_config,
+            config=self.config_train.trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping=self.early_stopping,
             early_stopping_target="Loss_val" if validation_enabled else "Loss",
@@ -2852,8 +2907,18 @@ class NeuralProphet:
 
         if not metrics_enabled:
             return None
+
         # Return metrics collected in logger as dataframe
-        metrics_df = pd.DataFrame(self.metrics_logger.history)
+        if self.metrics_logger.history is not None:
+            # avoid array mismatch when continuing training
+            history = self.metrics_logger.history
+            max_length = max(len(lst) for lst in history.values())
+            for key in history:
+                while len(history[key]) < max_length:
+                    history[key].append(None)
+            metrics_df = pd.DataFrame(history)
+        else:
+            metrics_df = pd.DataFrame()
         return metrics_df
 
     def restore_trainer(self, accelerator: Optional[str] = None):
@@ -2867,7 +2932,7 @@ class NeuralProphet:
         """
         self.trainer, _ = utils.configure_trainer(
             config_train=self.config_train,
-            config=self.trainer_config,
+            config=self.config_train.trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping=self.early_stopping,
             accelerator=accelerator,
@@ -3072,7 +3137,7 @@ class NeuralProphet:
             alpha=alpha,
             method=method,
             n_forecasts=self.n_forecasts,
-            quantiles=self.config_train.quantiles,
+            quantiles=self.config_model.quantiles,
         )
 
         df_forecast = c.predict(df=df_test, df_cal=df_cal, show_all_PI=show_all_PI)

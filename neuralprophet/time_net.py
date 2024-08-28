@@ -42,6 +42,7 @@ class TimeNet(pl.LightningModule):
 
     def __init__(
         self,
+        config_model: configure.Model,
         config_seasonality: configure.ConfigSeasonality,
         config_train: Optional[configure.Train] = None,
         config_trend: Optional[configure.Trend] = None,
@@ -63,6 +64,8 @@ class TimeNet(pl.LightningModule):
         num_seasonalities_modelled: int = 1,
         num_seasonalities_modelled_dict: dict = None,
         meta_used_in_model: bool = False,
+        continue_training: bool = False,
+        start_epoch: int = 0,
     ):
         """
         Parameters
@@ -149,6 +152,7 @@ class TimeNet(pl.LightningModule):
             pass
 
         # General
+        self.config_model = config_model
         self.n_forecasts = n_forecasts
 
         # Lightning Config
@@ -156,9 +160,16 @@ class TimeNet(pl.LightningModule):
         self.config_normalization = config_normalization
         self.compute_components_flag = compute_components_flag
 
+        # Continued training
+        self.continue_training = continue_training
+        self.start_epoch = start_epoch
+
         # Optimizer and LR Scheduler
-        self._optimizer = self.config_train.optimizer
-        self._scheduler = self.config_train.scheduler
+        # self.config_train.set_optimizer()
+        # self.config_train.set_scheduler()
+        # self._optimizer = self.config_train.optimizer
+        # self._scheduler = self.config_train.scheduler
+        # Manual optimization: we are responsible for calling .backward(), .step(), .zero_grad().
         self.automatic_optimization = False
 
         # Hyperparameters (can be tuned using trainer.tune())
@@ -200,7 +211,7 @@ class TimeNet(pl.LightningModule):
         )
 
         # Quantiles
-        self.quantiles = self.config_train.quantiles
+        self.quantiles = self.config_model.quantiles
 
         # Trend
         self.config_trend = config_trend
@@ -861,16 +872,36 @@ class TimeNet(pl.LightningModule):
         return prediction, components
 
     def configure_optimizers(self):
+        self.config_train.set_optimizer()
+        self.config_train.set_scheduler()
+        self._optimizer = self.config_train.optimizer
+        self._scheduler = self.config_train.scheduler
+
         # Optimizer
         optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
 
+        if self.continue_training:
+            optimizer.load_state_dict(self.config_train.optimizer_state)
+
+            # Update initial learning rate to the last learning rate for continued training
+            last_lr = float(optimizer.param_groups[0]["lr"])  # Ensure it's a float
+
+            for param_group in optimizer.param_groups:
+                param_group["initial_lr"] = (last_lr,)
+
         # Scheduler
-        lr_scheduler = self._scheduler(
-            optimizer,
-            max_lr=self.learning_rate,
-            total_steps=self.trainer.estimated_stepping_batches,
-            **self.config_train.scheduler_args,
-        )
+        if self._scheduler == torch.optim.lr_scheduler.OneCycleLR:
+            lr_scheduler = self._scheduler(
+                optimizer,
+                max_lr=self.learning_rate,
+                total_steps=self.trainer.estimated_stepping_batches,
+                **self.config_train.scheduler_args,
+            )
+        else:
+            lr_scheduler = self._scheduler(
+                optimizer,
+                **self.config_train.scheduler_args,
+            )
 
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 

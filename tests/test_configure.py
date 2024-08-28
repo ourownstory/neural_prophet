@@ -1,20 +1,6 @@
 import pytest
 
-from neuralprophet.configure import Train
-
-
-def generate_config_train_params(overrides={}):
-    config_train_params = {
-        "quantiles": None,
-        "learning_rate": None,
-        "epochs": None,
-        "batch_size": None,
-        "loss_func": "SmoothL1Loss",
-        "optimizer": "AdamW",
-    }
-    for key, value in overrides.items():
-        config_train_params[key] = value
-    return config_train_params
+from neuralprophet import NeuralProphet
 
 
 def test_config_training_quantiles():
@@ -26,24 +12,21 @@ def test_config_training_quantiles():
         ({"quantiles": [0.2, 0.8]}, [0.5, 0.2, 0.8]),
         ({"quantiles": [0.5, 0.8]}, [0.5, 0.8]),
     ]
-
     for overrides, expected in checks:
-        config_train_params = generate_config_train_params(overrides)
-        config = Train(**config_train_params)
-        assert config.quantiles == expected
+        model = NeuralProphet(**overrides)
+        assert model.config_model.quantiles == expected
 
 
 def test_config_training_quantiles_error_invalid_type():
-    config_train_params = generate_config_train_params()
-    config_train_params["quantiles"] = "hello world"
     with pytest.raises(AssertionError) as err:
-        Train(**config_train_params)
-    assert str(err.value) == "Quantiles must be in a list format, not None or scalar."
+        _ = NeuralProphet(quantiles="hello world")
+    assert str(err.value) == "Quantiles must be provided as list."
 
 
 def test_config_training_quantiles_error_invalid_scale():
-    config_train_params = generate_config_train_params()
-    config_train_params["quantiles"] = [-1]
     with pytest.raises(Exception) as err:
-        Train(**config_train_params)
+        _ = NeuralProphet(quantiles=[-1])
+    assert str(err.value) == "The quantiles specified need to be floats in-between (0, 1)."
+    with pytest.raises(Exception) as err:
+        _ = NeuralProphet(quantiles=[1.3])
     assert str(err.value) == "The quantiles specified need to be floats in-between (0, 1)."
