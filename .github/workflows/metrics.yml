@@ -21,10 +21,10 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
       
-      - name: Install Python 3.11
+      - name: Install Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
       
       - name: Setup NodeJS (for CML)
         uses: actions/setup-node@v3 # For CML
