@@ -572,7 +572,6 @@ class NeuralProphet:
         self.data_params = None
 
         # Pytorch Lightning Trainer
-        self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
         self.accelerator = accelerator
 
         # set during prediction
@@ -934,6 +933,7 @@ class NeuralProphet:
         early_stopping: bool = False,
         minimal: bool = False,
         metrics: Optional[np_types.CollectMetricsMode] = None,
+        metrics_log_dir: Optional[str] = None,
         progress: Optional[str] = "bar",
         checkpointing: bool = False,
         num_workers: int = 0,
@@ -1049,15 +1049,28 @@ class NeuralProphet:
                         number of epochs to train for."
                 )
 
-        if metrics:
+        # Setup Metrics
+        if metrics is not None:
             self.metrics = utils_metrics.get_metrics(metrics)
 
-        if progress == "plot" and not metrics:
-            log.info("Progress plot requires metrics to be enabled. Disabling progress plot.")
-            progress = None
+        if progress == "plot" and not self.metrics:
+            log.info("Progress plot requires metrics to be enabled. Setting progress to bar.")
+            progress = "bar"
 
         if not self.config_normalization.global_normalization:
             log.info("When Global modeling with local normalization, metrics are displayed in normalized scale.")
+
+        if metrics_log_dir is not None and not self.metrics:
+            log.error("Metrics are disabled. Ignoring provided logging directory.")
+            metrics_log_dir = None
+        if metrics_log_dir is None and self.metrics:
+            log.warning("Metrics are enabled. Please provide valid metrics logging directory. Setting to CWD")
+            metrics_log_dir = os.getcwd()
+
+        if self.metrics:
+            self.metrics_logger = MetricsLogger(save_dir=metrics_log_dir)
+        else:
+            self.metrics_logger = None
 
         # Pre-processing
         # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)

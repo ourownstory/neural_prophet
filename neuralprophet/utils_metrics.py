@@ -27,7 +27,9 @@ def get_metrics(metric_input):
             Dict of names of torchmetrics.Metric metrics
     """
     if metric_input is None:
-        return {}
+        return False
+    elif metric_input is False:
+        return False
     elif metric_input is True:
         return {"MAE": METRICS["MAE"], "RMSE": METRICS["RMSE"]}
     elif isinstance(metric_input, str):
@@ -51,5 +53,5 @@ def get_metrics(metric_input):
                 "All metrics must be valid names of torchmetrics.Metric objects."
             )
         return {k: [v, {}] for k, v in metric_input.items()}
-    elif metric_input is not False:
+    else:
         raise ValueError("Received unsupported argument for collect_metrics.")
