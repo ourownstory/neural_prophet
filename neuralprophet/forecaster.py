@@ -313,7 +313,7 @@ class NeuralProphet:
             Examples
             --------
             >>> from neuralprophet import NeuralProphet
-            >>> m = NeuralProphet(scheduler="ExponentialLR", scheduler_args={"gamma": 0.99})
+            >>> m = NeuralProphet(scheduler="ExponentialLR", scheduler_args={"gamma": 0.8})
 
         COMMENT
         Uncertainty Estimation

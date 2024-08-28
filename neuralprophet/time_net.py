@@ -775,9 +775,8 @@ class TimeNet(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         inputs, targets, meta = batch
-        self.train_progress = (
-            self.trainer.current_epoch + float(batch_idx / self.train_steps_per_epoch)
-        ) / self.config_train.epochs
+        epoch_float = self.trainer.current_epoch + float(batch_idx / self.train_steps_per_epoch)
+        self.train_progress = epoch_float / self.config_train.epochs
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
@@ -797,11 +796,7 @@ class TimeNet(pl.LightningModule):
         optimizer.step()
 
         scheduler = self.lr_schedulers()
-        if self.config_train.scheduler == torch.optim.lr_scheduler.OneCycleLR:
-            # is configured with total_steps (not epochs)
-            scheduler.step()
-        else:
-            scheduler.step(epoch=self.train_progress)
+        scheduler.step(epoch=epoch_float)
 
         if self.finding_lr:
             # Manually track the loss for the lr finder
@@ -815,7 +810,7 @@ class TimeNet(pl.LightningModule):
             self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss", loss, **self.log_args)
             self.log("RegLoss", reg_loss, **self.log_args)
-            self.log("TrainProgress", self.train_progress, **self.log_args)
+            # self.log("TrainProgress", self.train_progress, **self.log_args)
             self.log("LR", scheduler.get_last_lr()[0], **self.log_args)
         return loss
 
@@ -891,8 +886,8 @@ class TimeNet(pl.LightningModule):
             lr_scheduler = self.config_train.scheduler(
                 optimizer,
                 max_lr=self.learning_rate,
-                total_steps=self.trainer.estimated_stepping_batches,
-                # total_steps=self.config_train.epochs, # if using self.lr_schedulers().step(epoch=self.train_progress)
+                # total_steps=self.trainer.estimated_stepping_batches, # if using self.lr_schedulers().step()
+                total_steps=self.config_train.epochs,  # if using self.lr_schedulers().step(epoch=epoch_float)
                 **self.config_train.scheduler_args,
             )
         else:

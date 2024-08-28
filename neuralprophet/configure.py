@@ -222,7 +222,7 @@ class Train:
             self.scheduler = "exponentiallr"
 
         if isinstance(self.scheduler, str):
-            if self.scheduler.lower() == "onecyclelr":
+            if self.scheduler.lower() in ["onecycle", "onecyclelr"]:
                 self.scheduler = torch.optim.lr_scheduler.OneCycleLR
                 defaults = {
                     "pct_start": 0.3,
@@ -240,7 +240,7 @@ class Train:
             elif self.scheduler.lower() == "exponentiallr":
                 self.scheduler = torch.optim.lr_scheduler.ExponentialLR
                 defaults = {
-                    "gamma": 0.95,
+                    "gamma": 0.9,
                 }
             elif self.scheduler.lower() == "cosineannealinglr":
                 self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR
