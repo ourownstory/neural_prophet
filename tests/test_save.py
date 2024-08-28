@@ -133,3 +133,5 @@ def test_save_load_io():
 #     m2 = load("test_model.pt")
 #     metrics2 = m2.fit(df, continue_training=True, epochs=ADDITIONAL_EPOCHS, scheduler="StepLR")
 #     assert metrics["Loss"].min() >= metrics2["Loss"].min()
+
+test_save_load()

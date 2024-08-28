@@ -68,7 +68,10 @@ def test_regularization_holidays():
         daily_seasonality=False,
         growth="off",
     )
-    m = m.add_country_holidays("US", regularization=0.0001)
+    m = m.add_country_holidays(
+        "US",
+        regularization=0.0001,
+    )
     m.fit(df, freq="D")
 
     to_reduce = []
@@ -100,7 +103,10 @@ def test_regularization_events():
         daily_seasonality=False,
         growth="off",
     )
-    m = m.add_events(["event_%i" % index for index, _ in enumerate(events)], regularization=REGULARIZATION)
+    m = m.add_events(
+        ["event_%i" % index for index, _ in enumerate(events)],
+        regularization=0.1,
+    )
     events_df = pd.concat(
         [
             pd.DataFrame(
