@@ -494,7 +494,7 @@ class NeuralProphet:
             log.info(
                 DeprecationWarning(
                     "Providing metrics to collect via `collect_metrics` in NeuralProphet is deprecated and will be "
-                    + "removed in a future version. The metrics are now configure in the `fit()` method via `metrics`."
+                    + "removed in a future version. The metrics are now configured in the `fit()` method via `metrics`."
                 )
             )
         self.metrics = utils_metrics.get_metrics(collect_metrics)
@@ -2812,9 +2812,10 @@ class NeuralProphet:
             val_loader = self._init_val_loader(df_val)
 
             if not self.config_train.learning_rate:
+                # Find suitable learning rate
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
-                # Find suitable learning rate
+                self.model.finding_lr = True
                 tuner = Tuner(self.trainer)
                 lr_finder = tuner.lr_find(
                     model=self.model,
@@ -2825,6 +2826,7 @@ class NeuralProphet:
                 # Estimate the optimal learning rate from the loss curve
                 assert lr_finder is not None
                 _, _, self.model.learning_rate = utils.smooth_loss_and_suggest(lr_finder)
+            self.model.finding_lr = False
             start = time.time()
             self.trainer.fit(
                 self.model,
@@ -2833,9 +2835,10 @@ class NeuralProphet:
             )
         else:
             if not self.config_train.learning_rate:
+                # Find suitable learning rate
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
-                # Find suitable learning rate
+                self.model.finding_lr = True
                 tuner = Tuner(self.trainer)
                 lr_finder = tuner.lr_find(
                     model=self.model,
@@ -2845,6 +2848,7 @@ class NeuralProphet:
                 assert lr_finder is not None
                 # Estimate the optimal learning rate from the loss curve
                 _, _, self.model.learning_rate = utils.smooth_loss_and_suggest(lr_finder)
+            self.model.finding_lr = False
             start = time.time()
             self.trainer.fit(
                 self.model,

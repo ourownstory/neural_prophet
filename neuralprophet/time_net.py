@@ -162,8 +162,9 @@ class TimeNet(pl.LightningModule):
         self.automatic_optimization = False
 
         # Hyperparameters (can be tuned using trainer.tune())
-        self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
+        self.learning_rate = self.config_train.learning_rate
         self.batch_size = self.config_train.batch_size
+        self.finding_lr = False  # flag to indicate if we are in lr finder mode
 
         # Metrics Config
         self.metrics_enabled = bool(metrics)  # yields True if metrics is not an empty dictionary
@@ -799,12 +800,13 @@ class TimeNet(pl.LightningModule):
         scheduler.step()
         # scheduler.step(epoch=self.train_progress)
 
-        # Manually track the loss for the lr finder
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log("reg_loss", reg_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        if self.finding_lr:
+            # Manually track the loss for the lr finder
+            self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            self.log("reg_loss", reg_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Metrics
-        if self.metrics_enabled:
+        if self.metrics_enabled and not self.finding_lr:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
             self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
