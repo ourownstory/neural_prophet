@@ -771,17 +771,17 @@ def smooth_loss_and_suggest(lr_finder, window=10):
     """
     lr_finder_results = lr_finder.results
     lr = lr_finder_results["lr"]
-    loss = lr_finder_results["loss"]
+    loss = np.array(lr_finder_results["loss"])
     # Derive window size from num lr searches, ensure window is divisible by 2
     # half_window = math.ceil(round(len(loss) * 0.1) / 2)
     half_window = math.ceil(window / 2)
     # Pad sequence and initialialize hamming filter
-    loss = np.pad(np.array(loss), pad_width=half_window, mode="edge")
-    window = np.hamming(half_window * 2)
+    loss = np.pad(loss, pad_width=half_window, mode="edge")
+    hamming_window = np.hamming(2 * half_window)
     # Convolve the over the loss distribution
     try:
-        loss = np.convolve(
-            window / window.sum(),
+        loss_smooth = np.convolve(
+            hamming_window / hamming_window.sum(),
             loss,
             mode="valid",
         )[1:]
@@ -790,26 +790,41 @@ def smooth_loss_and_suggest(lr_finder, window=10):
             f"The number of loss values ({len(loss)}) is too small to apply smoothing with a the window size of "
             f"{window}."
         )
+
     # Suggest the lr with steepest negative gradient
     try:
         # Find the steepest gradient and the minimum loss after that
-        suggestion = lr[np.argmin(np.gradient(loss))]
+        suggestion_steepest = lr[np.argmin(np.gradient(loss_smooth))]
+        suggestion_minimum = lr[np.argmin(loss_smooth)]
     except ValueError:
         log.error(
             f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of "
             "samples or manually set the learning rate."
         )
         raise
-    suggestion_default = lr_finder.suggestion(skip_begin=10, skip_end=3)
-    if suggestion is not None and suggestion_default is not None:
-        log_suggestion_smooth = np.log(suggestion)
+    # get the tuner's default suggestion
+    suggestion_default = lr_finder.suggestion(skip_begin=20, skip_end=10)
+
+    log.info(f"Learning rate finder ---- default suggestion: {suggestion_default}")
+    log.info(f"Learning rate finder ---- steepest: {suggestion_steepest}")
+    log.info(f"Learning rate finder ---- minimum: {suggestion_minimum}")
+    if suggestion_steepest is not None and suggestion_minimum is not None and suggestion_default is not None:
+        log_suggestion_smooth = np.log(suggestion_steepest)
+        log_suggestion_minimum = np.log(suggestion_minimum)
         log_suggestion_default = np.log(suggestion_default)
-        lr_suggestion = np.exp((log_suggestion_smooth + log_suggestion_default) / 2)
-    elif suggestion is None and suggestion_default is None:
+        lr_suggestion = np.exp((log_suggestion_smooth + log_suggestion_minimum + log_suggestion_default) / 3)
+        log.info(f"Learning rate finder ---- log-avg: {lr_suggestion}")
+    elif suggestion_steepest is None and suggestion_default is None:
         log.error("Automatic learning rate test failed. Please set manually the learning rate.")
         raise
     else:
-        lr_suggestion = suggestion if suggestion is not None else suggestion_default
+        lr_suggestion = suggestion_steepest if suggestion_steepest is not None else suggestion_default
+
+    log.info(f"Learning rate finder ---- returning: {lr_suggestion}")
+    log.info(f"Learning rate finder ---- LR (start): {lr[:5]}")
+    log.info(f"Learning rate finder ---- LR (end): {lr[-5:]}")
+    log.info(f"Learning rate finder ---- LOSS (start): {loss[:5]}")
+    log.info(f"Learning rate finder ---- LOSS (end): {loss[-5:]}")
     return (loss, lr, lr_suggestion)
 
 

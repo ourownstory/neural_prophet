@@ -279,10 +279,11 @@ class Train:
             # num_training = num_batches
         self.lr_finder_args.update(
             {
-                "min_lr": 1e-7,
-                "max_lr": 10,
+                "min_lr": 1e-8,
+                "max_lr": 1e1,
                 "num_training": num_training,
                 "early_stop_threshold": None,
+                "mode": "exponential",
             }
         )
 

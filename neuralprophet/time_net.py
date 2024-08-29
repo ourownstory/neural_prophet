@@ -775,8 +775,8 @@ class TimeNet(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         inputs, targets, meta = batch
-        epoch_float = self.trainer.current_epoch + float(batch_idx / self.train_steps_per_epoch)
-        self.train_progress = epoch_float / self.config_train.epochs
+        epoch_float = self.trainer.current_epoch + batch_idx / float(self.train_steps_per_epoch)
+        self.train_progress = epoch_float / float(self.config_train.epochs)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
@@ -796,7 +796,10 @@ class TimeNet(pl.LightningModule):
         optimizer.step()
 
         scheduler = self.lr_schedulers()
-        scheduler.step(epoch=epoch_float)
+        if self.finding_lr:
+            scheduler.step()
+        else:
+            scheduler.step(epoch=epoch_float)
 
         if self.finding_lr:
             # Manually track the loss for the lr finder
@@ -874,7 +877,7 @@ class TimeNet(pl.LightningModule):
 
         # Optimizer
         if self.finding_lr and self.learning_rate is None:
-            self.learning_rate = self.config_train.lr_finder_args["min_lr"]
+            self.learning_rate = 0.1
         optimizer = self.config_train.optimizer(
             self.parameters(),
             lr=self.learning_rate,

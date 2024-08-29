@@ -2796,7 +2796,10 @@ class NeuralProphet:
         # Set up data the training dataloader
         df, _, _, _ = df_utils.prep_or_copy_df(df)  # TODO: Can this call be removed?
         train_loader = self._init_train_loader(df, num_workers)
-        dataset_size = len(df)  # train_loader.dataset
+        dataset_size = len(train_loader.dataset)  # df
+        batches_per_epoch = len(train_loader)
+        log.info(f"Dataset size: {dataset_size}")
+        log.info(f"Number of batches per training epoch: {batches_per_epoch}")
 
         # Internal flag to check if validation is enabled
         validation_enabled = df_val is not None
@@ -2818,55 +2821,41 @@ class NeuralProphet:
             deterministic=deterministic,
         )
 
+        # Find suitable learning rate
+        if not self.config_train.learning_rate:
+            log.info("No Learning Rate provided. Activating learning rate finder")
+            # Set parameters for the learning rate finder
+            self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=batches_per_epoch)
+            log.info(f"Learning rate finder ---- ARGs: {self.config_train.lr_finder_args}")
+            self.model.finding_lr = True
+            tuner = Tuner(self.trainer)
+            lr_finder = tuner.lr_find(
+                model=self.model,
+                train_dataloaders=train_loader,
+                # val_dataloaders=val_loader, # not used, but may lead to Lightning bug if not provided
+                **self.config_train.lr_finder_args,
+            )
+            # Estimate the optimal learning rate from the loss curve
+            assert lr_finder is not None
+            _, _, lr_suggested = utils.smooth_loss_and_suggest(lr_finder)
+            self.model.learning_rate = lr_suggested
+            self.config_train.learning_rate = lr_suggested
+            log.info(f"Learning rate finder suggested learning rate: {lr_suggested}")
+            self.model.finding_lr = False
+
         # Tune hyperparams and train
         if validation_enabled:
             # Set up data the validation dataloader
             df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             val_loader = self._init_val_loader(df_val)
 
-            if not self.config_train.learning_rate:
-                # Find suitable learning rate
-                # Set parameters for the learning rate finder
-                self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
-                self.model.finding_lr = True
-                tuner = Tuner(self.trainer)
-                lr_finder = tuner.lr_find(
-                    model=self.model,
-                    train_dataloaders=train_loader,
-                    # val_dataloaders=val_loader, # not be used, but may lead to Lightning bug if not provided
-                    **self.config_train.lr_finder_args,
-                )
-                # Estimate the optimal learning rate from the loss curve
-                assert lr_finder is not None
-                _, _, self.model.learning_rate = utils.smooth_loss_and_suggest(lr_finder)
-            self.model.finding_lr = False
-            start = time.time()
-            self.trainer.fit(
-                self.model,
-                train_loader,
-                val_loader,
-            )
-        else:
-            if not self.config_train.learning_rate:
-                # Find suitable learning rate
-                # Set parameters for the learning rate finder
-                self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
-                self.model.finding_lr = True
-                tuner = Tuner(self.trainer)
-                lr_finder = tuner.lr_find(
-                    model=self.model,
-                    train_dataloaders=train_loader,
-                    **self.config_train.lr_finder_args,
-                )
-                assert lr_finder is not None
-                # Estimate the optimal learning rate from the loss curve
-                _, _, self.model.learning_rate = utils.smooth_loss_and_suggest(lr_finder)
-            self.model.finding_lr = False
-            start = time.time()
-            self.trainer.fit(
-                self.model,
-                train_loader,
-            )
+        self.model.finding_lr = False
+        start = time.time()
+        self.trainer.fit(
+            model=self.model,
+            train_dataloaders=train_loader,
+            val_dataloaders=val_loader if validation_enabled else None,
+        )
 
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
 
