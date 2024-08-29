@@ -1,5 +1,7 @@
 from collections import OrderedDict
 
+import torch
+
 
 class FeatureExtractor:
     def __init__(
@@ -42,7 +44,7 @@ class FeatureExtractor:
         self.data_tensor = data_tensor
         self.feature_indices = feature_indices
 
-    def extract(self, component_name):
+    def extract_component(self, component_name):
         """
         Routes the extraction process to the appropriate function based on the component name.
 
@@ -175,3 +177,152 @@ class FeatureExtractor:
         else:
             regressors_start_idx, regressors_end_idx = self.feature_indices["multiplicative_regressors"]
             return self.data_tensor[:, regressors_start_idx : regressors_end_idx + 1].unsqueeze(1)
+
+
+def pack_trend_component(df_tensors, feature_list, feature_indices, current_idx):
+    """
+    Stack the trend (time) feature.
+    """
+    time_tensor = df_tensors["t"].unsqueeze(-1)  # Shape: [T, 1]
+    feature_list.append(time_tensor)
+    feature_indices["time"] = (current_idx, current_idx)
+    return current_idx + 1
+
+
+def pack_lags_component(df_tensors, feature_list, feature_indices, current_idx, n_lags):
+    """
+    Stack the lags feature.
+    """
+    if n_lags >= 1 and "y_scaled" in df_tensors:
+        lags_tensor = df_tensors["y_scaled"].unsqueeze(-1)
+        feature_list.append(lags_tensor)
+        feature_indices["lags"] = (current_idx, current_idx)
+        return current_idx + 1
+    return current_idx
+
+
+def pack_targets_component(df_tensors, feature_list, feature_indices, current_idx):
+    """
+    Stack the targets feature.
+    """
+    if "y_scaled" in df_tensors:
+        targets_tensor = df_tensors["y_scaled"].unsqueeze(-1)
+        feature_list.append(targets_tensor)
+        feature_indices["targets"] = (current_idx, current_idx)
+        return current_idx + 1
+    return current_idx
+
+
+def pack_lagged_regerssors_component(df_tensors, feature_list, feature_indices, current_idx, config_lagged_regressors):
+    """
+    Stack the lagged regressor features.
+    """
+    if config_lagged_regressors:
+        lagged_regressor_tensors = [df_tensors[name].unsqueeze(-1) for name in config_lagged_regressors.keys()]
+        stacked_lagged_regressor_tensor = torch.cat(lagged_regressor_tensors, dim=-1)
+        feature_list.append(stacked_lagged_regressor_tensor)
+        num_features = stacked_lagged_regressor_tensor.size(-1)
+        for i, name in enumerate(config_lagged_regressors.keys()):
+            feature_indices[f"lagged_regressor_{name}"] = (
+                current_idx + i,
+                current_idx + i + 1,
+            )
+        return current_idx + num_features
+    return current_idx
+
+
+def pack_additive_events_component(
+    df_tensors,
+    feature_list,
+    feature_indices,
+    current_idx,
+    additive_event_and_holiday_names,
+):
+    """
+    Stack the additive event and holiday features.
+    """
+    if additive_event_and_holiday_names:
+        additive_events_tensor = torch.cat(
+            [df_tensors[name].unsqueeze(-1) for name in additive_event_and_holiday_names],
+            dim=1,
+        )
+        feature_list.append(additive_events_tensor)
+        feature_indices["additive_events"] = (
+            current_idx,
+            current_idx + additive_events_tensor.size(1) - 1,
+        )
+        return current_idx + additive_events_tensor.size(1)
+    return current_idx
+
+
+def pack_multiplicative_events_component(
+    df_tensors, feature_list, feature_indices, current_idx, multiplicative_event_and_holiday_names
+):
+    """
+    Stack the multiplicative event and holiday features.
+    """
+    if multiplicative_event_and_holiday_names:
+        multiplicative_events_tensor = torch.cat(
+            [df_tensors[name].unsqueeze(-1) for name in multiplicative_event_and_holiday_names], dim=1
+        )
+        feature_list.append(multiplicative_events_tensor)
+        feature_indices["multiplicative_events"] = (
+            current_idx,
+            current_idx + multiplicative_events_tensor.size(1) - 1,
+        )
+        return current_idx + multiplicative_events_tensor.size(1)
+    return current_idx
+
+
+def pack_additive_regressors_component(
+    df_tensors, feature_list, feature_indices, current_idx, additive_regressors_names
+):
+    """
+    Stack the additive regressor features.
+    """
+    if additive_regressors_names:
+        additive_regressors_tensor = torch.cat(
+            [df_tensors[name].unsqueeze(-1) for name in additive_regressors_names], dim=1
+        )
+        feature_list.append(additive_regressors_tensor)
+        feature_indices["additive_regressors"] = (
+            current_idx,
+            current_idx + additive_regressors_tensor.size(1) - 1,
+        )
+        return current_idx + additive_regressors_tensor.size(1)
+    return current_idx
+
+
+def pack_multiplicative_regressors_component(
+    df_tensors, feature_list, feature_indices, current_idx, multiplicative_regressors_names
+):
+    """
+    Stack the multiplicative regressor features.
+    """
+    if multiplicative_regressors_names:
+        multiplicative_regressors_tensor = torch.cat(
+            [df_tensors[name].unsqueeze(-1) for name in multiplicative_regressors_names], dim=1
+        )  # Shape: [batch_size, num_multiplicative_regressors, 1]
+        feature_list.append(multiplicative_regressors_tensor)
+        feature_indices["multiplicative_regressors"] = (
+            current_idx,
+            current_idx + len(multiplicative_regressors_names) - 1,
+        )
+        return current_idx + len(multiplicative_regressors_names)
+    return current_idx
+
+
+def pack_seasonalities_component(feature_list, feature_indices, current_idx, config_seasonality, seasonalities):
+    """
+    Stack the seasonality features.
+    """
+    if config_seasonality and config_seasonality.periods:
+        for seasonality_name, features in seasonalities.items():
+            seasonal_tensor = features
+            feature_list.append(seasonal_tensor)
+            feature_indices[f"seasonality_{seasonality_name}"] = (
+                current_idx,
+                current_idx + seasonal_tensor.size(1),
+            )
+            current_idx += seasonal_tensor.size(1)
+    return current_idx

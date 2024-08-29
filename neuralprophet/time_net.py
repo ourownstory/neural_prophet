@@ -322,6 +322,7 @@ class TimeNet(pl.LightningModule):
             max_lags=self.max_lags,
             config_seasonality=self.config_seasonality,
             lagged_regressor_config=self.config_lagged_regressors,
+            feature_indices=self.config_model.features_map,
         )
 
     @property
@@ -531,7 +532,7 @@ class TimeNet(pl.LightningModule):
     ) -> torch.Tensor:
         """This method defines the model forward pass."""
 
-        time_input = self.features_extractor.extract(component_name="time")
+        time_input = self.features_extractor.extract_component(component_name="time")
         # Handle meta argument
         if meta is None and self.meta_used_in_model:
             name_id_dummy = self.id_list[0]
@@ -561,7 +562,7 @@ class TimeNet(pl.LightningModule):
         # Unpack and process seasonalities
         seasonalities_input = None
         if self.config_seasonality and self.config_seasonality.periods:
-            seasonalities_input = self.features_extractor.extract(component_name="seasonalities")
+            seasonalities_input = self.features_extractor.extract_component(component_name="seasonalities")
             s = self.seasonality(s=seasonalities_input, meta=meta)
             if self.config_seasonality.mode == "additive":
                 additive_components_nonstationary += s
@@ -573,12 +574,14 @@ class TimeNet(pl.LightningModule):
         additive_events_input = None
         multiplicative_events_input = None
         if "additive_events" in self.config_model.features_map:
-            additive_events_input = self.features_extractor.extract(component_name="additive_events")
+            additive_events_input = self.features_extractor.extract_component(component_name="additive_events")
             additive_events = self.scalar_features_effects(additive_events_input, self.event_params["additive"])
             additive_components_nonstationary += additive_events
             components["additive_events"] = additive_events
         if "multiplicative_events" in self.config_model.features_map:
-            multiplicative_events_input = self.features_extractor.extract(component_name="multiplicative_events")
+            multiplicative_events_input = self.features_extractor.extract_component(
+                component_name="multiplicative_events"
+            )
             multiplicative_events = self.scalar_features_effects(
                 multiplicative_events_input, self.event_params["multiplicative"]
             )
@@ -589,12 +592,12 @@ class TimeNet(pl.LightningModule):
         additive_regressors_input = None
         multiplicative_regressors_input = None
         if "additive_regressors" in self.config_model.features_map:
-            additive_regressors_input = self.features_extractor.extract(component_name="additive_regressors")
+            additive_regressors_input = self.features_extractor.extract_component(component_name="additive_regressors")
             additive_regressors = self.future_regressors(additive_regressors_input, "additive")
             additive_components_nonstationary += additive_regressors
             components["additive_regressors"] = additive_regressors
         if "multiplicative_regressors" in self.config_model.features_map:
-            multiplicative_regressors_input = self.features_extractor.extract(
+            multiplicative_regressors_input = self.features_extractor.extract_component(
                 component_name="multiplicative_regressors"
             )
             multiplicative_regressors = self.future_regressors(multiplicative_regressors_input, "multiplicative")
@@ -604,7 +607,7 @@ class TimeNet(pl.LightningModule):
         # Unpack and process lags
         lags_input = None
         if "lags" in self.config_model.features_map:
-            lags_input = self.features_extractor.extract(component_name="lags")
+            lags_input = self.features_extractor.extract_component(component_name="lags")
             nonstationary_components = (
                 trend[:, : self.n_lags, 0]
                 + additive_components_nonstationary[:, : self.n_lags, 0]
@@ -618,7 +621,7 @@ class TimeNet(pl.LightningModule):
         # Unpack and process covariates
         covariates_input = None
         if self.config_lagged_regressors:
-            covariates_input = self.features_extractor.extract(component_name="lagged_regressors")
+            covariates_input = self.features_extractor.extract_component(component_name="lagged_regressors")
             covariates = self.forward_covar_net(covariates=covariates_input)
             additive_components += covariates
             components["covariates"] = covariates
@@ -770,8 +773,8 @@ class TimeNet(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         inputs_tensor, meta = batch
         self.features_extractor.update_data_inputs(inputs_tensor, self.config_model.features_map)
-        targets = self.features_extractor.extract("targets")
-        time = self.features_extractor.extract("time")
+        targets = self.features_extractor.extract_component("targets")
+        time = self.features_extractor.extract_component("time")
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
@@ -810,8 +813,8 @@ class TimeNet(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         inputs_tensor, meta = batch
         self.features_extractor.update_data_inputs(inputs_tensor, self.config_model.features_map)
-        targets = self.features_extractor.extract("targets")
-        time = self.features_extractor.extract("time")
+        targets = self.features_extractor.extract_component("targets")
+        time = self.features_extractor.extract_component("time")
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
@@ -833,8 +836,8 @@ class TimeNet(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         inputs_tensor, meta = batch
         self.features_extractor.update_data_inputs(inputs_tensor, self.config_model.features_map)
-        targets = self.features_extractor.extract("targets")
-        time = self.features_extractor.extract("time")
+        targets = self.features_extractor.extract_component("targets")
+        time = self.features_extractor.extract_component("time")
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)

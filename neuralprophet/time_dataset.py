@@ -12,6 +12,17 @@ from torch.utils.data.dataset import Dataset
 from neuralprophet import configure, utils
 from neuralprophet.df_utils import get_max_num_lags
 from neuralprophet.event_utils import get_all_holidays
+from neuralprophet.utils_time_dataset import (
+    pack_additive_events_component,
+    pack_additive_regressors_component,
+    pack_lagged_regerssors_component,
+    pack_lags_component,
+    pack_multiplicative_events_component,
+    pack_multiplicative_regressors_component,
+    pack_seasonalities_component,
+    pack_targets_component,
+    pack_trend_component,
+)
 
 log = logging.getLogger("NP.time_dataset")
 
@@ -138,119 +149,48 @@ class TimeDataset(Dataset):
         self.stack_all_features()
 
     def stack_all_features(self):
+        """
+        Stack all features into one large tensor by calling individual stacking methods.
+        """
         feature_list = []
-        self.feature_indices = {}
+        feature_indices = {}
 
         current_idx = 0
 
-        # Stack Trend (t)
-        time_tensor = self.df_tensors["t"].unsqueeze(-1)  # Shape: [T, 1]
-        feature_list.append(time_tensor)
-        self.feature_indices["time"] = (current_idx, current_idx)
-        current_idx += 1
+        # Call individual stacking functions
+        current_idx = pack_trend_component(self.df_tensors, feature_list, feature_indices, current_idx)
+        current_idx = pack_targets_component(self.df_tensors, feature_list, feature_indices, current_idx)
 
-        # Stack lags (y_scaled)
-        if self.n_lags >= 1 and "y_scaled" in self.df_tensors:
-            lags_tensor = self.df_tensors["y_scaled"].unsqueeze(-1)
-            feature_list.append(lags_tensor)
-            self.feature_indices["lags"] = (current_idx, current_idx)
-            current_idx += lags_tensor.shape[1]
+        current_idx = pack_lags_component(self.df_tensors, feature_list, feature_indices, current_idx, self.n_lags)
+        current_idx = pack_lagged_regerssors_component(
+            self.df_tensors, feature_list, feature_indices, current_idx, self.config_lagged_regressors
+        )
+        current_idx = pack_additive_events_component(
+            self.df_tensors, feature_list, feature_indices, current_idx, self.additive_event_and_holiday_names
+        )
+        current_idx = pack_multiplicative_events_component(
+            self.df_tensors, feature_list, feature_indices, current_idx, self.multiplicative_event_and_holiday_names
+        )
+        current_idx = pack_additive_regressors_component(
+            self.df_tensors, feature_list, feature_indices, current_idx, self.additive_regressors_names
+        )
+        current_idx = pack_multiplicative_regressors_component(
+            self.df_tensors, feature_list, feature_indices, current_idx, self.multiplicative_regressors_names
+        )
 
-        # Stack targets (y_scaled)
-        if "y_scaled" in self.df_tensors:
-            targets_tensor = self.df_tensors["y_scaled"].unsqueeze(-1)
-            feature_list.append(targets_tensor)
-            self.feature_indices["targets"] = (current_idx, current_idx)
-            current_idx += targets_tensor.shape[1]
-
-        # Stack lagged regressor features
-        if self.config_lagged_regressors:
-            # Collect all lagged regressor tensors in a list
-            lagged_regressor_tensors = [
-                self.df_tensors[name].unsqueeze(-1) for name in self.config_lagged_regressors.keys()
-            ]
-
-            # Concatenate all lagged regressors along the last dimension (features)
-            stacked_lagged_regressor_tensor = torch.cat(lagged_regressor_tensors, dim=-1)
-
-            # Append to feature list
-            feature_list.append(stacked_lagged_regressor_tensor)
-
-            # Update feature indices
-            num_features = stacked_lagged_regressor_tensor.size(-1)
-            for i, name in enumerate(self.config_lagged_regressors.keys()):
-                self.feature_indices[f"lagged_regressor_{name}"] = (
-                    current_idx + i,
-                    current_idx + i + 1,
-                )
-            current_idx += num_features
-
-        # Stack additive event and holiday features
-        if self.additive_event_and_holiday_names:
-            additive_events_tensor = torch.cat(
-                [self.df_tensors[name].unsqueeze(-1) for name in self.additive_event_and_holiday_names],
-                dim=1,
-            )  # Shape: [batch_size, num_additive_events, 1]
-            feature_list.append(additive_events_tensor)
-            self.feature_indices["additive_events"] = (
-                current_idx,
-                current_idx + additive_events_tensor.size(1) - 1,
+        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
+            current_idx = pack_seasonalities_component(
+                feature_list, feature_indices, current_idx, self.config_seasonality, self.seasonalities
             )
-            current_idx += additive_events_tensor.size(1)
-
-        # Stack multiplicative event and holiday features
-        if self.multiplicative_event_and_holiday_names:
-            multiplicative_events_tensor = torch.cat(
-                [self.df_tensors[name].unsqueeze(-1) for name in self.multiplicative_event_and_holiday_names], dim=1
-            )  # Shape: [batch_size, num_multiplicative_events, 1]
-
-            feature_list.append(multiplicative_events_tensor)
-            self.feature_indices["multiplicative_events"] = (
-                current_idx,
-                current_idx + multiplicative_events_tensor.size(1) - 1,
-            )
-
-            current_idx += multiplicative_events_tensor.size(1)
-
-        # Stack additive regressor features
-        if self.additive_regressors_names:
-            additive_regressors_tensor = torch.cat(
-                [self.df_tensors[name].unsqueeze(-1) for name in self.additive_regressors_names], dim=1
-            )  # Shape: [batch_size, num_additive_regressors, 1]
-            feature_list.append(additive_regressors_tensor)
-            self.feature_indices["additive_regressors"] = (
-                current_idx,
-                current_idx + additive_regressors_tensor.size(1) - 1,
-            )
-            current_idx += additive_regressors_tensor.size(1)
-
-        # Stack multiplicative regressor features
-        if self.multiplicative_regressors_names:
-            multiplicative_regressors_tensor = torch.cat(
-                [self.df_tensors[name].unsqueeze(-1) for name in self.multiplicative_regressors_names], dim=1
-            )  # Shape: [batch_size, num_multiplicative_regressors, 1]
-            feature_list.append(multiplicative_regressors_tensor)
-            self.feature_indices["multiplicative_regressors"] = (
-                current_idx,
-                current_idx + len(self.multiplicative_regressors_names) - 1,
-            )
-            current_idx += len(self.multiplicative_regressors_names)
-
-        if self.config_seasonality and self.config_seasonality.periods:
-            for seasonality_name, features in self.seasonalities.items():
-                seasonal_tensor = features
-                print(f"Seasonality tensor shape for {seasonality_name}: {seasonal_tensor.shape}")
-                feature_list.append(seasonal_tensor)
-                self.feature_indices[f"seasonality_{seasonality_name}"] = (
-                    current_idx,
-                    current_idx + seasonal_tensor.size(1),
-                )
-                current_idx += seasonal_tensor.size(1)
 
         # Concatenate all features into one big tensor
-        self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the third dimension
+        self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
+
+        # Update the model's features map if applicable
         if self.config_model is not None:
-            self.config_model.features_map = self.feature_indices
+            self.config_model.features_map = feature_indices
+
+        return feature_indices
 
     def calculate_seasonalities(self):
         self.seasonalities = OrderedDict({})
