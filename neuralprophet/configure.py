@@ -265,21 +265,23 @@ class Train:
                 self.scheduler, torch.optim.lr_scheduler.LRScheduler
             ), "Scheduler must be a subclass of torch.optim.lr_scheduler.LRScheduler"
 
-    def set_lr_finder_args(self, dataset_size, num_batches):
+    def set_lr_finder_args(self, main_training_epochs: int, batches_per_epoch: int):
         """
         Set the lr_finder_args.
         This is the range of learning rates to test.
         """
-        num_training = 100 + int(np.log10(dataset_size) * 20)
-        if num_batches < num_training:
+        main_training_total_steps = main_training_epochs * batches_per_epoch
+        # main_training_total_steps is around 1e3 to 1e6 -> num_training 100 to 400
+        num_training = 100 + int(np.log10(1 + main_training_total_steps / 1000) * 100)
+        if batches_per_epoch < num_training:
             log.warning(
-                f"Learning rate finder: The number of batches ({num_batches}) is too small than the required number \
+                f"Learning rate finder: The number of batches per epoch ({batches_per_epoch}) is too small than the required number \
                     for the learning rate finder ({num_training}). The results might not be optimal."
             )
             # num_training = num_batches
         self.lr_finder_args.update(
             {
-                "min_lr": 1e-8,
+                "min_lr": 1e-7,
                 "max_lr": 1e1,
                 "num_training": num_training,
                 "early_stop_threshold": None,

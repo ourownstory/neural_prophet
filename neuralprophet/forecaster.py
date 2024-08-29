@@ -2817,7 +2817,7 @@ class NeuralProphet:
             progress_bar_enabled=progress_bar_enabled,
             metrics_enabled=metrics_enabled,
             checkpointing_enabled=checkpointing_enabled,
-            num_batches_per_epoch=len(train_loader),
+            num_batches_per_epoch=batches_per_epoch,
             deterministic=deterministic,
         )
 
@@ -2825,7 +2825,9 @@ class NeuralProphet:
         if not self.config_train.learning_rate:
             log.info("No Learning Rate provided. Activating learning rate finder")
             # Set parameters for the learning rate finder
-            self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=batches_per_epoch)
+            self.config_train.set_lr_finder_args(
+                main_training_epochs=self.config_train.epochs, batches_per_epoch=batches_per_epoch
+            )
             log.info(f"Learning rate finder ---- ARGs: {self.config_train.lr_finder_args}")
             self.model.finding_lr = True
             tuner = Tuner(self.trainer)

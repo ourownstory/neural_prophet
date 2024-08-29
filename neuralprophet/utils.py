@@ -795,7 +795,7 @@ def smooth_loss_and_suggest(lr_finder, window=10):
     try:
         # Find the steepest gradient and the minimum loss after that
         suggestion_steepest = lr[np.argmin(np.gradient(loss_smooth))]
-        suggestion_minimum = lr[np.argmin(loss_smooth)]
+        suggestion_minimum = lr[np.argmin(np.array(lr_finder_results["loss"]))]
     except ValueError:
         log.error(
             f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of "
@@ -807,12 +807,11 @@ def smooth_loss_and_suggest(lr_finder, window=10):
 
     log.info(f"Learning rate finder ---- default suggestion: {suggestion_default}")
     log.info(f"Learning rate finder ---- steepest: {suggestion_steepest}")
-    log.info(f"Learning rate finder ---- minimum: {suggestion_minimum}")
-    if suggestion_steepest is not None and suggestion_minimum is not None and suggestion_default is not None:
+    log.info(f"Learning rate finder ---- minimum (not used): {suggestion_minimum}")
+    if suggestion_steepest is not None and suggestion_default is not None:
         log_suggestion_smooth = np.log(suggestion_steepest)
-        log_suggestion_minimum = np.log(suggestion_minimum)
         log_suggestion_default = np.log(suggestion_default)
-        lr_suggestion = np.exp((log_suggestion_smooth + log_suggestion_minimum + log_suggestion_default) / 3)
+        lr_suggestion = np.exp((log_suggestion_smooth + log_suggestion_default) / 2)
         log.info(f"Learning rate finder ---- log-avg: {lr_suggestion}")
     elif suggestion_steepest is None and suggestion_default is None:
         log.error("Automatic learning rate test failed. Please set manually the learning rate.")
