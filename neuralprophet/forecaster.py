@@ -499,12 +499,13 @@ class NeuralProphet:
 
         # AR
         self.config_ar = configure.AR(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
-        self.n_lags = self.config_ar.n_lags
-        self.max_lags = self.n_lags
+        # self.n_lags = self.config_ar.n_lags
+        self.max_lags = self.config_ar.n_lags
 
         # Model
         self.config_model = configure.Model(
             features_map={},
+            max_lags=self.config_ar.n_lags,  # initialize with AR lags
             quantiles=quantiles,
         )
         self.config_model.setup_quantiles()
@@ -613,11 +614,11 @@ class NeuralProphet:
                 f"Received n_lags {n_lags} for lagged regressor {names}. Please set n_lags > 0 or use options 'scalar' or 'auto'."
             )
         if n_lags == "auto":
-            if self.n_lags is not None and self.n_lags > 0:
-                n_lags = self.n_lags
+            if self.config_ar.n_lags is not None and self.config_ar.n_lags > 0:
+                n_lags = self.config_ar.n_lags
                 log.info(
                     "n_lags = 'auto', number of lags for regressor is set to Autoregression number of lags "
-                    + f"({self.n_lags})"
+                    + f"({self.config_ar.n_lags})"
                 )
             else:
                 n_lags = 1
@@ -1016,7 +1017,7 @@ class NeuralProphet:
 
         # Infer from config if lags are activated
         self.max_lags = df_utils.get_max_num_lags(
-            n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors
+            n_lags=self.config_ar.n_lags, config_lagged_regressors=self.config_lagged_regressors
         )
         if self.max_lags == 0 and self.n_forecasts > 1:
             self.n_forecasts = 1
@@ -1111,7 +1112,7 @@ class NeuralProphet:
         df = _handle_missing_data(
             df=df,
             freq=self.data_freq,
-            n_lags=self.n_lags,
+            n_lags=self.config_ar.n_lags,
             n_forecasts=self.n_forecasts,
             config_missing=self.config_missing,
             config_regressors=self.config_regressors,
@@ -1177,7 +1178,7 @@ class NeuralProphet:
             df_val = _handle_missing_data(
                 df=df_val,
                 freq=self.data_freq,
-                n_lags=self.n_lags,
+                n_lags=self.config_ar.n_lags,
                 n_forecasts=self.n_forecasts,
                 config_missing=self.config_missing,
                 config_regressors=self.config_regressors,
@@ -1350,7 +1351,7 @@ class NeuralProphet:
                 df_i, df_name, include_components=decompose, prediction_frequency=self.prediction_frequency
             )
             df_i = df_utils.drop_missing_from_df(
-                df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
+                df_i, self.config_missing.drop_missing, self.predict_steps, self.config_ar.n_lags
             )
             if raw:
                 fcst = _convert_raw_predictions_to_raw_df(
@@ -1405,7 +1406,7 @@ class NeuralProphet:
         df = _handle_missing_data(
             df=df,
             freq=freq,
-            n_lags=self.n_lags,
+            n_lags=self.config_ar.n_lags,
             n_forecasts=self.n_forecasts,
             config_missing=self.config_missing,
             config_regressors=self.config_regressors,
@@ -1548,7 +1549,7 @@ class NeuralProphet:
         df = _handle_missing_data(
             df=df,
             freq=freq,
-            n_lags=self.n_lags,
+            n_lags=self.config_ar.n_lags,
             n_forecasts=self.n_forecasts,
             config_missing=self.config_missing,
             config_regressors=self.config_regressors,
@@ -1737,7 +1738,7 @@ class NeuralProphet:
         df = _handle_missing_data(
             df=df,
             freq=freq,
-            n_lags=self.n_lags,
+            n_lags=self.config_ar.n_lags,
             n_forecasts=self.n_forecasts,
             config_missing=self.config_missing,
             config_regressors=self.config_regressors,
@@ -1801,7 +1802,7 @@ class NeuralProphet:
         df = _handle_missing_data(
             df=df,
             freq=freq,
-            n_lags=self.n_lags,
+            n_lags=self.config_ar.n_lags,
             n_forecasts=self.n_forecasts,
             config_missing=self.config_missing,
             config_regressors=self.config_regressors,
@@ -2226,13 +2227,13 @@ class NeuralProphet:
             forecast_in_focus = self.highlight_forecast_step_n
         if len(self.config_model.quantiles) > 1:
             if (self.highlight_forecast_step_n) is None and (
-                self.n_forecasts > 1 or self.n_lags > 0
+                self.n_forecasts > 1 or self.max_lags > 0
             ):  # rather query if n_forecasts >1 than n_lags>1
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
                     " for quantiles plotting when auto-regression enabled."
                 )
-            if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.n_lags == 0:
+            if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.max_lags == 0:
                 log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
                 self.highlight_forecast_step_n = None
         if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
@@ -2808,7 +2809,7 @@ class NeuralProphet:
             config_holidays=self.config_country_holidays,
             config_normalization=self.config_normalization,
             n_forecasts=self.n_forecasts,
-            n_lags=self.n_lags,
+            n_lags=self.config_ar.n_lags,
             max_lags=self.max_lags,
             ar_layers=self.config_ar.ar_layers,
             metrics=self.metrics,

@@ -23,6 +23,7 @@ log = logging.getLogger("NP.config")
 @dataclass
 class Model:
     features_map: dict
+    max_lags: int = 0
     quantiles: Optional[List[float]] = None
 
     def setup_quantiles(self):
