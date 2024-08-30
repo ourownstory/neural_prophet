@@ -878,7 +878,7 @@ def test_too_many_NaN():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
-            config_model=configure.Model(),
+            config_model=configure.Model(max_lags=n_lags),
         )
 
 
