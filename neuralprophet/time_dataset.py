@@ -143,9 +143,6 @@ class TimeDataset(Dataset):
         # Construct index map
         self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.df_tensors)
 
-        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-            self.calculate_seasonalities()
-
         self.stack_all_features()
 
     def stack_all_features(self):
@@ -180,7 +177,7 @@ class TimeDataset(Dataset):
 
         if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
             current_idx = pack_seasonalities_component(
-                feature_list, feature_indices, current_idx, self.config_seasonality, self.seasonalities
+                self.df_tensors, feature_list, feature_indices, current_idx, self.config_seasonality
             )
 
         # Concatenate all features into one big tensor
@@ -191,26 +188,6 @@ class TimeDataset(Dataset):
             self.config_model.features_map = feature_indices
 
         return feature_indices
-
-    def calculate_seasonalities(self):
-        self.seasonalities = OrderedDict({})
-        dates = self.df_tensors["ds"]
-        t = (dates - torch.tensor(datetime(1900, 1, 1).timestamp())).float() / (3600 * 24.0)
-
-        def compute_fourier_features(t, period):
-            factor = 2.0 * np.pi / period.period
-            sin_terms = torch.sin(factor * t[:, None] * torch.arange(1, period.resolution + 1))
-            cos_terms = torch.cos(factor * t[:, None] * torch.arange(1, period.resolution + 1))
-            return torch.cat((sin_terms, cos_terms), dim=1)
-
-        for name, period in self.config_seasonality.periods.items():
-            if period.resolution > 0:
-                features = compute_fourier_features(t, period)
-
-                if period.condition_name is not None:
-                    condition_values = self.df_tensors[period.condition_name].unsqueeze(1)
-                    features *= condition_values
-                self.seasonalities[name] = features
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.

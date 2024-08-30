@@ -1,5 +1,7 @@
 from collections import OrderedDict
+from datetime import datetime
 
+import numpy as np
 import torch
 
 
@@ -312,17 +314,29 @@ def pack_multiplicative_regressors_component(
     return current_idx
 
 
-def pack_seasonalities_component(feature_list, feature_indices, current_idx, config_seasonality, seasonalities):
-    """
-    Stack the seasonality features.
-    """
-    if config_seasonality and config_seasonality.periods:
-        for seasonality_name, features in seasonalities.items():
-            seasonal_tensor = features
-            feature_list.append(seasonal_tensor)
-            feature_indices[f"seasonality_{seasonality_name}"] = (
+def pack_seasonalities_component(df_tensors, feature_list, feature_indices, current_idx, config_seasonality):
+    dates = df_tensors["ds"]
+    t = (dates - torch.tensor(datetime(1900, 1, 1).timestamp())).float() / (3600 * 24.0)
+
+    def compute_fourier_features(t, period):
+        factor = 2.0 * np.pi / period.period
+        sin_terms = torch.sin(factor * t[:, None] * torch.arange(1, period.resolution + 1))
+        cos_terms = torch.cos(factor * t[:, None] * torch.arange(1, period.resolution + 1))
+        return torch.cat((sin_terms, cos_terms), dim=1)
+
+    for name, period in config_seasonality.periods.items():
+        if period.resolution > 0:
+            features = compute_fourier_features(t, period)
+
+            if period.condition_name is not None:
+                condition_values = df_tensors[period.condition_name].unsqueeze(1)
+                features *= condition_values
+
+            # Pack the features
+            feature_list.append(features)
+            feature_indices[f"seasonality_{name}"] = (
                 current_idx,
-                current_idx + seasonal_tensor.size(1),
+                current_idx + features.size(1),
             )
-            current_idx += seasonal_tensor.size(1)
+            current_idx += features.size(1)
     return current_idx
