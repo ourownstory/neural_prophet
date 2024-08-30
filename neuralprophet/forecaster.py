@@ -499,16 +499,12 @@ class NeuralProphet:
 
         # AR
         self.config_ar = configure.AR(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
-        # self.n_lags = self.config_ar.n_lags
-        # self.max_lags = self.config_ar.n_lags
 
         # Model
         self.config_model = configure.Model(
             quantiles=quantiles,
         )
         self.config_model.setup_quantiles()
-        # initialize with AR lags
-        # self.config_model.set_max_num_lags(n_lags=self.config_ar.n_lags)
 
         # Trend
         self.config_trend = configure.Trend(
@@ -560,11 +556,15 @@ class NeuralProphet:
         self.config_lagged_regressors = configure.ConfigLaggedRegressors(
             layers=lagged_reg_layers,
         )
+        # Update max_lags
+        self.config_model.set_max_num_lags(
+            n_lags=self.config_ar.n_lags, config_lagged_regressors=self.config_lagged_regressors
+        )
         # Future Regressors
         self.config_regressors = configure.ConfigFutureRegressors(
             model=future_regressors_model,
             regressors_layers=future_regressors_layers,
-        )  # Optional[configure.ConfigFutureRegressors] = None
+        )
 
         # set during fit()
         self.data_freq = None
@@ -651,6 +651,9 @@ class NeuralProphet:
                 as_scalar=only_last_value,
                 n_lags=n_lags,
             )
+        self.config_model.set_max_num_lags(
+            n_lags=self.config_ar.n_lags, config_lagged_regressors=self.config_lagged_regressors
+        )
         return self
 
     def parameters(self):
