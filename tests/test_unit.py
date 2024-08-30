@@ -75,6 +75,8 @@ def test_timedataset_minimal():
     valid_p = 0.2
     for n_forecasts, n_lags in [(1, 0), (1, 5), (3, 5)]:
         config_missing = configure.MissingDataHandling()
+        config_model = configure.Model()
+        config_missing.set_max_lags(n_lags)
         # config_train = configure.Train()
         df, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
         # create a tabularized dataset from time series
@@ -110,7 +112,7 @@ def test_timedataset_minimal():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
-            config_model=configure.Model(),
+            config_model=config_model,
         )
         input, meta = dataset.__getitem__(0)
         # # inputs50, targets50, meta50 = dataset.__getitem__(50)
@@ -840,6 +842,8 @@ def test_make_future():
 def test_too_many_NaN():
     n_lags = 12
     n_forecasts = 1
+    config_model = configure.Model()
+    config_missing.set_max_lags(n_lags)
     config_missing = configure.MissingDataHandling(
         impute_missing=True,
         impute_linear=5,
@@ -878,7 +882,7 @@ def test_too_many_NaN():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
-            config_model=configure.Model(max_lags=n_lags),
+            config_model=config_model,
         )
 
 
