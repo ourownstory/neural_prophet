@@ -6,6 +6,7 @@ from typing import Optional
 import numpy as np
 import pytorch_lightning as pl
 import torch
+from pytorch_lightning.tuner.tuning import Tuner
 
 from neuralprophet.configure import Train
 from neuralprophet.logger import ProgressBar
@@ -290,7 +291,7 @@ def find_learning_rate(model, loader, trainer, train_epochs):
     log.info(f"Learning rate finder ---- ARGs: {lr_finder_args}")
 
     # Execute the learning rate range finder
-    tuner = pl.Tuner(trainer)
+    tuner = Tuner(trainer)
     model.finding_lr = True
     # model.train_loader = loader
     lr_finder = tuner.lr_find(
