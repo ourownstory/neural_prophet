@@ -611,6 +611,20 @@ def test_loss_func_torch():
     m.predict(future)
 
 
+def test_loss_func_torch_lr_finder():
+    log.info("TEST setting torch.nn loss func")
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        loss_func=torch.nn.MSELoss,
+        learning_rate=None,
+    )
+    m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
+    m.predict(future)
+
+
 def test_callable_loss():
     log.info("TEST Callable Loss")
 
@@ -630,6 +644,7 @@ def test_callable_loss():
         batch_size=BATCH_SIZE,
         seasonality_mode="multiplicative",
         loss_func=my_loss,
+        learning_rate=LR,
     )
     m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
@@ -659,6 +674,7 @@ def test_custom_torch_loss():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         loss_func=MyLoss,
+        learning_rate=LR,
     )
     m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=12, n_historic_predictions=12)
