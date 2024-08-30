@@ -203,7 +203,7 @@ def data_params_definition(
             norm_type=normalize,
         )
 
-    if config_lagged_regressors.regressors is not None:
+    if config_lagged_regressors is not None and config_lagged_regressors.regressors is not None:
         for covar in config_lagged_regressors.regressors.keys():
             if covar not in df.columns:
                 raise ValueError(f"Lagged regressor {covar} not found in DataFrame.")

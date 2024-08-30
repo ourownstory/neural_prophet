@@ -22,7 +22,6 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
-    lagged_reg_layers: Optional[List[int]]
     quantiles: Optional[List[float]] = None
 
     def setup_quantiles(self):
