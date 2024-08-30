@@ -2817,7 +2817,9 @@ class NeuralProphet:
             model_lr_finder = self.model
             loader_lr_finder = loader
             trainer_lr_finder = self.trainer
+
             # Init a separate Model, Loader and Trainer copy for LR finder (optional, done for safety)
+            # Note Leads to a CUDA issue. Needs to be fixed before enabling this feature.
             # model_lr_finder = self._init_model()
             # loader_lr_finder = DataLoader(
             #     dataset,
