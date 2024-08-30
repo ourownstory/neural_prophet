@@ -2808,15 +2808,10 @@ class NeuralProphet:
         # Set up the model for training
         if not self.fitted:
             self.model = self._init_model()
-        # self.model.train_loader = loader
-        # self.model.finding_lr = False
 
         # Find suitable learning rate if not set
         if self.config_train.learning_rate is None:
             assert not self.fitted, "Learning rate must be provided for re-training a fitted model."
-            model_lr_finder = self.model
-            loader_lr_finder = loader
-            trainer_lr_finder = self.trainer
 
             # Init a separate Model, Loader and Trainer copy for LR finder (optional, done for safety)
             # Note Leads to a CUDA issue. Needs to be fixed before enabling this feature.
@@ -2838,17 +2833,20 @@ class NeuralProphet:
             #     num_batches_per_epoch=len(loader),
             #     deterministic=deterministic,
             # )
+
             # Setup and execute LR finder
             suggested_lr = utils_lightning.find_learning_rate(
-                model=model_lr_finder,
-                loader=loader_lr_finder,
-                trainer=trainer_lr_finder,
+                model=self.model,  # model_lr_finder,
+                loader=loader,  # loader_lr_finder,
+                trainer=self.trainer,  # trainer_lr_finder,
                 train_epochs=self.config_train.epochs,
             )
-            # Save the suggested learning rate
-            self.config_train.learning_rate = suggested_lr
             # Clean up the LR finder copies of Model, Loader and Trainer
             # del model_lr_finder, loader_lr_finder, trainer_lr_finder
+
+            # Save the suggested learning rate
+            self.config_train.learning_rate = suggested_lr
+        self.model.finding_lr = False
 
         # Execute Training Loop
         start = time.time()
