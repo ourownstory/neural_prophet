@@ -99,6 +99,9 @@ class TimeDataset(Dataset):
             self.config_regressors
         )
 
+        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
+            self.calculate_seasonalities()
+
         # skipping col "ID" is string type that is interpreted as object by torch (self.df[col].dtype == "O")
         # "ID" is stored in self.meta["df_name"]
         skip_cols = ["ID", "ds"]
@@ -112,29 +115,8 @@ class TimeDataset(Dataset):
         self.df["ds"] = self.df["ds"].apply(lambda x: x.timestamp())  # Convert to Unix timestamp in seconds
         self.df_tensors["ds"] = torch.tensor(self.df["ds"].values, dtype=torch.int64)
 
-        if self.additive_event_and_holiday_names:
-            self.df_tensors["additive_event_and_holiday"] = torch.stack(
-                [self.df_tensors[name] for name in self.additive_event_and_holiday_names], dim=1
-            )
-        if self.multiplicative_event_and_holiday_names:
-            self.df_tensors["multiplicative_event_and_holiday"] = torch.stack(
-                [self.df_tensors[name] for name in self.multiplicative_event_and_holiday_names], dim=1
-            )
-
-        if self.additive_regressors_names:
-            self.df_tensors["additive_regressors"] = torch.stack(
-                [self.df_tensors[name] for name in self.additive_regressors_names], dim=1
-            )
-        if self.multiplicative_regressors_names:
-            self.df_tensors["multiplicative_regressors"] = torch.stack(
-                [self.df_tensors[name] for name in self.multiplicative_regressors_names], dim=1
-            )
-
         # Construct index map
         self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.df_tensors)
-
-        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-            self.calculate_seasonalities()
 
         self.components_stacker = components_stacker
 

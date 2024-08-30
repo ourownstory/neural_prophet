@@ -13,7 +13,17 @@ from matplotlib import pyplot
 from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 
-from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_lightning, utils_metrics
+from neuralprophet import (
+    configure,
+    df_utils,
+    np_types,
+    time_dataset,
+    time_net,
+    utils,
+    utils_lightning,
+    utils_metrics,
+    utils_time_dataset,
+)
 from neuralprophet.data.process import (
     _check_dataframe,
     _convert_raw_predictions_to_raw_df,
@@ -1156,13 +1166,15 @@ class NeuralProphet:
         # Set up  DataLoaders: Train
         # Create TimeDataset
         # Note: _create_dataset() needs to be called after set_auto_seasonalities()
-        train_components_stacker = _create_components_stacker(
+        train_components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=self.n_lags,
-            max_lags=self.max_lags,
             n_forecasts=self.n_forecasts,
+            max_lags=self.max_lags,
             config_seasonality=self.config_seasonality,
-            config_lagged_regressors=self.config_lagged_regressors,
+            lagged_regressor_config=self.config_lagged_regressors,
+            feature_indices={},
         )
+
         dataset = _create_dataset(
             self,
             df,
@@ -1443,12 +1455,13 @@ class NeuralProphet:
         )
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = _normalize(df=df, config_normalization=self.config_normalization)
-        components_stacker = _create_components_stacker(
+        components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=self.n_lags,
-            max_lags=self.max_lags,
             n_forecasts=self.n_forecasts,
+            max_lags=self.max_lags,
             config_seasonality=self.config_seasonality,
-            config_lagged_regressors=self.config_lagged_regressors,
+            lagged_regressor_config=self.config_lagged_regressors,
+            feature_indices={},
         )
         dataset = _create_dataset(self, df, predict_mode=False, components_stacker=components_stacker)
         self.model.set_components_stacker(components_stacker, mode="test")
@@ -2928,12 +2941,13 @@ class NeuralProphet:
         assert len(df["ID"].unique()) == 1
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
-        components_stacker = _create_components_stacker(
+        components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=self.n_lags,
-            max_lags=self.max_lags,
             n_forecasts=self.n_forecasts,
+            max_lags=self.max_lags,
             config_seasonality=self.config_seasonality,
-            config_lagged_regressors=self.config_lagged_regressors,
+            lagged_regressor_config=self.config_lagged_regressors,
+            feature_indices={},
         )
         dataset = _create_dataset(
             self,
