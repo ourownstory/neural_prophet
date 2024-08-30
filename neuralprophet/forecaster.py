@@ -1104,14 +1104,58 @@ class NeuralProphet:
                     "Early stopping is enabled, but regularization only starts mid-training. If you see no impact of regularization, turn off early_stopping."
                 )
 
-        # Set up train dataset and data dependent configurations
-        df = self._train_data_setup(df)
+        # Set up training dataframe and data dependent configurations
+        # Missing Data
+        df = _handle_missing_data(
+            df=df,
+            freq=self.data_freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
+
+        # Initialize data normalization parameters
+        if not self.fitted:
+            self.config_normalization.init_data_params(
+                df=df,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+                config_events=self.config_events,
+                config_seasonality=self.config_seasonality,
+            )
+
+        # Apply normalization to data
+        df = _normalize(df=df, config_normalization=self.config_normalization)
+
+        # Trend config: scale user-specified changepoint times
+        if not self.fitted:
+            if self.config_trend.changepoints is not None:
+                df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
+                df_aux = _normalize(df=df_aux, config_normalization=self.config_normalization)
+                self.config_trend.changepoints = df_aux["t"].values
+
+        # Configure auto-seasoanlities and country-holidays
+        if not self.fitted:
+            # Temporarily merge df
+            df_merged = df_utils.merge_dataframes(df)
+            self.config_seasonality = utils.set_auto_seasonalities(
+                df_merged, config_seasonality=self.config_seasonality
+            )
+            if self.config_country_holidays is not None:
+                self.config_country_holidays.init_holidays(df_merged)
+
+        # Set up  DataLoaders: Train
+        # Create TimeDataset
         # Note: _create_dataset() needs to be called after set_auto_seasonalities()
         dataset = _create_dataset(self, df, predict_mode=False, prediction_frequency=self.prediction_frequency)
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
-
-        # Set up  DataLoaders: Train
+        # Create Train DataLoader
         loader = DataLoader(
             dataset,
             batch_size=self.config_train.batch_size,
@@ -1125,7 +1169,6 @@ class NeuralProphet:
         # Set up  DataLoaders: Validation
         validation_enabled = validation_df is not None and isinstance(validation_df, pd.DataFrame)
         if validation_enabled:
-            # df_val = self._val_data_setup(validation_df)
             df_val = validation_df
             df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             df_val = _check_dataframe(self, df_val, check_y=False, exogenous=False)
@@ -1197,10 +1240,13 @@ class NeuralProphet:
             )
             # Clean up the LR finder copies of Model, Loader and Trainer
             # del model_lr_finder, loader_lr_finder, trainer_lr_finder
+            self.model.finding_lr = False
 
             # Save the suggested learning rate
             self.config_train.learning_rate = suggested_lr
-        self.model.finding_lr = False
+
+            # Optional: Reset Model after finding learning rate
+            self.model = self._init_model()
 
         # Execute Training Loop
         start = time.time()
@@ -2758,66 +2804,6 @@ class NeuralProphet:
         )
         log.debug(model)
         return model
-
-    def _train_data_setup(self, df):
-        """Executes data preparation steps and initiates training procedure.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-            num_workers : int
-                number of workers for data loading
-
-        Returns
-        -------
-            torch DataLoader
-        """
-        # Data Pre-processing
-        df = _handle_missing_data(
-            df=df,
-            freq=self.data_freq,
-            n_lags=self.n_lags,
-            n_forecasts=self.n_forecasts,
-            config_missing=self.config_missing,
-            config_regressors=self.config_regressors,
-            config_lagged_regressors=self.config_lagged_regressors,
-            config_events=self.config_events,
-            config_seasonality=self.config_seasonality,
-            predicting=False,
-        )
-        # df, _, _, _ = df_utils.prep_or_copy_df(df)
-
-        if not self.fitted:
-            # Initialize data normalization parameters
-            self.config_normalization.init_data_params(
-                df=df,
-                config_lagged_regressors=self.config_lagged_regressors,
-                config_regressors=self.config_regressors,
-                config_events=self.config_events,
-                config_seasonality=self.config_seasonality,
-            )
-
-        if not self.fitted:
-            # scale user-specified changepoint times
-            if self.config_trend.changepoints is not None:
-                df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
-                df_aux = _normalize(df=df_aux, config_normalization=self.config_normalization)
-                self.config_trend.changepoints = df_aux["t"].values
-
-        # Apply normalization to data
-        df = _normalize(df=df, config_normalization=self.config_normalization)
-
-        if not self.fitted:
-            # Temporarily merge df to set auto seasaoanlities and country holidays
-            df_merged = df_utils.merge_dataframes(df)
-            self.config_seasonality = utils.set_auto_seasonalities(
-                df_merged, config_seasonality=self.config_seasonality
-            )
-            if self.config_country_holidays is not None:
-                self.config_country_holidays.init_holidays(df_merged)
-
-        return df
 
     def restore_trainer(self, accelerator: Optional[str] = None):
         """
