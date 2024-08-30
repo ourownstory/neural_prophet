@@ -530,8 +530,6 @@ class TimeNet(pl.LightningModule):
     ) -> torch.Tensor:
         """This method defines the model forward pass."""
 
-        print(f"indices = {components_stacker.feature_indices}")
-
         time_input = components_stacker.unstack_component(component_name="time", batch_tensor=input_tensor)
         # Handle meta argument
         if meta is None and self.meta_used_in_model:
@@ -661,7 +659,6 @@ class TimeNet(pl.LightningModule):
                 components,
                 meta,
             )
-            print(f"components = {components.keys()}")
         else:
             components = None
 
@@ -685,16 +682,12 @@ class TimeNet(pl.LightningModule):
         components["trend"] = components_raw["trend"][:, self.n_lags : time_input.shape[1], :]
         if self.config_trend is not None and seasonality_input is not None:
             for name, features in seasonality_input.items():
-                print(f"season = {name}")
-
                 components[f"season_{name}"] = self.seasonality.compute_fourier(
                     features=features[:, self.n_lags : time_input.shape[1], :], name=name, meta=meta
                 )
         if self.n_lags > 0 and lags_input is not None:
             components["ar"] = components_raw["lags"]
         if self.config_lagged_regressors is not None and covariates_input is not None:
-            print("lagged_regressors")
-
             # Combined forward pass
             all_covariates = components_raw["covariates"]
             # Calculate the contribution of each covariate on each forecast
@@ -747,7 +740,6 @@ class TimeNet(pl.LightningModule):
                 ]
 
             for regressor, configs in self.future_regressors.regressors_dims.items():
-                print(f"regressor = {regressor}")
                 mode = configs["mode"]
                 index = []
                 index.append(configs["regressor_index"])
