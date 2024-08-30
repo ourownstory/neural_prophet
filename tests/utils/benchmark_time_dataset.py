@@ -74,7 +74,7 @@ def load(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=True, iterations=1
     df = _handle_missing_data(
         df=df,
         freq=m.data_freq,
-        n_lags=m.n_lags,
+        n_lags=m.config_ar.n_lags,
         n_forecasts=m.n_forecasts,
         config_missing=m.config_missing,
         config_regressors=m.config_regressors,
@@ -214,7 +214,7 @@ def peyton(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=True):
     )
 
     # add lagged regressors
-    # # if m.n_lags > 0:
+    # # if m.config_ar.n_lags > 0:
     #     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     #     df["B"] = df["y"].rolling(30, min_periods=1).mean()
     #     m = m.add_lagged_regressor(name="A", n_lags=10)
@@ -264,7 +264,7 @@ def peyton_minus_events(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=Tru
     )
 
     # add lagged regressors
-    if m.n_lags > 0:
+    if m.config_ar.n_lags > 0:
         df["A"] = df["y"].rolling(7, min_periods=1).mean()
         df["B"] = df["y"].rolling(30, min_periods=1).mean()
         m = m.add_lagged_regressor(name="A")

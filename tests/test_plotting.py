@@ -409,7 +409,7 @@ def test_plot_trend(plotting_backend):
         seasonality_mode="multiplicative",
     )
     m.fit(df, freq="MS")
-    future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
+    future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.config_ar.n_lags)
     forecast = m.predict(future)
     fig1 = m.plot(forecast, plotting_backend=plotting_backend)
     fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)

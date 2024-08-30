@@ -59,7 +59,7 @@ def test_train_eval_test():
     _handle_missing_data(
         df=df,
         freq="D",
-        n_lags=m.n_lags,
+        n_lags=m.config_ar.n_lags,
         n_forecasts=m.n_forecasts,
         config_missing=m.config_missing,
         config_regressors=m.config_regressors,
@@ -463,7 +463,7 @@ def test_air_data():
         learning_rate=LR,
     )
     m.fit(df, freq="MS")
-    future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
+    future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.config_ar.n_lags)
     forecast = m.predict(future)
     if PLOT:
         m.plot(forecast)
@@ -551,13 +551,14 @@ def test_model_cv():
             learning_rate=LR,
         )
         folds = m.crossvalidation_split_df(df, freq=freq, k=k, fold_pct=fold_pct, fold_overlap_pct=fold_overlap_pct)
-        total_samples = len(df) - m.n_lags + 2 - (2 * m.n_forecasts)
+        total_samples = len(df) - m.config_ar.n_lags + 2 - (2 * m.n_forecasts)
         per_fold = int(fold_pct * total_samples)
         not_overlap = per_fold - int(fold_overlap_pct * per_fold)
-        assert all([per_fold == len(val) - m.n_lags + 1 - m.n_forecasts for (train, val) in folds])
+        assert all([per_fold == len(val) - m.config_ar.n_lags + 1 - m.n_forecasts for (train, val) in folds])
         assert all(
             [
-                total_samples - per_fold - (k - i - 1) * not_overlap == len(train) - m.n_lags + 1 - m.n_forecasts
+                total_samples - per_fold - (k - i - 1) * not_overlap
+                == len(train) - m.config_ar.n_lags + 1 - m.n_forecasts
                 for i, (train, val) in enumerate(folds)
             ]
         )
