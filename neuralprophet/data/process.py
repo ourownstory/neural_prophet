@@ -4,7 +4,7 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 
-from neuralprophet import df_utils, time_dataset
+from neuralprophet import df_utils, time_dataset, utils_time_dataset
 from neuralprophet.configure import (
     ConfigCountryHolidays,
     ConfigEvents,
@@ -575,7 +575,7 @@ def _handle_missing_data(
     return df
 
 
-def _create_dataset(model, df, predict_mode, prediction_frequency=None):
+def _create_dataset(model, df, predict_mode, prediction_frequency=None, features_extractor=None):
     """Construct dataset from dataframe.
 
     (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -627,5 +627,17 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
         config_lagged_regressors=model.config_lagged_regressors,
         config_missing=model.config_missing,
         config_model=model.config_model,
+        features_extractor=features_extractor,
         # config_train=model.config_train, # no longer needed since JIT tabularization.
+    )
+
+
+def _create_features_extractor(n_lags, n_forecasts, max_lags, config_seasonality, config_lagged_regressors):
+    return utils_time_dataset.FeatureExtractor(
+        n_lags=n_lags,
+        n_forecasts=n_forecasts,
+        max_lags=max_lags,
+        config_seasonality=config_seasonality,
+        lagged_regressor_config=config_lagged_regressors,
+        feature_indices={},
     )

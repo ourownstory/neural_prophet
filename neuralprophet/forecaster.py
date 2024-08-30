@@ -18,6 +18,7 @@ from neuralprophet.data.process import (
     _check_dataframe,
     _convert_raw_predictions_to_raw_df,
     _create_dataset,
+    _create_features_extractor,
     _handle_missing_data,
     _prepare_dataframe_to_predict,
     _reshape_raw_predictions_to_forecst_df,
@@ -1155,7 +1156,20 @@ class NeuralProphet:
         # Set up  DataLoaders: Train
         # Create TimeDataset
         # Note: _create_dataset() needs to be called after set_auto_seasonalities()
-        dataset = _create_dataset(self, df, predict_mode=False, prediction_frequency=self.prediction_frequency)
+        train_features_extractor = _create_features_extractor(
+            n_lags=self.n_lags,
+            max_lags=self.max_lags,
+            n_forecasts=self.n_forecasts,
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
+        )
+        dataset = _create_dataset(
+            self,
+            df,
+            predict_mode=False,
+            prediction_frequency=self.prediction_frequency,
+            features_extractor=train_features_extractor,
+        )
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
         # Create Train DataLoader
@@ -1165,6 +1179,7 @@ class NeuralProphet:
             shuffle=True,
             num_workers=num_workers,
         )
+
         self.config_train.set_batches_per_epoch(len(loader))
         log.info(f"Train Dataset size: {len(dataset)}")
         log.info(f"Number of batches per training epoch: {len(loader)}")
@@ -1189,7 +1204,14 @@ class NeuralProphet:
             )
             # df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             df_val = _normalize(df=df_val, config_normalization=self.config_normalization)
-            dataset_val = _create_dataset(self, df_val, predict_mode=False)
+            features_extractor_val = _create_features_extractor(
+                n_lags=self.n_lags,
+                max_lags=self.max_lags,
+                n_forecasts=self.n_forecasts,
+                config_seasonality=self.config_seasonality,
+                config_lagged_regressors=self.config_lagged_regressors,
+            )
+            dataset_val = _create_dataset(self, df_val, predict_mode=False, features_extractor=features_extractor_val)
             loader_val = DataLoader(dataset_val, batch_size=min(1024, len(dataset_val)), shuffle=False, drop_last=False)
 
         # Init the Trainer
@@ -1208,6 +1230,10 @@ class NeuralProphet:
         # # Set up the model for training
         if not self.fitted:
             self.model = self._init_model()
+
+        self.model.set_features_extractor(features_extractor=train_features_extractor, mode="train")
+        if validation_enabled:
+            self.model.set_features_extractor(features_extractor=features_extractor_val, mode="val")
 
         # Find suitable learning rate if not set
         if self.config_train.learning_rate is None:
@@ -1417,7 +1443,15 @@ class NeuralProphet:
         )
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = _normalize(df=df, config_normalization=self.config_normalization)
-        dataset = _create_dataset(self, df, predict_mode=False)
+        features_extractor = _create_features_extractor(
+            n_lags=self.n_lags,
+            max_lags=self.max_lags,
+            n_forecasts=self.n_forecasts,
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
+        )
+        dataset = _create_dataset(self, df, predict_mode=False, features_extractor=features_extractor)
+        self.model.set_features_extractor(features_extractor, mode="test")
         test_loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         # Use Lightning to calculate metrics
         val_metrics = self.trainer.test(self.model, dataloaders=test_loader, verbose=verbose)
@@ -2050,6 +2084,13 @@ class NeuralProphet:
         df = _normalize(df=df, config_normalization=self.config_normalization)
         df_seasonal = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
+            feature_extractor = FeatureExtractor(
+                n_lags=0,
+                max_lags=0,
+                n_forecasts=1,
+                config_seasonality=self.config_seasonality,
+                lagged_regressor_config=self.config_lagged_regressors,
+            )
             dataset = time_dataset.TimeDataset(
                 df=df_i,
                 predict_mode=True,
@@ -2064,33 +2105,26 @@ class NeuralProphet:
                 config_lagged_regressors=self.config_lagged_regressors,
                 config_missing=self.config_missing,
                 config_model=self.config_model,
+                features_extractor=feature_extractor,
                 # config_train=self.config_train, # no longer needed since JIT tabularization.
             )
+            self.model.set_features_extractor(feature_extractor, mode="predict")
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
             for name in self.config_seasonality.periods:
                 predicted[name] = list()
             for inputs_tensor, meta in loader:
-                feature_extractor = FeatureExtractor(
-                    data_tensor=inputs_tensor,
-                    n_lags=0,
-                    n_forecasts=1,
-                    max_lags=0,
-                    feature_indices=self.config_model.features_map,
-                    config_seasonality=self.config_seasonality,
-                    lagged_regressor_config=self.config_lagged_regressors,
-                )
                 # Meta as a tensor for prediction
                 if self.model.config_seasonality is None:
                     meta_name_tensor = None
                 elif self.model.config_seasonality.global_local in ["local", "glocal"]:
                     meta = OrderedDict()
-                    time_input = feature_extractor.extract_component("time")
+                    time_input = feature_extractor.extract_component("time", inputs_tensor)
                     meta["df_name"] = [df_name for _ in range(time_input.shape[0])]
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
                 else:
                     meta_name_tensor = None
-                seasonalities_input = feature_extractor.extract_component("seasonalities")
+                seasonalities_input = feature_extractor.extract_component("seasonalities", inputs_tensor)
                 for name in self.config_seasonality.periods:
                     features = seasonalities_input[name]
                     quantile_index = self.config_model.quantiles.index(quantile)
@@ -2894,7 +2928,21 @@ class NeuralProphet:
         assert len(df["ID"].unique()) == 1
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
-        dataset = _create_dataset(self, df, predict_mode=True, prediction_frequency=prediction_frequency)
+        features_extractor = _create_features_extractor(
+            n_lags=self.n_lags,
+            max_lags=self.max_lags,
+            n_forecasts=self.n_forecasts,
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
+        )
+        dataset = _create_dataset(
+            self,
+            df,
+            predict_mode=True,
+            prediction_frequency=prediction_frequency,
+            features_extractor=features_extractor,
+        )
+        self.model.set_features_extractor(features_extractor, mode="predict")
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]

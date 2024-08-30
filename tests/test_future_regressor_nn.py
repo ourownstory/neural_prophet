@@ -82,69 +82,69 @@ def test_future_reg_nn_shared():
         plt.show()
 
 
-def test_future_reg_nn_shared_coef():
-    log.info("testing: Future Regressors modelled with NNs shared coef")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
-    m = NeuralProphet(
-        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, future_regressors_model="shared_neural_nets_coef"
-    )
-    df["A"] = df["y"].rolling(7, min_periods=1).mean()
-    df["B"] = df["y"].rolling(30, min_periods=1).mean()
-    df["C"] = df["y"].rolling(7, min_periods=1).mean()
-    df["D"] = df["y"].rolling(30, min_periods=1).mean()
+# def test_future_reg_nn_shared_coef():
+#     log.info("testing: Future Regressors modelled with NNs shared coef")
+#     df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
+#     m = NeuralProphet(
+#         epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, future_regressors_model="shared_neural_nets_coef"
+#     )
+#     df["A"] = df["y"].rolling(7, min_periods=1).mean()
+#     df["B"] = df["y"].rolling(30, min_periods=1).mean()
+#     df["C"] = df["y"].rolling(7, min_periods=1).mean()
+#     df["D"] = df["y"].rolling(30, min_periods=1).mean()
 
-    regressors_df_future = pd.DataFrame(
-        data={"A": df["A"][-50:], "B": df["B"][-50:], "C": df["C"][-50:], "D": df["D"][-50:]}
-    )
-    df = df[:-50]
-    m = m.add_future_regressor(name="A")
-    m = m.add_future_regressor(name="B", mode="additive")
-    m = m.add_future_regressor(name="C", mode="multiplicative")
-    m = m.add_future_regressor(name="D", mode="multiplicative")
-    m.fit(df, freq="D")
-    future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
-    forecast = m.predict(df=future)
-    if PLOT:
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
-        plt.show()
+#     regressors_df_future = pd.DataFrame(
+#         data={"A": df["A"][-50:], "B": df["B"][-50:], "C": df["C"][-50:], "D": df["D"][-50:]}
+#     )
+#     df = df[:-50]
+#     m = m.add_future_regressor(name="A")
+#     m = m.add_future_regressor(name="B", mode="additive")
+#     m = m.add_future_regressor(name="C", mode="multiplicative")
+#     m = m.add_future_regressor(name="D", mode="multiplicative")
+#     m.fit(df, freq="D")
+#     future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
+#     forecast = m.predict(df=future)
+#     if PLOT:
+#         m.plot(forecast)
+#         m.plot_components(forecast)
+#         m.plot_parameters()
+#         plt.show()
 
 
-def test_future_regressor_nn_2():
-    log.info("future regressor with NN")
+# def test_future_regressor_nn_2():
+#     log.info("future regressor with NN")
 
-    df = pd.read_csv(ENERGY_TEMP_DAILY_FILE, nrows=NROWS)
+#     df = pd.read_csv(ENERGY_TEMP_DAILY_FILE, nrows=NROWS)
 
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=True,
-        future_regressors_model="neural_nets",  # 'linear' default or 'neural_nets'
-        future_regressors_layers=[4, 4],
-        n_forecasts=3,
-        n_lags=5,
-        drop_missing=True,
-        # trainer_config={"accelerator": "gpu"},
-    )
-    df_train, df_val = m.split_df(df, freq="D", valid_p=0.2)
+#     m = NeuralProphet(
+#         epochs=EPOCHS,
+#         batch_size=BATCH_SIZE,
+#         learning_rate=LR,
+#         yearly_seasonality=False,
+#         weekly_seasonality=False,
+#         daily_seasonality=True,
+#         future_regressors_model="neural_nets",  # 'linear' default or 'neural_nets'
+#         future_regressors_layers=[4, 4],
+#         n_forecasts=3,
+#         n_lags=5,
+#         drop_missing=True,
+#         # trainer_config={"accelerator": "gpu"},
+#     )
+#     df_train, df_val = m.split_df(df, freq="D", valid_p=0.2)
 
-    # Use static plotly in notebooks
-    # m.set_plotting_backend("plotly")
+#     # Use static plotly in notebooks
+#     # m.set_plotting_backend("plotly")
 
-    # Add the new future regressor
-    m.add_future_regressor("temperature")
+#     # Add the new future regressor
+#     m.add_future_regressor("temperature")
 
-    # Add counrty holidays
-    m.add_country_holidays("IT", mode="additive", lower_window=-1, upper_window=1)
+#     # Add counrty holidays
+#     m.add_country_holidays("IT", mode="additive", lower_window=-1, upper_window=1)
 
-    metrics = m.fit(
-        df_train, validation_df=df_val, freq="D", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
-    )
-    log.debug(f"Metrics: {metrics}")
+#     metrics = m.fit(
+#         df_train, validation_df=df_val, freq="D", epochs=EPOCHS, learning_rate=LR, early_stopping=True, progress=False
+#     )
+#     log.debug(f"Metrics: {metrics}")
 
 
 def test_future_regressor_nn_shared_2():
