@@ -1,9 +1,7 @@
 import logging
-import math
 import os
 import time
 from collections import OrderedDict
-from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple, Type, Union
 
 import matplotlib
@@ -13,7 +11,6 @@ import pytorch_lightning as pl
 import torch
 from matplotlib import pyplot
 from matplotlib.axes import Axes
-from pytorch_lightning.tuner.tuning import Tuner
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_lightning, utils_metrics
@@ -2808,28 +2805,37 @@ class NeuralProphet:
             deterministic=deterministic,
         )
 
+        # Set up the model for training
+        if not self.fitted:
+            self.model = self._init_model()
+        # self.model.train_loader = loader
+        # self.model.finding_lr = False
+
         # Find suitable learning rate if not set
         if self.config_train.learning_rate is None:
             assert not self.fitted, "Learning rate must be provided for re-training a fitted model."
+            model_lr_finder = self.model
+            loader_lr_finder = loader
+            trainer_lr_finder = self.trainer
             # Init a separate Model, Loader and Trainer copy for LR finder (optional, done for safety)
-            model_lr_finder = self._init_model()
-            loader_lr_finder = DataLoader(
-                dataset,
-                batch_size=self.config_train.batch_size,
-                shuffle=True,
-                num_workers=num_workers,
-            )
-            trainer_lr_finder, _ = utils_lightning.configure_trainer(
-                config_train=self.config_train,
-                metrics_logger=self.metrics_logger,
-                early_stopping_target="Loss",
-                accelerator=self.accelerator,
-                progress_bar_enabled=progress_bar_enabled,
-                metrics_enabled=False,
-                checkpointing_enabled=False,
-                num_batches_per_epoch=len(loader),
-                deterministic=deterministic,
-            )
+            # model_lr_finder = self._init_model()
+            # loader_lr_finder = DataLoader(
+            #     dataset,
+            #     batch_size=self.config_train.batch_size,
+            #     shuffle=True,
+            #     num_workers=num_workers,
+            # )
+            # trainer_lr_finder, _ = utils_lightning.configure_trainer(
+            #     config_train=self.config_train,
+            #     metrics_logger=self.metrics_logger,
+            #     early_stopping_target="Loss",
+            #     accelerator=self.accelerator,
+            #     progress_bar_enabled=progress_bar_enabled,
+            #     metrics_enabled=False,
+            #     checkpointing_enabled=False,
+            #     num_batches_per_epoch=len(loader),
+            #     deterministic=deterministic,
+            # )
             # Setup and execute LR finder
             suggested_lr = utils_lightning.find_learning_rate(
                 model=model_lr_finder,
@@ -2841,12 +2847,6 @@ class NeuralProphet:
             self.config_train.learning_rate = suggested_lr
             # Clean up the LR finder copies of Model, Loader and Trainer
             # del model_lr_finder, loader_lr_finder, trainer_lr_finder
-
-        # Set up the model for training
-        if not self.fitted:
-            self.model = self._init_model()
-        # self.model.train_loader = loader
-        # self.model.finding_lr = False
 
         # Execute Training Loop
         start = time.time()
