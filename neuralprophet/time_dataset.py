@@ -155,30 +155,70 @@ class TimeDataset(Dataset):
         current_idx = 0
 
         # Call individual stacking functions
-        current_idx = pack_trend_component(self.df_tensors, feature_list, feature_indices, current_idx)
-        current_idx = pack_targets_component(self.df_tensors, feature_list, feature_indices, current_idx)
 
-        current_idx = pack_lags_component(self.df_tensors, feature_list, feature_indices, current_idx, self.n_lags)
-        current_idx = pack_lagged_regerssors_component(
-            self.df_tensors, feature_list, feature_indices, current_idx, self.config_lagged_regressors
-        )
-        current_idx = pack_additive_events_component(
-            self.df_tensors, feature_list, feature_indices, current_idx, self.additive_event_and_holiday_names
-        )
-        current_idx = pack_multiplicative_events_component(
-            self.df_tensors, feature_list, feature_indices, current_idx, self.multiplicative_event_and_holiday_names
-        )
-        current_idx = pack_additive_regressors_component(
-            self.df_tensors, feature_list, feature_indices, current_idx, self.additive_regressors_names
-        )
-        current_idx = pack_multiplicative_regressors_component(
-            self.df_tensors, feature_list, feature_indices, current_idx, self.multiplicative_regressors_names
-        )
+        # Pack Trend Component
+        trend_tensor = pack_trend_component(self.df_tensors, feature_indices, current_idx)
+        feature_list.append(trend_tensor)
+        current_idx += 1
 
-        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-            current_idx = pack_seasonalities_component(
-                self.df_tensors, feature_list, feature_indices, current_idx, self.config_seasonality
-            )
+        # Pack Targets Component
+        targets_tensor = pack_targets_component(self.df_tensors, feature_indices, current_idx)
+        if targets_tensor is not None:
+            feature_list.append(targets_tensor)
+            current_idx += 1
+
+        # Pack Lags Component
+        lags_tensor = pack_lags_component(self.df_tensors, feature_indices, current_idx, self.n_lags)
+        if lags_tensor is not None:
+            feature_list.append(lags_tensor)
+            current_idx += 1
+
+        # Pack Lagged Regressors Component
+        lagged_regressors_tensor = pack_lagged_regerssors_component(
+            self.df_tensors, feature_indices, current_idx, self.config_lagged_regressors
+        )
+        if lagged_regressors_tensor is not None:
+            feature_list.append(lagged_regressors_tensor)
+            current_idx += lagged_regressors_tensor.size(1)
+
+        # Pack Additive Events Component
+        additive_events_tensor = pack_additive_events_component(
+            self.df_tensors, feature_indices, current_idx, self.additive_event_and_holiday_names
+        )
+        if additive_events_tensor is not None:
+            feature_list.append(additive_events_tensor)
+            current_idx += additive_events_tensor.size(1)
+
+        # Pack Multiplicative Events Component
+        multiplicative_events_tensor = pack_multiplicative_events_component(
+            self.df_tensors, feature_indices, current_idx, self.multiplicative_event_and_holiday_names
+        )
+        if multiplicative_events_tensor is not None:
+            feature_list.append(multiplicative_events_tensor)
+            current_idx += multiplicative_events_tensor.size(1)
+
+        # Pack Additive Regressors
+        additive_regressors_tensor = pack_additive_regressors_component(
+            self.df_tensors, feature_indices, current_idx, self.additive_regressors_names
+        )
+        if additive_regressors_tensor is not None:
+            feature_list.append(additive_regressors_tensor)
+            current_idx += additive_regressors_tensor.size(1)
+
+        # Pack Multiplicative Regressors Component
+        multiplicative_regressors_tensor = pack_multiplicative_regressors_component(
+            self.df_tensors, feature_indices, current_idx, self.multiplicative_regressors_names
+        )
+        if multiplicative_regressors_tensor is not None:
+            feature_list.append(multiplicative_regressors_tensor)
+            current_idx += multiplicative_regressors_tensor.size(1)
+
+        # Pack Seasonalities Component
+        seasonalities_tensor = pack_seasonalities_component(
+            self.df_tensors, feature_indices, current_idx, self.config_seasonality
+        )
+        if seasonalities_tensor is not None:
+            feature_list.append(seasonalities_tensor)
 
         # Concatenate all features into one big tensor
         self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
