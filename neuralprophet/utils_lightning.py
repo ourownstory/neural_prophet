@@ -6,10 +6,9 @@ from typing import Optional
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.callbacks import ProgressBar
-from torch.utils.data import DataLoader
 
 from neuralprophet.configure import Train
+from neuralprophet.logger import ProgressBar
 
 log = logging.getLogger("NP.utils_lightning")
 
@@ -218,7 +217,7 @@ def configure_trainer(
     has_progressbar_callback = (
         True
         if has_custom_callbacks
-        and any(isinstance(callback, ProgressBar) for callback in pl_trainer_config["callbacks"])
+        and any(isinstance(callback, pl.callback.ProgressBar) for callback in pl_trainer_config["callbacks"])
         else False
     )
     if has_progressbar_callback and not progress_bar_enabled:
