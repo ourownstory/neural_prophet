@@ -1246,7 +1246,7 @@ class NeuralProphet:
             self.config_train.learning_rate = suggested_lr
 
             # Optional: Reset Model after finding learning rate
-            self.model = self._init_model()
+            # self.model = self._init_model() # triggers CUDA error
 
         # Execute Training Loop
         start = time.time()
