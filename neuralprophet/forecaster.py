@@ -2783,6 +2783,7 @@ class NeuralProphet:
             shuffle=True,
             num_workers=num_workers,
         )
+        self.config_train.set_batches_per_epoch(len(loader))
         log.info(f"Train Dataset size: {len(dataset)}")
         log.info(f"Number of batches per training epoch: {len(loader)}")
 
@@ -2810,16 +2811,14 @@ class NeuralProphet:
         # Find suitable learning rate if not set
         if self.config_train.learning_rate is None:
             assert not self.fitted, "Learning rate must be provided for re-training a fitted model."
-            # Init a separate Model for LR finder (optional, done for safety)
+            # Init a separate Model, Loader and Trainer copy for LR finder (optional, done for safety)
             model_lr_finder = self._init_model()
-            # Init a separate DataLoader for LR finder (optional, done for safety)
             loader_lr_finder = DataLoader(
                 dataset,
                 batch_size=self.config_train.batch_size,
                 shuffle=True,
                 num_workers=num_workers,
             )
-            # Init a separate Trainer for LR finder (optional, done for safety)
             trainer_lr_finder, _ = utils_lightning.configure_trainer(
                 config_train=self.config_train,
                 metrics_logger=self.metrics_logger,
@@ -2832,12 +2831,16 @@ class NeuralProphet:
                 deterministic=deterministic,
             )
             # Setup and execute LR finder
-            self.config_train.learning_rate = utils_lightning.find_learning_rate(
+            suggested_lr = utils_lightning.find_learning_rate(
                 model=model_lr_finder,
                 loader=loader_lr_finder,
                 trainer=trainer_lr_finder,
                 train_epochs=self.config_train.epochs,
             )
+            # Save the suggested learning rate
+            self.config_train.learning_rate = suggested_lr
+            # Clean up the LR finder copies of Model, Loader and Trainer
+            del model_lr_finder, loader_lr_finder, trainer_lr_finder
 
         # Set up the model for training
         if not self.fitted:

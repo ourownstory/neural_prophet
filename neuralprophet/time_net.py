@@ -869,7 +869,7 @@ class TimeNet(pl.LightningModule):
         return prediction, components
 
     def configure_optimizers(self):
-        self.train_steps_per_epoch = len(self.train_loader)
+        self.train_steps_per_epoch = self.config_train.batches_per_epoch
         # self.trainer.num_training_batches = self.train_steps_per_epoch * self.config_train.epochs
 
         self.config_train.set_optimizer()
@@ -1010,8 +1010,8 @@ class TimeNet(pl.LightningModule):
             ts = scale_y * ts + shift_y
         return ts
 
-    def train_dataloader(self):
-        return self.train_loader
+    # def train_dataloader(self):
+    #     return self.train_loader
 
 
 class FlatNet(nn.Module):

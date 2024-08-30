@@ -278,6 +278,9 @@ class Train:
             delay_weight = 1
         return delay_weight
 
+    def set_batches_per_epoch(self, batches_per_epoch: int):
+        self.batches_per_epoch = batches_per_epoch
+
 
 @dataclass
 class Trend:
