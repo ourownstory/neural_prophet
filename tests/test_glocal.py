@@ -20,7 +20,7 @@ AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 256
 EPOCHS = 1
-BATCH_SIZE = 128
+BATCH_SIZE = 32
 LR = 1.0
 
 PLOT = False
@@ -60,7 +60,7 @@ def test_regularized_trend_global_local_modeling():
     df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
-    m = NeuralProphet(n_lags=10, epochs=EPOCHS, trend_global_local="local", trend_reg=1)
+    m = NeuralProphet(n_lags=10, epochs=EPOCHS, learning_rate=LR, trend_global_local="local", trend_reg=1)
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
@@ -286,7 +286,9 @@ def test_adding_new_local_seasonality():
     df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
-    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, season_global_local="global", trend_global_local="local")
+    m = NeuralProphet(
+        epochs=EPOCHS, learning_rate=LR, batch_size=BATCH_SIZE, season_global_local="global", trend_global_local="local"
+    )
     m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="local")
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)

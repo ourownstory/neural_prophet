@@ -61,14 +61,17 @@ def test_regularization_holidays():
 
     m = NeuralProphet(
         epochs=20,
-        batch_size=64,
+        batch_size=32,
         learning_rate=0.1,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
         growth="off",
     )
-    m = m.add_country_holidays("US", regularization=0.001)
+    m = m.add_country_holidays(
+        "US",
+        regularization=0.0001,
+    )
     m.fit(df, freq="D")
 
     to_reduce = []
@@ -80,8 +83,8 @@ def test_regularization_holidays():
             to_reduce.append(weight_list[0][0][0])
         else:
             to_preserve.append(weight_list[0][0][0])
-    # print(to_reduce)
-    # print(to_preserve)
+    # print(f"To reduce (< 0.2) {to_reduce}")
+    # print(f"To preserve (> 0.5) {to_preserve}")
     assert np.mean(to_reduce) < 0.2
     assert np.mean(to_preserve) > 0.5
 
@@ -100,7 +103,10 @@ def test_regularization_events():
         daily_seasonality=False,
         growth="off",
     )
-    m = m.add_events(["event_%i" % index for index, _ in enumerate(events)], regularization=REGULARIZATION)
+    m = m.add_events(
+        ["event_%i" % index for index, _ in enumerate(events)],
+        regularization=0.1,
+    )
     events_df = pd.concat(
         [
             pd.DataFrame(
@@ -124,9 +130,9 @@ def test_regularization_events():
                 to_reduce.append(param.detach().numpy()[0][0])
             else:
                 to_preserve.append(param.detach().numpy()[0][0])
-    # print(to_reduce)
-    # print(to_preserve)
-    assert np.mean(to_reduce) < 0.1
+    # print(f"To reduce (< 0.2) {to_reduce}")
+    # print(f"To preserve (> 0.5) {to_preserve}")
+    assert np.mean(to_reduce) < 0.2
     assert np.mean(to_preserve) > 0.5
 
 

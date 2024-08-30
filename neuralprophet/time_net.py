@@ -43,6 +43,7 @@ class TimeNet(pl.LightningModule):
 
     def __init__(
         self,
+        config_model: configure.Model,
         config_seasonality: configure.ConfigSeasonality,
         config_train: Optional[configure.Train] = None,
         config_trend: Optional[configure.Trend] = None,
@@ -52,7 +53,6 @@ class TimeNet(pl.LightningModule):
         config_regressors: Optional[configure.ConfigFutureRegressors] = None,
         config_events: Optional[configure.ConfigEvents] = None,
         config_holidays: Optional[configure.ConfigCountryHolidays] = None,
-        config_model: Optional[configure.ConfigModel] = None,
         n_forecasts: int = 1,
         n_lags: int = 0,
         max_lags: int = 0,
@@ -151,6 +151,7 @@ class TimeNet(pl.LightningModule):
             pass
 
         # General
+        self.config_model = config_model
         self.n_forecasts = n_forecasts
 
         # Lightning Config
@@ -159,14 +160,13 @@ class TimeNet(pl.LightningModule):
         self.compute_components_flag = compute_components_flag
         self.config_model = config_model
 
-        # Optimizer and LR Scheduler
-        self._optimizer = self.config_train.optimizer
-        self._scheduler = self.config_train.scheduler
+        # Manual optimization: we are responsible for calling .backward(), .step(), .zero_grad().
         self.automatic_optimization = False
 
         # Hyperparameters (can be tuned using trainer.tune())
-        self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
+        self.learning_rate = self.config_train.learning_rate
         self.batch_size = self.config_train.batch_size
+        self.finding_lr = False  # flag to indicate if we are in lr finder mode
 
         # Metrics Config
         self.metrics_enabled = bool(metrics)  # yields True if metrics is not an empty dictionary
@@ -203,7 +203,7 @@ class TimeNet(pl.LightningModule):
         )
 
         # Quantiles
-        self.quantiles = self.config_train.quantiles
+        self.quantiles = self.config_model.quantiles
 
         # Trend
         self.config_trend = config_trend
@@ -758,20 +758,23 @@ class TimeNet(pl.LightningModule):
         loss = None
         # Compute loss. no reduction.
         loss = self.config_train.loss_func(predicted, targets)
-        # Weigh newer samples more.
-        loss = loss * self._get_time_based_sample_weight(t=time[:, self.n_lags :])
+        if self.config_train.newer_samples_weight > 1.0:
+            # Weigh newer samples more.
+            loss = loss * self._get_time_based_sample_weight(t=time[:, self.n_lags :])
         loss = loss.sum(dim=2).mean()
         # Regularize.
-        if self.reg_enabled:
-            steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
-            progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
-            loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
+        if self.reg_enabled and not self.finding_lr:
+            loss, reg_loss = self._add_batch_regularizations(loss, self.train_progress)
         else:
             reg_loss = torch.tensor(0.0, device=self.device)
         return loss, reg_loss
 
     def training_step(self, batch, batch_idx):
         inputs_tensor, meta = batch
+
+        epoch_float = self.trainer.current_epoch + batch_idx / float(self.train_steps_per_epoch)
+        self.train_progress = epoch_float / float(self.config_train.epochs)
+
         self.features_extractor.update_data_inputs(inputs_tensor, self.config_model.features_map)
         targets = self.features_extractor.extract_component("targets")
         time = self.features_extractor.extract_component("time")
@@ -794,20 +797,26 @@ class TimeNet(pl.LightningModule):
         optimizer.step()
 
         scheduler = self.lr_schedulers()
-        scheduler.step()
+        if self.finding_lr:
+            scheduler.step()
+        else:
+            scheduler.step(epoch=epoch_float)
 
-        # Manually track the loss for the lr finder
-        self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log("reg_loss", reg_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        if self.finding_lr:
+            # Manually track the loss for the lr finder
+            self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            # self.log("reg_loss", reg_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Metrics
-        if self.metrics_enabled:
+        if self.metrics_enabled and not self.finding_lr:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
             target_denorm = target_denorm.contiguous()
             self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss", loss, **self.log_args)
             self.log("RegLoss", reg_loss, **self.log_args)
+            # self.log("TrainProgress", self.train_progress, **self.log_args)
+            self.log("LR", scheduler.get_last_lr()[0], **self.log_args)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -874,48 +883,65 @@ class TimeNet(pl.LightningModule):
         return prediction, components
 
     def configure_optimizers(self):
+        self.train_steps_per_epoch = self.config_train.batches_per_epoch
+        # self.trainer.num_training_batches = self.train_steps_per_epoch * self.config_train.epochs
+
+        self.config_train.set_optimizer()
+        self.config_train.set_scheduler()
+
         # Optimizer
-        optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
+        if self.finding_lr and self.learning_rate is None:
+            self.learning_rate = 0.1
+        optimizer = self.config_train.optimizer(
+            self.parameters(),
+            lr=self.learning_rate,
+            **self.config_train.optimizer_args,
+        )
 
         # Scheduler
-        lr_scheduler = self._scheduler(
-            optimizer,
-            max_lr=self.learning_rate,
-            total_steps=self.trainer.estimated_stepping_batches,
-            **self.config_train.scheduler_args,
-        )
+        if self.config_train.scheduler == torch.optim.lr_scheduler.OneCycleLR:
+            lr_scheduler = self.config_train.scheduler(
+                optimizer,
+                max_lr=self.learning_rate,
+                # total_steps=self.trainer.estimated_stepping_batches, # if using self.lr_schedulers().step()
+                total_steps=self.config_train.epochs,  # if using self.lr_schedulers().step(epoch=epoch_float)
+                **self.config_train.scheduler_args,
+            )
+        else:
+            lr_scheduler = self.config_train.scheduler(
+                optimizer,
+                **self.config_train.scheduler_args,
+            )
 
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
     def _get_time_based_sample_weight(self, t):
-        weight = torch.ones_like(t)
-        if self.config_train.newer_samples_weight > 1.0:
-            end_w = self.config_train.newer_samples_weight
-            start_t = self.config_train.newer_samples_start
-            time = (t.detach() - start_t) / (1.0 - start_t)
-            time = torch.clamp(time, 0.0, 1.0)  # time = 0 to 1
-            time = np.pi * (time - 1.0)  # time =  -pi to 0
-            time = 0.5 * torch.cos(time) + 0.5  # time =  0 to 1
-            # scales end to be end weight times bigger than start weight
-            # with end weight being 1.0
-            weight = (1.0 + time * (end_w - 1.0)) / end_w
-        return weight.unsqueeze(dim=2)  # add an extra dimension for the quantiles
+        end_w = self.config_train.newer_samples_weight
+        start_t = self.config_train.newer_samples_start
+        time = (t.detach() - start_t) / (1.0 - start_t)
+        time = torch.clamp(time, 0.0, 1.0)  # time = 0 to 1
+        time = np.pi * (time - 1.0)  # time =  -pi to 0
+        time = 0.5 * torch.cos(time) + 0.5  # time =  0 to 1
+        # scales end to be end weight times bigger than start weight
+        # with end weight being 1.0
+        weight = (1.0 + time * (end_w - 1.0)) / end_w
+        # add an extra dimension for the quantiles
+        weight = weight.unsqueeze(dim=2)
+        return weight
 
-    def _add_batch_regularizations(self, loss, epoch, progress):
+    def _add_batch_regularizations(self, loss, progress):
         """Add regularization terms to loss, if applicable
         Parameters
         ----------
             loss : torch.Tensor, scalar
                 current batch loss
-            epoch : int
-                current epoch number
             progress : float
-                progress within the epoch, between 0 and 1
+                progress within training, across all epochs and batches, between 0 and 1
         Returns
         -------
             loss, reg_loss
         """
-        delay_weight = self.config_train.get_reg_delay_weight(epoch, progress)
+        delay_weight = self.config_train.get_reg_delay_weight(progress)
 
         reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False, device=self.device)
         if delay_weight > 0:
@@ -998,8 +1024,8 @@ class TimeNet(pl.LightningModule):
             ts = scale_y * ts + shift_y
         return ts
 
-    def train_dataloader(self):
-        return self.train_loader
+    # def train_dataloader(self):
+    #     return self.train_loader
 
 
 class FlatNet(nn.Module):
