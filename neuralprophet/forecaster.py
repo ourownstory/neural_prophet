@@ -2054,6 +2054,8 @@ class NeuralProphet:
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         df = _normalize(df=df, config_normalization=self.config_normalization)
         df_seasonal = pd.DataFrame()
+        prev_max_lags = self.config_model.max_lags
+        self.config_model.max_lags = 0
         for df_name, df_i in df.groupby("ID"):
             dataset = time_dataset.TimeDataset(
                 df=df_i,
@@ -2061,12 +2063,12 @@ class NeuralProphet:
                 n_lags=0,
                 n_forecasts=1,
                 prediction_frequency=self.prediction_frequency,
-                predict_steps=self.predict_steps,
+                predict_steps=1,
                 config_seasonality=self.config_seasonality,
-                config_events=self.config_events,
-                config_country_holidays=self.config_country_holidays,
-                config_regressors=self.config_regressors,
-                config_lagged_regressors=self.config_lagged_regressors,
+                config_events=None,
+                config_country_holidays=None,
+                config_regressors=None,
+                config_lagged_regressors=None,
                 config_missing=self.config_missing,
                 config_model=self.config_model,
                 # config_train=self.config_train, # no longer needed since JIT tabularization.
@@ -2083,7 +2085,7 @@ class NeuralProphet:
                     max_lags=0,
                     feature_indices=self.config_model.features_map,
                     config_seasonality=self.config_seasonality,
-                    lagged_regressor_config=self.config_lagged_regressors,
+                    lagged_regressor_config=None,
                 )
                 # Meta as a tensor for prediction
                 if self.model.config_seasonality is None:
@@ -2115,6 +2117,7 @@ class NeuralProphet:
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
+        self.config_model.max_lags = prev_max_lags
         return df
 
     def set_true_ar_for_eval(self, true_ar_weights: np.ndarray):

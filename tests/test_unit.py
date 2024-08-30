@@ -75,7 +75,7 @@ def test_timedataset_minimal():
     valid_p = 0.2
     for n_forecasts, n_lags in [(1, 0), (1, 5), (3, 5)]:
         config_model = configure.Model()
-        config_model.set_max_lags(n_lags)
+        config_model.set_max_num_lags(n_lags)
         config_missing = configure.MissingDataHandling()
         # config_train = configure.Train()
         df, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
@@ -843,7 +843,7 @@ def test_too_many_NaN():
     n_lags = 12
     n_forecasts = 1
     config_model = configure.Model()
-    config_model.set_max_lags(n_lags)
+    config_model.set_max_num_lags(n_lags)
     config_missing = configure.MissingDataHandling(
         impute_missing=True,
         impute_linear=5,
