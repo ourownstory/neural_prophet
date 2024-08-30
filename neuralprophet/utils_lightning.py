@@ -66,7 +66,7 @@ def smooth_loss_and_suggest(lr_finder, window=10):
         )
         raise
     # get the tuner's default suggestion
-    suggestion_default = lr_finder.suggestion(skip_begin=20, skip_end=10)
+    suggestion_default = lr_finder.suggestion(skip_begin=10, skip_end=3)
 
     log.info(f"Learning rate finder ---- default suggestion: {suggestion_default}")
     log.info(f"Learning rate finder ---- steepest: {suggestion_steepest}")
@@ -271,8 +271,8 @@ def find_learning_rate(model, loader, trainer, train_epochs):
     # Configure the learning rate finder args
     batches_per_epoch = len(loader)
     main_training_total_steps = train_epochs * batches_per_epoch
-    # main_training_total_steps is around 1e3 to 1e6 -> num_training 100 to 400
-    num_training = 100 + int(np.log10(1 + main_training_total_steps / 1000) * 100)
+    # main_training_total_steps is around 1e3 to 1e6 -> num_training 100 to 200
+    num_training = 100 + int(np.log10(1 + main_training_total_steps / 1000) * 30)
     if batches_per_epoch < num_training:
         log.warning(
             f"Learning rate finder: The number of batches per epoch ({batches_per_epoch}) is too small than the required number \
@@ -280,8 +280,8 @@ def find_learning_rate(model, loader, trainer, train_epochs):
         )
         # num_training = num_batches
     lr_finder_args = {
-        "min_lr": 1e-7,
-        "max_lr": 1e1,
+        "min_lr": 1e-6,
+        "max_lr": 10.0,
         "num_training": num_training,
         "early_stop_threshold": None,
         "mode": "exponential",

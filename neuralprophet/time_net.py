@@ -56,7 +56,6 @@ class TimeNet(pl.LightningModule):
         n_lags: int = 0,
         max_lags: int = 0,
         ar_layers: Optional[List[int]] = [],
-        lagged_reg_layers: Optional[List[int]] = [],
         compute_components_flag: bool = False,
         metrics: Optional[np_types.CollectMetricsMode] = {},
         id_list: List[str] = ["__df__"],
@@ -98,14 +97,6 @@ class TimeNet(pl.LightningModule):
                 Note
                 ----
                 The default value is ``[]``, which initializes no hidden layers.
-
-            lagged_reg_layers : list
-                List of hidden layers (for covariate-Net).
-
-                Note
-                ----
-                The default value is ``[]``, which initializes no hidden layers.
-
 
             compute_components_flag : bool
                 Flag whether to compute the components of the model or not.
@@ -284,12 +275,11 @@ class TimeNet(pl.LightningModule):
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
         # Lagged regressors
-        self.lagged_reg_layers = lagged_reg_layers
         self.config_lagged_regressors = config_lagged_regressors
-        if self.config_lagged_regressors is not None:
+        if self.config_lagged_regressors is not None and self.config_lagged_regressors.regressors is not None:
             covar_net_layers = []
-            d_inputs = sum([covar.n_lags for _, covar in self.config_lagged_regressors.items()])
-            for d_hidden_i in self.lagged_reg_layers:
+            d_inputs = sum([covar.n_lags for _, covar in self.config_lagged_regressors.regressors.items()])
+            for d_hidden_i in self.config_lagged_regressors.layers:
                 covar_net_layers.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
                 covar_net_layers.append(nn.ReLU())
                 d_inputs = d_hidden_i
@@ -336,16 +326,16 @@ class TimeNet(pl.LightningModule):
         """
         Get attributions of covariates network w.r.t. the model input.
         """
-        if self.config_lagged_regressors is not None:
+        if self.config_lagged_regressors is not None and self.config_lagged_regressors.regressors is not None:
             # Accumulate the lags of the covariates
             covar_splits = np.add.accumulate(
-                [covar.n_lags for _, covar in self.config_lagged_regressors.items()][:-1]
+                [covar.n_lags for _, covar in self.config_lagged_regressors.regressors.items()][:-1]
             ).tolist()
             # If actual covariates are provided, use them to compute the attributions
             if covar_input is not None:
                 covar_input = torch.cat([covar for _, covar in covar_input.items()], axis=1)
             # Calculate the attributions w.r.t. the inputs
-            if self.lagged_reg_layers == []:
+            if self.config_lagged_regressors.layers == []:
                 attributions = self.covar_net[0].weight
             else:
                 attributions = interprete_model(self, "covar_net", "forward_covar_net", covar_input)
@@ -356,7 +346,7 @@ class TimeNet(pl.LightningModule):
                 axis=1,
             )
             # Combine attributions and covariate name
-            covar_attributions = dict(zip(self.config_lagged_regressors.keys(), attributions_split))
+            covar_attributions = dict(zip(self.config_lagged_regressors.regressors.keys(), attributions_split))
         else:
             covar_attributions = None
         return covar_attributions
@@ -684,6 +674,7 @@ class TimeNet(pl.LightningModule):
             components["ar"] = components_raw["lags"]
         if self.config_lagged_regressors is not None and covariates_input is not None:
             print("lagged_regressors")
+
             # Combined forward pass
             all_covariates = components_raw["covariates"]
             # Calculate the contribution of each covariate on each forecast
@@ -1053,11 +1044,11 @@ class DeepNet(nn.Module):
     A simple, general purpose, fully connected network
     """
 
-    def __init__(self, d_inputs, d_outputs, lagged_reg_layers=[]):
+    def __init__(self, d_inputs, d_outputs, layers=[]):
         # Perform initialization of the pytorch superclass
         super(DeepNet, self).__init__()
         layers = []
-        for d_hidden_i in lagged_reg_layers:
+        for d_hidden_i in layers:
             layers.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
             layers.append(nn.ReLU())
             d_inputs = d_hidden_i

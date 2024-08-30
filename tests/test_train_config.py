@@ -52,6 +52,7 @@ def test_custom_lr_scheduler():
     )
     metrics = m.fit(df, freq="D")
     print(f"metrics = {metrics}")
+
     # Set in NeuralProphet(), no args
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -61,9 +62,10 @@ def test_custom_lr_scheduler():
     )
     metrics = m.fit(df, freq="D")
     print(f"metrics = {metrics}")
+
     # Set in fit()
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
-    metrics = m.fit(
+    _ = m.fit(
         df,
         freq="D",
         scheduler="ExponentialLR",
@@ -72,7 +74,7 @@ def test_custom_lr_scheduler():
     print(f"metrics = {metrics}")
     # Set in fit(), no args
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
-    metrics = m.fit(
+    _ = m.fit(
         df,
         freq="D",
         scheduler="OneCycleLR",

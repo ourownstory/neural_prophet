@@ -542,9 +542,11 @@ class TimeDataset(Dataset):
             valid_origins &= y_lags_valid
 
         # LAGGED REGRESSORS
-        if config_lagged_regressors is not None:  # and max_lags > 0:
+        if (
+            config_lagged_regressors is not None and config_lagged_regressors.regressors is not None
+        ):  # and max_lags > 0:
             reg_lags_valid = torch.ones(tensor_length, dtype=torch.bool)
-            for name, lagged_regressor in config_lagged_regressors.items():
+            for name, lagged_regressor in config_lagged_regressors.regressors.items():
                 n_reg_lags = lagged_regressor.n_lags
                 if n_reg_lags > 0:
                     # boolean vector, starting at origin_index = n_lags -1
@@ -596,7 +598,6 @@ class TimeDataset(Dataset):
                 else:
                     multiplicative_regressors_names.append(reg)
         return additive_regressors_names, multiplicative_regressors_names
-
 
 class GlobalTimeDataset(TimeDataset):
     def __init__(
