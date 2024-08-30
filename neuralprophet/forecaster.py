@@ -505,7 +505,6 @@ class NeuralProphet:
         # Model
         self.config_model = configure.Model(
             features_map={},
-            lagged_reg_layers=lagged_reg_layers,
             quantiles=quantiles,
         )
         self.config_model.setup_quantiles()
