@@ -101,7 +101,7 @@ def _reshape_raw_predictions_to_forecst_df(
     lagged_components = [
         "ar",
     ]
-    if config_lagged_regressors.regressors is not None:
+    if config_lagged_regressors is not None and config_lagged_regressors.regressors is not None:
         for name in config_lagged_regressors.regressors.keys():
             lagged_components.append(f"lagged_regressor_{name}")
     for comp in lagged_components:
@@ -362,7 +362,7 @@ def _validate_column_name(
     if seasons and config_seasonality is not None:
         if name in config_seasonality.periods:
             raise ValueError(f"Name {name!r} already used for a seasonality.")
-    if covariates and config_lagged_regressors.regressors is not None:
+    if covariates and config_lagged_regressors is not None and config_lagged_regressors.regressors is not None:
         if name in config_lagged_regressors.regressors.keys():
             raise ValueError(f"Name {name!r} already used for an added covariate.")
     if regressors and config_regressors.regressors is not None:
@@ -423,7 +423,7 @@ def _check_dataframe(
             model.config_regressors.regressors.pop(reg)
         if model.config_regressors.regressors is not None and len(model.config_regressors.regressors) == 0:
             model.config_regressors.regressors = None
-    if model.config_lagged_regressors.regressors is not None:
+    if model.config_lagged_regressors is not None and model.config_lagged_regressors.regressors is not None:
         for reg in lag_regressors_to_remove:
             log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
             model.config_lagged_regressors.regressors.pop(reg)
@@ -528,7 +528,7 @@ def _handle_missing_data(
         data_columns = []
         if n_lags > 0:
             data_columns.append("y")
-        if config_lagged_regressors.regressors is not None:
+        if config_lagged_regressors is not None and config_lagged_regressors.regressors is not None:
             data_columns.extend(config_lagged_regressors.regressors.keys())
         if config_regressors is not None and config_regressors.regressors is not None:
             data_columns.extend(config_regressors.regressors.keys())

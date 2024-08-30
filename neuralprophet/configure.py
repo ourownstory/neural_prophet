@@ -511,8 +511,8 @@ class ConfigLaggedRegressors:
     # List of hidden layers for shared NN across LaggedReg. The default value is ``[]``, which initializes no hidden layers.
     regressors: OrderedDict[LaggedRegressor] = field(init=False)
 
-    # def __post_init__(self):
-    #     self.regressors = None
+    def __post_init__(self):
+        self.regressors = None
 
 
 @dataclass

@@ -103,7 +103,7 @@ def get_max_num_lags(n_lags: int, config_lagged_regressors: Optional[ConfigLagge
         int
             Maximum number of lags between the autoregression lags and the covariates lags.
     """
-    if config_lagged_regressors.regressors is not None:
+    if config_lagged_regressors is not None and config_lagged_regressors.regressors is not None:
         # log.debug("config_lagged_regressors exists")
         return max([n_lags] + [val.n_lags for key, val in config_lagged_regressors.regressors.items()])
     else:

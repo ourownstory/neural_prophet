@@ -318,7 +318,7 @@ class TimeNet(pl.LightningModule):
         if self.config_lagged_regressors is not None and self.config_lagged_regressors.regressors is not None:
             # Accumulate the lags of the covariates
             covar_splits = np.add.accumulate(
-                [covar.n_lags for _, covar in self.config_lagged_regressors.items()][:-1]
+                [covar.n_lags for _, covar in self.config_lagged_regressors.regressors.items()][:-1]
             ).tolist()
             # If actual covariates are provided, use them to compute the attributions
             if covar_input is not None:

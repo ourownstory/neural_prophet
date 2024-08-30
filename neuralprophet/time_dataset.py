@@ -389,7 +389,9 @@ class TimeDataset(Dataset):
             inputs["lags"] = lags
 
         # COVARIATES / LAGGED REGRESSORS: Lagged regressor inputs: analogous to LAGS
-        if config_lagged_regressors.regressors is not None:  # and max_lags > 0:
+        if (
+            config_lagged_regressors is not None and config_lagged_regressors.regressors is not None
+        ):  # and max_lags > 0:
             inputs["covariates"] = self.get_sample_lagged_regressors(
                 df_tensors=df_tensors, origin_index=origin_index, config_lagged_regressors=config_lagged_regressors
             )
@@ -651,7 +653,9 @@ class TimeDataset(Dataset):
             valid_origins &= y_lags_valid
 
         # LAGGED REGRESSORS
-        if config_lagged_regressors.regressors is not None:  # and max_lags > 0:
+        if (
+            config_lagged_regressors is not None and config_lagged_regressors.regressors is not None
+        ):  # and max_lags > 0:
             reg_lags_valid = torch.ones(tensor_length, dtype=torch.bool)
             for name, lagged_regressor in config_lagged_regressors.regressors.items():
                 n_reg_lags = lagged_regressor.n_lags

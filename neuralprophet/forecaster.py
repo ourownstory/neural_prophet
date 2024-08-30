@@ -640,6 +640,8 @@ class NeuralProphet:
                 config_lagged_regressors=self.config_lagged_regressors,
                 config_regressors=self.config_regressors,
             )
+            if self.config_lagged_regressors.regressors is None:
+                self.config_lagged_regressors.regressors = OrderedDict()
             self.config_lagged_regressors.regressors[name] = configure.LaggedRegressor(
                 reg_lambda=regularization,
                 normalize=normalize,
