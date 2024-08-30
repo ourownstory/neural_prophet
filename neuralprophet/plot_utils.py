@@ -190,9 +190,10 @@ def check_if_configured(m, components, error_flag=False):  # move to utils
     if "autoregression" in components and not m.config_ar.n_lags > 0:
         components.remove("autoregression")
         invalid_components.append("autoregression")
-    if "lagged_regressors" in components and m.config_lagged_regressors is None:
-        components.remove("lagged_regressors")
-        invalid_components.append("lagged_regressors")
+    if "lagged_regressors" in components:
+        if m.config_lagged_regressors is None or m.config_lagged_regressors.regressors is None:
+            components.remove("lagged_regressors")
+            invalid_components.append("lagged_regressors")
     if "events" in components and (m.config_events is None and m.config_country_holidays is None):
         components.remove("events")
         invalid_components.append("events")
@@ -209,7 +210,7 @@ def check_if_configured(m, components, error_flag=False):  # move to utils
     return components
 
 
-def get_valid_configuration(  # move to utils
+def get_valid_configuration(
     m, components=None, df_name=None, valid_set=None, validator=None, forecast_in_focus=None, quantile=0.5
 ):
     """Validate and adapt the selected components to be plotted.
@@ -382,7 +383,7 @@ def get_valid_configuration(  # move to utils
     if "lagged_regressors" in components:
         if validator == "plot_components":
             if forecast_in_focus is None:
-                for name in m.config_lagged_regressors.keys():
+                for name in m.config_lagged_regressors.regressors.keys():
                     plot_components.append(
                         {
                             "plot_name": f'Lagged Regressor "{name}"',
@@ -392,7 +393,7 @@ def get_valid_configuration(  # move to utils
                         }
                     )
             else:
-                for name in m.config_lagged_regressors.keys():
+                for name in m.config_lagged_regressors.regressors.keys():
                     plot_components.append(
                         {
                             "plot_name": f'Lagged Regressor "{name}" ({forecast_in_focus})-ahead',
@@ -400,8 +401,8 @@ def get_valid_configuration(  # move to utils
                         }
                     )
         elif validator == "plot_parameters":
-            for name in m.config_lagged_regressors.keys():
-                if m.config_lagged_regressors[name].as_scalar:
+            for name in m.config_lagged_regressors.regressors.keys():
+                if m.config_lagged_regressors.regressors[name].as_scalar:
                     lagged_scalar_regressors.append((name, m.model.get_covar_weights()[name].detach().numpy()))
                 else:
                     plot_components.append(

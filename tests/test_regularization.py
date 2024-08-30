@@ -169,7 +169,7 @@ def test_regularization_lagged_regressor():
     lagged_regressors_config = dict(lagged_regressors)
 
     weights = m.model.get_covar_weights()
-    for name in m.config_lagged_regressors.keys():
+    for name in m.config_lagged_regressors.regressors.keys():
         weight_average = np.average(weights[name].detach().numpy())
 
         lagged_regressor_weight = lagged_regressors_config[name]

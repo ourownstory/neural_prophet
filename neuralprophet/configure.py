@@ -538,7 +538,6 @@ class LaggedRegressor:
     as_scalar: bool
     normalize: Union[bool, str]
     n_lags: int
-    lagged_reg_layers: Optional[List[int]]
 
     def __post_init__(self):
         if self.reg_lambda is not None:
@@ -546,7 +545,14 @@ class LaggedRegressor:
                 raise ValueError("regularization must be >= 0")
 
 
-ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
+@dataclass
+class ConfigLaggedRegressors:
+    layers: Optional[List[int]] = field(default_factory=list)
+    # List of hidden layers for shared NN across LaggedReg. The default value is ``[]``, which initializes no hidden layers.
+    regressors: OrderedDict[LaggedRegressor] = field(init=False)
+
+    def __post_init__(self):
+        self.regressors = None
 
 
 @dataclass
@@ -560,8 +566,7 @@ class Regressor:
 class ConfigFutureRegressors:
     model: str
     regressors_layers: Optional[List[int]]
-
-    regressors: OrderedDict = field(init=False)  # contains RegressorConfig objects
+    regressors: OrderedDict = field(init=False)  # contains Regressor objects
 
     def __post_init__(self):
         self.regressors = None
