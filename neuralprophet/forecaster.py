@@ -1008,42 +1008,23 @@ class NeuralProphet:
         if self.fitted:
             raise RuntimeError("Model has been fitted already.")
 
-        # Train Configuration: overwrite self.config_train with user provided values
-        if learning_rate is not None:
-            self.config_train.learning_rate = learning_rate
-        if scheduler is not None:
-            self.config_train.scheduler = scheduler
-        if scheduler_args is not None:
-            self.config_train.scheduler_args = scheduler_args
-        if epochs is not None:
-            self.config_train.epochs = epochs
-        if batch_size is not None:
-            self.config_train.batch_size = batch_size
-        if trainer_config is not None:
-            self.config_train.pl_trainer_config = trainer_config
-        if early_stopping is not None:
-            self.config_train.early_stopping = early_stopping
-        self.config_train.set_loss_func(quantiles=self.config_model.quantiles)
+        # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
+        df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
+        df = _check_dataframe(self, df, check_y=True, exogenous=True)
 
-        # Warnings
-        if self.config_train.early_stopping:
-            reg_enabled = utils.check_for_regularization(
-                [
-                    self.config_seasonality,
-                    self.config_regressors.regressors,
-                    self.config_ar,
-                    self.config_events,
-                    self.config_country_holidays,
-                    self.config_trend,
-                    self.config_lagged_regressors.regressors,
-                ]
+        # Infer from config if lags are activated
+        self.max_lags = df_utils.get_max_num_lags(
+            n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors
+        )
+        if self.max_lags == 0 and self.n_forecasts > 1:
+            self.n_forecasts = 1
+            self.predict_steps = 1
+            log.warning(
+                "Changing n_forecasts to 1. Without lags, the forecast can be "
+                "computed for any future time, independent of lagged values"
             )
-            if reg_enabled:
-                log.info(
-                    "Early stopping is enabled, but regularization only starts after half the number of configured \
-                        epochs. If you see no impact of the regularization, turn off the early_stopping or reduce the \
-                        number of epochs to train for."
-                )
+        # Infer frequency from data
+        self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
 
         # Setup Metrics
         if metrics is not None:
@@ -1086,18 +1067,43 @@ class NeuralProphet:
             or any(value != 1 for value in self.num_seasonalities_modelled_dict.values())
         )
 
-        self.max_lags = df_utils.get_max_num_lags(
-            n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors
-        )
-        if self.max_lags == 0 and self.n_forecasts > 1:
-            self.n_forecasts = 1
-            self.predict_steps = 1
-            log.warning(
-                "Changing n_forecasts to 1. Without lags, the forecast can be "
-                "computed for any future time, independent of lagged values"
-            )
-
         ##### Data Setup, and Training Setup  #####
+        # Train Configuration: overwrite self.config_train with user provided values
+        if learning_rate is not None:
+            self.config_train.learning_rate = learning_rate
+        if scheduler is not None:
+            self.config_train.scheduler = scheduler
+        if scheduler_args is not None:
+            self.config_train.scheduler_args = scheduler_args
+        if epochs is not None:
+            self.config_train.epochs = epochs
+        if batch_size is not None:
+            self.config_train.batch_size = batch_size
+        if trainer_config is not None:
+            self.config_train.pl_trainer_config = trainer_config
+        if early_stopping is not None:
+            self.config_train.early_stopping = early_stopping
+        self.config_train.set_loss_func(quantiles=self.config_model.quantiles)
+
+        # Warning if early stopping and regularizing
+        if self.config_train.early_stopping:
+            # This check needs to be improved.
+            reg_enabled = utils.check_for_regularization(
+                [
+                    self.config_seasonality,
+                    self.config_regressors.regressors,
+                    self.config_ar,
+                    self.config_events,
+                    self.config_country_holidays,
+                    self.config_trend,
+                    self.config_lagged_regressors.regressors,
+                ]
+            )
+            if reg_enabled:
+                log.warning(
+                    "Early stopping is enabled, but regularization only starts mid-training. If you see no impact of regularization, turn off early_stopping."
+                )
+
         # Set up train dataset and data dependent configurations
         df = self._train_data_setup(df)
         # Note: _create_dataset() needs to be called after set_auto_seasonalities()
@@ -2768,10 +2774,6 @@ class NeuralProphet:
             torch DataLoader
         """
         # Data Pre-processing
-        # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
-        df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
-        df = _check_dataframe(self, df, check_y=True, exogenous=True)
-        self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = _handle_missing_data(
             df=df,
             freq=self.data_freq,
@@ -2817,178 +2819,178 @@ class NeuralProphet:
 
         return df
 
-    def _train(
-        self,
-        df: pd.DataFrame,
-        freq: str = "auto",
-        df_val: Optional[pd.DataFrame] = None,
-        progress_bar_enabled: bool = True,
-        metrics_enabled: bool = False,
-        checkpointing_enabled: bool = False,
-        num_workers=0,
-        deterministic: bool = False,
-    ):
-        """
-        Execute model training procedure for a configured number of epochs.
+    # def _train(
+    #     self,
+    #     df: pd.DataFrame,
+    #     freq: str = "auto",
+    #     df_val: Optional[pd.DataFrame] = None,
+    #     progress_bar_enabled: bool = True,
+    #     metrics_enabled: bool = False,
+    #     checkpointing_enabled: bool = False,
+    #     num_workers=0,
+    #     deterministic: bool = False,
+    # ):
+    #     """
+    #     Execute model training procedure for a configured number of epochs.
 
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-            df_val : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with validation data
-            progress_bar_enabled : bool
-                whether to show a progress bar during training
-            metrics_enabled : bool
-                whether to collect metrics during training
-            checkpointing_enabled : bool
-                whether to save checkpoints during training
-            num_workers : int
-                number of workers for data loading
+    #     Parameters
+    #     ----------
+    #         df : pd.DataFrame
+    #             dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
+    #         df_val : pd.DataFrame
+    #             dataframe containing column ``ds``, ``y``, and optionally``ID`` with validation data
+    #         progress_bar_enabled : bool
+    #             whether to show a progress bar during training
+    #         metrics_enabled : bool
+    #             whether to collect metrics during training
+    #         checkpointing_enabled : bool
+    #             whether to save checkpoints during training
+    #         num_workers : int
+    #             number of workers for data loading
 
-        Returns
-        -------
-            pd.DataFrame
-                metrics
-        """
-        # Pre-processing
-        # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
-        df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
-        df = _check_dataframe(self, df, check_y=True, exogenous=True)
-        self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = _handle_missing_data(
-            df=df,
-            freq=self.data_freq,
-            n_lags=self.n_lags,
-            n_forecasts=self.n_forecasts,
-            config_missing=self.config_missing,
-            config_regressors=self.config_regressors,
-            config_lagged_regressors=self.config_lagged_regressors,
-            config_events=self.config_events,
-            config_seasonality=self.config_seasonality,
-            predicting=False,
-        )
-        # Set up train dataset and data dependent configurations
-        df = self._train_data_setup(df)
-        # Note: _create_dataset() needs to be called after set_auto_seasonalities()
-        dataset = _create_dataset(self, df, predict_mode=False, prediction_frequency=self.prediction_frequency)
-        # Determine the max_number of epochs
-        self.config_train.set_auto_batch_epoch(n_data=len(dataset))
+    #     Returns
+    #     -------
+    #         pd.DataFrame
+    #             metrics
+    #     """
+    #     # Pre-processing
+    #     # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
+    #     df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
+    #     df = _check_dataframe(self, df, check_y=True, exogenous=True)
+    #     self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
+    #     df = _handle_missing_data(
+    #         df=df,
+    #         freq=self.data_freq,
+    #         n_lags=self.n_lags,
+    #         n_forecasts=self.n_forecasts,
+    #         config_missing=self.config_missing,
+    #         config_regressors=self.config_regressors,
+    #         config_lagged_regressors=self.config_lagged_regressors,
+    #         config_events=self.config_events,
+    #         config_seasonality=self.config_seasonality,
+    #         predicting=False,
+    #     )
+    #     # Set up train dataset and data dependent configurations
+    #     df = self._train_data_setup(df)
+    #     # Note: _create_dataset() needs to be called after set_auto_seasonalities()
+    #     dataset = _create_dataset(self, df, predict_mode=False, prediction_frequency=self.prediction_frequency)
+    #     # Determine the max_number of epochs
+    #     self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
-        # Set up  DataLoaders: Train
-        loader = DataLoader(
-            dataset,
-            batch_size=self.config_train.batch_size,
-            shuffle=True,
-            num_workers=num_workers,
-        )
-        self.config_train.set_batches_per_epoch(len(loader))
-        log.info(f"Train Dataset size: {len(dataset)}")
-        log.info(f"Number of batches per training epoch: {len(loader)}")
+    #     # Set up  DataLoaders: Train
+    #     loader = DataLoader(
+    #         dataset,
+    #         batch_size=self.config_train.batch_size,
+    #         shuffle=True,
+    #         num_workers=num_workers,
+    #     )
+    #     self.config_train.set_batches_per_epoch(len(loader))
+    #     log.info(f"Train Dataset size: {len(dataset)}")
+    #     log.info(f"Number of batches per training epoch: {len(loader)}")
 
-        # Set up  DataLoaders: Validation
-        validation_enabled = df_val is not None and isinstance(df_val, pd.DataFrame)
-        if validation_enabled:
-            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
-            df_val = _check_dataframe(self, df_val, check_y=False, exogenous=False)
-            df_val = _handle_missing_data(
-                df=df_val,
-                freq=self.data_freq,
-                n_lags=self.n_lags,
-                n_forecasts=self.n_forecasts,
-                config_missing=self.config_missing,
-                config_regressors=self.config_regressors,
-                config_lagged_regressors=self.config_lagged_regressors,
-                config_events=self.config_events,
-                config_seasonality=self.config_seasonality,
-                predicting=False,
-            )
-            # df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
-            df_val = _normalize(df=df_val, config_normalization=self.config_normalization)
-            dataset_val = _create_dataset(self, df_val, predict_mode=False)
-            loader_val = DataLoader(dataset_val, batch_size=min(1024, len(dataset_val)), shuffle=False, drop_last=False)
+    #     # Set up  DataLoaders: Validation
+    #     validation_enabled = df_val is not None and isinstance(df_val, pd.DataFrame)
+    #     if validation_enabled:
+    #         df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+    #         df_val = _check_dataframe(self, df_val, check_y=False, exogenous=False)
+    #         df_val = _handle_missing_data(
+    #             df=df_val,
+    #             freq=self.data_freq,
+    #             n_lags=self.n_lags,
+    #             n_forecasts=self.n_forecasts,
+    #             config_missing=self.config_missing,
+    #             config_regressors=self.config_regressors,
+    #             config_lagged_regressors=self.config_lagged_regressors,
+    #             config_events=self.config_events,
+    #             config_seasonality=self.config_seasonality,
+    #             predicting=False,
+    #         )
+    #         # df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+    #         df_val = _normalize(df=df_val, config_normalization=self.config_normalization)
+    #         dataset_val = _create_dataset(self, df_val, predict_mode=False)
+    #         loader_val = DataLoader(dataset_val, batch_size=min(1024, len(dataset_val)), shuffle=False, drop_last=False)
 
-        # Init the Trainer
-        self.trainer, checkpoint_callback = utils_lightning.configure_trainer(
-            config_train=self.config_train,
-            metrics_logger=self.metrics_logger,
-            early_stopping_target="Loss_val" if validation_enabled else "Loss",
-            accelerator=self.accelerator,
-            progress_bar_enabled=progress_bar_enabled,
-            metrics_enabled=metrics_enabled,
-            checkpointing_enabled=checkpointing_enabled,
-            num_batches_per_epoch=len(loader),
-            deterministic=deterministic,
-        )
+    #     # Init the Trainer
+    #     self.trainer, checkpoint_callback = utils_lightning.configure_trainer(
+    #         config_train=self.config_train,
+    #         metrics_logger=self.metrics_logger,
+    #         early_stopping_target="Loss_val" if validation_enabled else "Loss",
+    #         accelerator=self.accelerator,
+    #         progress_bar_enabled=progress_bar_enabled,
+    #         metrics_enabled=metrics_enabled,
+    #         checkpointing_enabled=checkpointing_enabled,
+    #         num_batches_per_epoch=len(loader),
+    #         deterministic=deterministic,
+    #     )
 
-        # Set up the model for training
-        if not self.fitted:
-            self.model = self._init_model()
+    #     # Set up the model for training
+    #     if not self.fitted:
+    #         self.model = self._init_model()
 
-        # Find suitable learning rate if not set
-        if self.config_train.learning_rate is None:
-            assert not self.fitted, "Learning rate must be provided for re-training a fitted model."
+    #     # Find suitable learning rate if not set
+    #     if self.config_train.learning_rate is None:
+    #         assert not self.fitted, "Learning rate must be provided for re-training a fitted model."
 
-            # Init a separate Model, Loader and Trainer copy for LR finder (optional, done for safety)
-            # Note Leads to a CUDA issue. Needs to be fixed before enabling this feature.
-            # model_lr_finder = self._init_model()
-            # loader_lr_finder = DataLoader(
-            #     dataset,
-            #     batch_size=self.config_train.batch_size,
-            #     shuffle=True,
-            #     num_workers=num_workers,
-            # )
-            # trainer_lr_finder, _ = utils_lightning.configure_trainer(
-            #     config_train=self.config_train,
-            #     metrics_logger=self.metrics_logger,
-            #     early_stopping_target="Loss",
-            #     accelerator=self.accelerator,
-            #     progress_bar_enabled=progress_bar_enabled,
-            #     metrics_enabled=False,
-            #     checkpointing_enabled=False,
-            #     num_batches_per_epoch=len(loader),
-            #     deterministic=deterministic,
-            # )
+    #         # Init a separate Model, Loader and Trainer copy for LR finder (optional, done for safety)
+    #         # Note Leads to a CUDA issue. Needs to be fixed before enabling this feature.
+    #         # model_lr_finder = self._init_model()
+    #         # loader_lr_finder = DataLoader(
+    #         #     dataset,
+    #         #     batch_size=self.config_train.batch_size,
+    #         #     shuffle=True,
+    #         #     num_workers=num_workers,
+    #         # )
+    #         # trainer_lr_finder, _ = utils_lightning.configure_trainer(
+    #         #     config_train=self.config_train,
+    #         #     metrics_logger=self.metrics_logger,
+    #         #     early_stopping_target="Loss",
+    #         #     accelerator=self.accelerator,
+    #         #     progress_bar_enabled=progress_bar_enabled,
+    #         #     metrics_enabled=False,
+    #         #     checkpointing_enabled=False,
+    #         #     num_batches_per_epoch=len(loader),
+    #         #     deterministic=deterministic,
+    #         # )
 
-            # Setup and execute LR finder
-            suggested_lr = utils_lightning.find_learning_rate(
-                model=self.model,  # model_lr_finder,
-                loader=loader,  # loader_lr_finder,
-                trainer=self.trainer,  # trainer_lr_finder,
-                train_epochs=self.config_train.epochs,
-            )
-            # Clean up the LR finder copies of Model, Loader and Trainer
-            # del model_lr_finder, loader_lr_finder, trainer_lr_finder
+    #         # Setup and execute LR finder
+    #         suggested_lr = utils_lightning.find_learning_rate(
+    #             model=self.model,  # model_lr_finder,
+    #             loader=loader,  # loader_lr_finder,
+    #             trainer=self.trainer,  # trainer_lr_finder,
+    #             train_epochs=self.config_train.epochs,
+    #         )
+    #         # Clean up the LR finder copies of Model, Loader and Trainer
+    #         # del model_lr_finder, loader_lr_finder, trainer_lr_finder
 
-            # Save the suggested learning rate
-            self.config_train.learning_rate = suggested_lr
-        self.model.finding_lr = False
+    #         # Save the suggested learning rate
+    #         self.config_train.learning_rate = suggested_lr
+    #     self.model.finding_lr = False
 
-        # Execute Training Loop
-        start = time.time()
-        self.trainer.fit(
-            model=self.model,
-            train_dataloaders=loader,
-            val_dataloaders=loader_val if validation_enabled else None,
-        )
-        log.info("Train Time: {:8.3f}".format(time.time() - start))
+    #     # Execute Training Loop
+    #     start = time.time()
+    #     self.trainer.fit(
+    #         model=self.model,
+    #         train_dataloaders=loader,
+    #         val_dataloaders=loader_val if validation_enabled else None,
+    #     )
+    #     log.info("Train Time: {:8.3f}".format(time.time() - start))
 
-        # Load best model from checkpoint if end state not best
-        if checkpoint_callback is not None:
-            if checkpoint_callback.best_model_score < checkpoint_callback.current_score:
-                log.info(
-                    f"Loading best model with score {checkpoint_callback.best_model_score} from checkpoint (latest \
-                        score is {checkpoint_callback.current_score})"
-                )
-                self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_callback.best_model_path)
+    #     # Load best model from checkpoint if end state not best
+    #     if checkpoint_callback is not None:
+    #         if checkpoint_callback.best_model_score < checkpoint_callback.current_score:
+    #             log.info(
+    #                 f"Loading best model with score {checkpoint_callback.best_model_score} from checkpoint (latest \
+    #                     score is {checkpoint_callback.current_score})"
+    #             )
+    #             self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_callback.best_model_path)
 
-        if metrics_enabled:
-            # Return metrics collected in logger as dataframe
-            metrics_df = pd.DataFrame(self.metrics_logger.history)
-        else:
-            metrics_df = None
+    #     if metrics_enabled:
+    #         # Return metrics collected in logger as dataframe
+    #         metrics_df = pd.DataFrame(self.metrics_logger.history)
+    #     else:
+    #         metrics_df = None
 
-        return metrics_df
+    #     return metrics_df
 
     def restore_trainer(self, accelerator: Optional[str] = None):
         """
