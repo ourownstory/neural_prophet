@@ -763,27 +763,36 @@ def test_global_modeling_no_exogenous_variable():
         trend_global_local="global",
         season_global_local="global",
     )
+    print(m.config_model)
     m.fit(pd.concat((df1_0, df2_0)), freq="D")
-    with pytest.raises(ValueError):
-        forecast = m.predict(df4_0)
-    log.info("unknown_data_normalization was not set to True")
-    with pytest.raises(ValueError):
-        m.test(df4_0)
-    log.info("unknown_data_normalization was not set to True")
-    with pytest.raises(ValueError):
-        m.predict_trend(df4_0)
-    log.info("unknown_data_normalization was not set to True")
-    with pytest.raises(ValueError):
-        m.predict_seasonal_components(df4_0)
-    log.info("unknown_data_normalization was not set to True")
     # Set unknown_data_normalization to True - now there should be no errors
     m.config_normalization.unknown_data_normalization = True
     forecast = m.predict(df4_0)
+    # print(m.config_model)
     m.test(df4_0)
     m.predict_trend(df4_0)
     m.predict_seasonal_components(df4_0)
     m.plot_parameters(df_name="df1")
     m.plot_parameters()
+
+    # Set unknown_data_normalization to False - now there should be errors
+    m.config_normalization.unknown_data_normalization = False
+    with pytest.raises(ValueError):
+        forecast = m.predict(df4_0)
+    print(m.config_model)
+    log.info("unknown_data_normalization was not set to True")
+    with pytest.raises(ValueError):
+        m.test(df4_0)
+    print(m.config_model)
+    log.info("unknown_data_normalization was not set to True")
+    with pytest.raises(ValueError):
+        m.predict_trend(df4_0)
+    print(m.config_model)
+    log.info("unknown_data_normalization was not set to True")
+    with pytest.raises(ValueError):
+        m.predict_seasonal_components(df4_0)
+    print(m.config_model)
+    log.info("unknown_data_normalization was not set to True")
 
 
 def test_global_modeling_validation_df():
@@ -1689,3 +1698,6 @@ def test_fit_twice_error():
     _ = m.fit(df, freq="D")
     with pytest.raises(RuntimeError):
         _ = m.fit(df, freq="D")
+
+
+test_global_modeling_no_exogenous_variable()

@@ -2056,7 +2056,7 @@ class NeuralProphet:
         prev_n_forecasts = self.n_forecasts
         prev_n_lags = self.config_ar.n_lags
         prev_max_lags = self.config_model.max_lags
-        prev_features_map = self.config_model.features_map
+        prev_features_map = {key: value for key, value in self.config_model.features_map.items()}
 
         self.config_model.max_lags = 0
 
