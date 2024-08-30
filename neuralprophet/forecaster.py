@@ -504,11 +504,11 @@ class NeuralProphet:
 
         # Model
         self.config_model = configure.Model(
-            features_map={},
-            max_lags=self.config_ar.n_lags,  # initialize with AR lags
             quantiles=quantiles,
         )
         self.config_model.setup_quantiles()
+        # initialize with AR lags
+        # self.config_model.set_max_num_lags(n_lags=self.config_ar.n_lags)
 
         # Trend
         self.config_trend = configure.Trend(

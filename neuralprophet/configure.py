@@ -22,9 +22,9 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
-    features_map: dict = field(default_factory=dict)
-    max_lags: int = 0
+    features_map: Optional[dict] = field(default_factory=dict)
     quantiles: Optional[List[float]] = None
+    max_lags: Optional[int] = field(init=False)
 
     def setup_quantiles(self):
         # convert quantiles to empty list [] if None
@@ -58,10 +58,16 @@ class Model:
             int
                 Maximum number of lags between the autoregression lags and the covariates lags.
         """
-        self.max_lags = max(self.max_lags, n_lags)
-        if config_lagged_regressors is not None and config_lagged_regressors.regressors is not None:
+        if (
+            config_lagged_regressors is not None
+            and config_lagged_regressors.regressors is not None
+            and len(config_lagged_regressors.regressors) > 0
+        ):
             lagged_regressor_lags = [val.n_lags for key, val in config_lagged_regressors.regressors.items()]
-            self.max_lags = max([self.max_lags] + lagged_regressor_lags)
+            max_lagged_regressor_lags = max(lagged_regressor_lags)
+            self.max_lags = max(n_lags, max_lagged_regressor_lags)
+        else:
+            self.max_lags = n_lags
 
 
 ConfigModel = Model
