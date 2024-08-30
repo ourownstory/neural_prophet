@@ -101,8 +101,8 @@ def _reshape_raw_predictions_to_forecst_df(
     lagged_components = [
         "ar",
     ]
-    if config_lagged_regressors is not None:
-        for name in config_lagged_regressors.keys():
+    if config_lagged_regressors.regressors is not None:
+        for name in config_lagged_regressors.regressors.keys():
             lagged_components.append(f"lagged_regressor_{name}")
     for comp in lagged_components:
         if comp in components:
@@ -362,8 +362,8 @@ def _validate_column_name(
     if seasons and config_seasonality is not None:
         if name in config_seasonality.periods:
             raise ValueError(f"Name {name!r} already used for a seasonality.")
-    if covariates and config_lagged_regressors is not None:
-        if name in config_lagged_regressors:
+    if covariates and config_lagged_regressors.regressors is not None:
+        if name in config_lagged_regressors.regressors.keys():
             raise ValueError(f"Name {name!r} already used for an added covariate.")
     if regressors and config_regressors.regressors is not None:
         if name in config_regressors.regressors.keys():
@@ -410,7 +410,7 @@ def _check_dataframe(
     df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
         df=df,
         check_y=check_y,
-        covariates=model.config_lagged_regressors if exogenous else None,
+        covariates=model.config_lagged_regressors.regressors if exogenous else None,
         regressors=model.config_regressors.regressors if exogenous else None,
         events=model.config_events if exogenous else None,
         seasonalities=model.config_seasonality if exogenous else None,
@@ -423,12 +423,12 @@ def _check_dataframe(
             model.config_regressors.regressors.pop(reg)
         if model.config_regressors.regressors is not None and len(model.config_regressors.regressors) == 0:
             model.config_regressors.regressors = None
-    if model.config_lagged_regressors is not None:
+    if model.config_lagged_regressors.regressors is not None:
         for reg in lag_regressors_to_remove:
             log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-            model.config_lagged_regressors.pop(reg)
-        if len(model.config_lagged_regressors) == 0:
-            model.config_lagged_regressors = None
+            model.config_lagged_regressors.regressors.pop(reg)
+        if len(model.config_lagged_regressors.regressors) == 0:
+            model.config_lagged_regressors.regressors = None
     return df
 
 
@@ -528,8 +528,8 @@ def _handle_missing_data(
         data_columns = []
         if n_lags > 0:
             data_columns.append("y")
-        if config_lagged_regressors is not None:
-            data_columns.extend(config_lagged_regressors.keys())
+        if config_lagged_regressors.regressors is not None:
+            data_columns.extend(config_lagged_regressors.regressors.keys())
         if config_regressors is not None and config_regressors.regressors is not None:
             data_columns.extend(config_regressors.regressors.keys())
         if config_events is not None:

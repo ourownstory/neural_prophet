@@ -503,7 +503,6 @@ class NeuralProphet:
 
         # Model
         self.config_model = configure.Model(
-            lagged_reg_layers=lagged_reg_layers,
             quantiles=quantiles,
         )
         self.config_model.setup_quantiles()
@@ -554,8 +553,11 @@ class NeuralProphet:
         self.config_events: Optional[configure.ConfigEvents] = None
         self.config_country_holidays: Optional[configure.ConfigCountryHolidays] = None
 
-        # Extra Regressors
-        self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
+        # Lagged Regressors
+        self.config_lagged_regressors = configure.ConfigLaggedRegressors(
+            layers=lagged_reg_layers,
+        )
+        # Future Regressors
         self.config_regressors = configure.ConfigFutureRegressors(
             model=future_regressors_model,
             regressors_layers=future_regressors_layers,
@@ -604,8 +606,6 @@ class NeuralProphet:
                 optional, specify whether this regressor will benormalized prior to fitting.
                 if ``auto``, binary regressors will not be normalized.
         """
-        lagged_reg_layers = self.config_model.lagged_reg_layers
-
         if n_lags == 0 or n_lags is None:
             raise ValueError(
                 f"Received n_lags {n_lags} for lagged regressor {names}. Please set n_lags > 0 or use options 'scalar' or 'auto'."
@@ -640,14 +640,11 @@ class NeuralProphet:
                 config_lagged_regressors=self.config_lagged_regressors,
                 config_regressors=self.config_regressors,
             )
-            if self.config_lagged_regressors is None:
-                self.config_lagged_regressors = OrderedDict()
-            self.config_lagged_regressors[name] = configure.LaggedRegressor(
+            self.config_lagged_regressors.regressors[name] = configure.LaggedRegressor(
                 reg_lambda=regularization,
                 normalize=normalize,
                 as_scalar=only_last_value,
                 n_lags=n_lags,
-                lagged_reg_layers=lagged_reg_layers,
             )
         return self
 
@@ -1036,7 +1033,7 @@ class NeuralProphet:
                     self.config_events,
                     self.config_country_holidays,
                     self.config_trend,
-                    self.config_lagged_regressors,
+                    self.config_lagged_regressors.regressors,
                 ]
             )
             if reg_enabled:
@@ -2675,7 +2672,6 @@ class NeuralProphet:
             n_lags=self.n_lags,
             max_lags=self.max_lags,
             ar_layers=self.config_ar.ar_layers,
-            lagged_reg_layers=self.config_model.lagged_reg_layers,
             metrics=self.metrics,
             id_list=self.id_list,
             num_trends_modelled=self.num_trends_modelled,
