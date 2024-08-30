@@ -9,15 +9,13 @@ from typing import IO, TYPE_CHECKING, BinaryIO, Optional, Union
 
 import numpy as np
 import pandas as pd
-import pytorch_lightning as pl
 import torch
 from lightning_fabric.utilities.seed import seed_everything
 
 from neuralprophet import utils_torch
-from neuralprophet.logger import ProgressBar
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality, Train
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
 
 log = logging.getLogger("NP.utils")
 

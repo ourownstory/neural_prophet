@@ -39,7 +39,7 @@ def test_create_dummy_datestamps():
     _ = m.fit(df_dummy)
     _ = m.make_future_dataframe(df_dummy, periods=365, n_historic_predictions=True)
 
-    
+
 def test_no_log():
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
