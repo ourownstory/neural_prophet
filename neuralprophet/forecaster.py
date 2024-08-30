@@ -2053,7 +2053,11 @@ class NeuralProphet:
             raise ValueError("The quantile needs to have been specified in the model configuration.")
 
         df_seasonal = pd.DataFrame()
+        prev_n_forecasts = self.n_forecasts
+        prev_n_lags = self.config_ar.n_lags
         prev_max_lags = self.config_model.max_lags
+        prev_features_map = self.config_model.features_map
+
         self.config_model.max_lags = 0
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
@@ -2119,7 +2123,11 @@ class NeuralProphet:
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
+        # reset possibly altered values
+        self.n_forecasts = prev_n_forecasts
+        self.config_ar.n_lags = prev_n_lags
         self.config_model.max_lags = prev_max_lags
+        self.config_model.features_map = prev_features_map
         return df
 
     def set_true_ar_for_eval(self, true_ar_weights: np.ndarray):
