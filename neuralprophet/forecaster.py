@@ -1202,7 +1202,7 @@ class NeuralProphet:
             deterministic=deterministic,
         )
 
-        # Set up the model for training
+        # # Set up the model for training
         if not self.fitted:
             self.model = self._init_model()
 
@@ -1210,8 +1210,8 @@ class NeuralProphet:
         if self.config_train.learning_rate is None:
             assert not self.fitted, "Learning rate must be provided for re-training a fitted model."
 
-            # Init a separate Model, Loader and Trainer copy for LR finder (optional, done for safety)
-            # Note Leads to a CUDA issue. Needs to be fixed before enabling this feature.
+            ## Init a separate Model, Loader and Trainer copy for LR finder (optional, done for safety)
+            ## Note Leads to a CUDA issue. Needs to be fixed before enabling this feature.
             # model_lr_finder = self._init_model()
             # loader_lr_finder = DataLoader(
             #     dataset,
@@ -1223,30 +1223,33 @@ class NeuralProphet:
             #     config_train=self.config_train,
             #     metrics_logger=self.metrics_logger,
             #     early_stopping_target="Loss",
-            #     accelerator=self.accelerator,
-            #     progress_bar_enabled=progress_bar_enabled,
+            #     accelerator="cpu",
+            #     progress_bar_enabled=bool(progress),
             #     metrics_enabled=False,
-            #     checkpointing=False,
+            #     checkpointing_enabled=False,
             #     num_batches_per_epoch=len(loader),
             #     deterministic=deterministic,
             # )
 
             # Setup and execute LR finder
             suggested_lr = utils_lightning.find_learning_rate(
-                model=self.model,  # model_lr_finder,
-                loader=loader,  # loader_lr_finder,
-                trainer=self.trainer,  # trainer_lr_finder,
+                model=self.model,
+                # model=model_lr_finder,
+                loader=loader,
+                # loader=loader_lr_finder,
+                trainer=self.trainer,
+                # trainer=trainer_lr_finder,
                 train_epochs=self.config_train.epochs,
             )
             # Clean up the LR finder copies of Model, Loader and Trainer
             # del model_lr_finder, loader_lr_finder, trainer_lr_finder
-            self.model.finding_lr = False
 
             # Save the suggested learning rate
             self.config_train.learning_rate = suggested_lr
 
             # Optional: Reset Model after finding learning rate
-            # self.model = self._init_model() # triggers CUDA error
+            # self.model = self._init_model() # uncommenting this triggers CUDA device-side assert error in second trainer.fit() call
+            self.model.finding_lr = False
 
         # Execute Training Loop
         start = time.time()
