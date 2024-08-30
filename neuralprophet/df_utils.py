@@ -308,7 +308,7 @@ def init_data_params(
             ShiftScale entries containing ``shift`` and ``scale`` parameters for each column
     """
     # Compute Global data params
-    df, _, _, _ = prep_or_copy_df(df)
+    # df, _, _, _ = prep_or_copy_df(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
         df_merged, normalize, config_lagged_regressors, config_regressors, config_events, config_seasonality

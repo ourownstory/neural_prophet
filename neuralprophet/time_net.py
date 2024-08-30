@@ -767,7 +767,7 @@ class TimeNet(pl.LightningModule):
             loss = loss * self._get_time_based_sample_weight(t=inputs["time"][:, self.n_lags :])
         loss = loss.sum(dim=2).mean()
         # Regularize.
-        if self.reg_enabled:
+        if self.reg_enabled and not self.finding_lr:
             loss, reg_loss = self._add_batch_regularizations(loss, self.train_progress)
         else:
             reg_loss = torch.tensor(0.0, device=self.device)
@@ -804,7 +804,7 @@ class TimeNet(pl.LightningModule):
         if self.finding_lr:
             # Manually track the loss for the lr finder
             self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-            self.log("reg_loss", reg_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+            # self.log("reg_loss", reg_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         # Metrics
         if self.metrics_enabled and not self.finding_lr:

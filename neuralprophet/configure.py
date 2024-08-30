@@ -122,7 +122,6 @@ class Train:
     trend_reg_threshold: Optional[Union[bool, float]] = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
-    lr_finder_args: dict = field(default_factory=dict)
     pl_trainer_config: dict = field(default_factory=dict)
 
     def __post_init__(self):
@@ -264,30 +263,6 @@ class Train:
             assert issubclass(
                 self.scheduler, torch.optim.lr_scheduler.LRScheduler
             ), "Scheduler must be a subclass of torch.optim.lr_scheduler.LRScheduler"
-
-    def set_lr_finder_args(self, main_training_epochs: int, batches_per_epoch: int):
-        """
-        Set the lr_finder_args.
-        This is the range of learning rates to test.
-        """
-        main_training_total_steps = main_training_epochs * batches_per_epoch
-        # main_training_total_steps is around 1e3 to 1e6 -> num_training 100 to 400
-        num_training = 100 + int(np.log10(1 + main_training_total_steps / 1000) * 100)
-        if batches_per_epoch < num_training:
-            log.warning(
-                f"Learning rate finder: The number of batches per epoch ({batches_per_epoch}) is too small than the required number \
-                    for the learning rate finder ({num_training}). The results might not be optimal."
-            )
-            # num_training = num_batches
-        self.lr_finder_args.update(
-            {
-                "min_lr": 1e-7,
-                "max_lr": 1e1,
-                "num_training": num_training,
-                "early_stop_threshold": None,
-                "mode": "exponential",
-            }
-        )
 
     def get_reg_delay_weight(self, progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
         # Ignore type warning of epochs possibly being None (does not work with dataclasses)

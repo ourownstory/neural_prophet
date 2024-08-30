@@ -612,7 +612,7 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
     -------
         TimeDataset
     """
-    df, _, _, _ = df_utils.prep_or_copy_df(df)
+    # df, _, _, _ = df_utils.prep_or_copy_df(df)
     return time_dataset.GlobalTimeDataset(
         df,
         predict_mode=predict_mode,
