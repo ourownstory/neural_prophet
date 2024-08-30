@@ -5,7 +5,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Type, Union
 
@@ -22,8 +22,9 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
-    features_map: Optional[dict] = field(default_factory=dict)
     quantiles: Optional[List[float]] = None
+    prediction_frequency: Optional[Dict[str]] = None
+    features_map: Optional[dict] = field(default_factory=dict)
     max_lags: Optional[int] = field(init=False)
 
     def setup_quantiles(self):

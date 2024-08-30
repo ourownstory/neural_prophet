@@ -470,7 +470,13 @@ class NeuralProphet:
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
-        self.prediction_frequency = prediction_frequency
+
+        # Model
+        self.config_model = configure.Model(
+            quantiles=quantiles,
+            prediction_frequency=prediction_frequency,
+        )
+        self.config_model.setup_quantiles()
 
         # Data Normalization settings
         self.config_normalization = configure.Normalization(
@@ -499,12 +505,6 @@ class NeuralProphet:
 
         # AR
         self.config_ar = configure.AR(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
-
-        # Model
-        self.config_model = configure.Model(
-            quantiles=quantiles,
-        )
-        self.config_model.setup_quantiles()
 
         # Trend
         self.config_trend = configure.Trend(
@@ -1160,7 +1160,9 @@ class NeuralProphet:
         # Set up  DataLoaders: Train
         # Create TimeDataset
         # Note: _create_dataset() needs to be called after set_auto_seasonalities()
-        dataset = _create_dataset(self, df, predict_mode=False, prediction_frequency=self.prediction_frequency)
+        dataset = _create_dataset(
+            self, df, predict_mode=False, prediction_frequency=self.config_model.prediction_frequency
+        )
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
         # Create Train DataLoader
@@ -1353,7 +1355,7 @@ class NeuralProphet:
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dates, predicted, components = self._predict_raw(
-                df_i, df_name, include_components=decompose, prediction_frequency=self.prediction_frequency
+                df_i, df_name, include_components=decompose, prediction_frequency=self.config_model.prediction_frequency
             )
             df_i = df_utils.drop_missing_from_df(
                 df_i, self.config_missing.drop_missing, self.predict_steps, self.config_ar.n_lags
@@ -1373,7 +1375,7 @@ class NeuralProphet:
                     df=df_i,
                     predicted=predicted,
                     components=components,
-                    prediction_frequency=self.prediction_frequency,
+                    prediction_frequency=self.config_model.prediction_frequency,
                     dates=dates,
                     n_forecasts=self.n_forecasts,
                     max_lags=self.config_model.max_lags,
@@ -2069,7 +2071,7 @@ class NeuralProphet:
                 predict_mode=True,
                 n_lags=0,
                 n_forecasts=1,
-                prediction_frequency=self.prediction_frequency,
+                prediction_frequency=self.config_model.prediction_frequency,
                 predict_steps=1,
                 config_missing=self.config_missing,
                 config_model=self.config_model,
@@ -2119,7 +2121,7 @@ class NeuralProphet:
                 if self.config_seasonality.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
-            df_i = df_i[:: self.prediction_frequency].reset_index(drop=True)
+            df_i = df_i[:: self.config_model.prediction_frequency].reset_index(drop=True)
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)

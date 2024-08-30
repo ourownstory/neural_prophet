@@ -99,7 +99,7 @@ def load(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=True, iterations=1
         m.config_country_holidays.init_holidays(df_merged)
 
     dataset = _create_dataset(
-        m, df, predict_mode=False, prediction_frequency=m.prediction_frequency
+        m, df, predict_mode=False, prediction_frequency=m.model_config.prediction_frequency
     )  # needs to be called after set_auto_seasonalities
 
     # Determine the max_number of epochs
