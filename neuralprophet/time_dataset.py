@@ -105,9 +105,11 @@ class TimeDataset(Dataset):
             self.config_country_holidays,
         )
         # pre-sort additive/multiplicative regressors
-        self.additive_regressors_names, self.multiplicative_regressors_names = self.sort_regressor_names(
-            self.config_regressors
-        )
+        self.additive_regressors_names, self.multiplicative_regressors_names = [], []
+        if self.config_regressors is not None:
+            self.additive_regressors_names, self.multiplicative_regressors_names = (
+                self.config_regressors.sort_regressor_names()
+            )
 
         # skipping col "ID" is string type that is interpreted as object by torch (self.df[col].dtype == "O")
         # "ID" is stored in self.meta["df_name"]
@@ -121,24 +123,6 @@ class TimeDataset(Dataset):
         }
         self.df["ds"] = self.df["ds"].apply(lambda x: x.timestamp())  # Convert to Unix timestamp in seconds
         self.df_tensors["ds"] = torch.tensor(self.df["ds"].values, dtype=torch.int64)
-
-        if self.additive_event_and_holiday_names:
-            self.df_tensors["additive_event_and_holiday"] = torch.stack(
-                [self.df_tensors[name] for name in self.additive_event_and_holiday_names], dim=1
-            )
-        if self.multiplicative_event_and_holiday_names:
-            self.df_tensors["multiplicative_event_and_holiday"] = torch.stack(
-                [self.df_tensors[name] for name in self.multiplicative_event_and_holiday_names], dim=1
-            )
-
-        if self.additive_regressors_names:
-            self.df_tensors["additive_regressors"] = torch.stack(
-                [self.df_tensors[name] for name in self.additive_regressors_names], dim=1
-            )
-        if self.multiplicative_regressors_names:
-            self.df_tensors["multiplicative_regressors"] = torch.stack(
-                [self.df_tensors[name] for name in self.multiplicative_regressors_names], dim=1
-            )
 
         # Construct index map
         self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.df_tensors)
@@ -600,19 +584,6 @@ class TimeDataset(Dataset):
                 contains_nan = torch.cat([torch.tensor(contains_nan), torch.ones(n_forecasts, dtype=torch.bool)])
         valid_origins = ~contains_nan
         return valid_origins
-
-    def sort_regressor_names(self, config):
-        additive_regressors_names = []
-        multiplicative_regressors_names = []
-        if config is not None and config.regressors is not None:
-            # sort and divide regressors into multiplicative and additive
-            for reg in sorted(list(config.regressors.keys())):
-                mode = config.regressors[reg].mode
-                if mode == "additive":
-                    additive_regressors_names.append(reg)
-                else:
-                    multiplicative_regressors_names.append(reg)
-        return additive_regressors_names, multiplicative_regressors_names
 
 
 class GlobalTimeDataset(TimeDataset):

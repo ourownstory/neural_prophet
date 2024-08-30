@@ -531,6 +531,19 @@ class ConfigFutureRegressors:
     def __post_init__(self):
         self.regressors = None
 
+    def sort_regressor_names(self):
+        additive_regressors_names = []
+        multiplicative_regressors_names = []
+        if self.regressors is not None:
+            # sort and divide regressors into multiplicative and additive
+            for reg in sorted(list(self.regressors.keys())):
+                mode = self.regressors[reg].mode
+                if mode == "additive":
+                    additive_regressors_names.append(reg)
+                else:
+                    multiplicative_regressors_names.append(reg)
+        return additive_regressors_names, multiplicative_regressors_names
+
 
 @dataclass
 class Event:
