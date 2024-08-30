@@ -276,7 +276,7 @@ def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: 
                 raise ValueError("only datestamps provided but y values needed for auto-regression.")
             df_i = _check_dataframe(model, df_i, check_y=False, exogenous=False)
         else:
-            df_i = _check_dataframe(model, df_i, check_y=model.max_lags > 0, exogenous=False)
+            df_i = _check_dataframe(model, df_i, check_y=model.config_model.max_lags > 0, exogenous=False)
             # fill in missing nans except for nans at end
             df_i = _handle_missing_data(
                 df=df_i,
