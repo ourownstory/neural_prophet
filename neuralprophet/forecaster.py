@@ -2049,13 +2049,16 @@ class NeuralProphet:
         """
         if quantile is not None and not (0 < quantile < 1):
             raise ValueError("The quantile specified need to be a float in-between (0,1)")
+        if quantile not in self.config_model.quantiles:
+            raise ValueError("The quantile needs to have been specified in the model configuration.")
+
+        df_seasonal = pd.DataFrame()
+        prev_max_lags = self.config_model.max_lags
+        self.config_model.max_lags = 0
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         df = _normalize(df=df, config_normalization=self.config_normalization)
-        df_seasonal = pd.DataFrame()
-        prev_max_lags = self.config_model.max_lags
-        self.config_model.max_lags = 0
         for df_name, df_i in df.groupby("ID"):
             dataset = time_dataset.TimeDataset(
                 df=df_i,
@@ -2064,14 +2067,13 @@ class NeuralProphet:
                 n_forecasts=1,
                 prediction_frequency=self.prediction_frequency,
                 predict_steps=1,
-                config_seasonality=self.config_seasonality,
-                config_events=None,
-                config_country_holidays=None,
-                config_regressors=None,
-                config_lagged_regressors=None,
                 config_missing=self.config_missing,
                 config_model=self.config_model,
-                # config_train=self.config_train, # no longer needed since JIT tabularization.
+                config_seasonality=self.config_seasonality,
+                # config_events=None,
+                # config_country_holidays=None,
+                # config_regressors=None,
+                # config_lagged_regressors=None,
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
@@ -2085,7 +2087,7 @@ class NeuralProphet:
                     max_lags=0,
                     feature_indices=self.config_model.features_map,
                     config_seasonality=self.config_seasonality,
-                    lagged_regressor_config=None,
+                    # lagged_regressor_config=None,
                 )
                 # Meta as a tensor for prediction
                 if self.model.config_seasonality is None:
