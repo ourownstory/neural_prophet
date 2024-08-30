@@ -99,9 +99,6 @@ class TimeDataset(Dataset):
             self.config_regressors
         )
 
-        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-            self.calculate_seasonalities()
-
         # skipping col "ID" is string type that is interpreted as object by torch (self.df[col].dtype == "O")
         # "ID" is stored in self.meta["df_name"]
         skip_cols = ["ID", "ds"]
@@ -114,6 +111,9 @@ class TimeDataset(Dataset):
         }
         self.df["ds"] = self.df["ds"].apply(lambda x: x.timestamp())  # Convert to Unix timestamp in seconds
         self.df_tensors["ds"] = torch.tensor(self.df["ds"].values, dtype=torch.int64)
+
+        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
+            self.calculate_seasonalities()
 
         # Construct index map
         self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.df_tensors)
