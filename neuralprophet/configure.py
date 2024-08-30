@@ -5,6 +5,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Type, Union
@@ -388,6 +389,7 @@ class ConfigSeasonality:
     weekly_global_local: np_types.SeasonalityArgument = "auto"
     daily_global_local: np_types.SeasonalityArgument = "auto"
     condition_name: Optional[str] = None
+    seasonalities_indices: dict = {}
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
@@ -456,6 +458,39 @@ class ConfigSeasonality:
             global_local=global_local if global_local in ["global", "local"] else self.global_local,
             condition_name=condition_name,
         )
+
+    def pack_seasonaltity(self, df_tensors, current_idx):
+        if self.periods is None:
+            return None
+        dates = df_tensors["ds"]
+        t = (dates - torch.tensor(datetime(1900, 1, 1).timestamp())).float() / (3600 * 24.0)
+        seasonalities = []
+
+        def compute_fourier_features(t, period):
+            factor = 2.0 * np.pi / period.period
+            sin_terms = torch.sin(factor * t[:, None] * torch.arange(1, period.resolution + 1))
+            cos_terms = torch.cos(factor * t[:, None] * torch.arange(1, period.resolution + 1))
+            return torch.cat((sin_terms, cos_terms), dim=1)
+
+        for name, period in self.periods.items():
+            if period.resolution > 0:
+                features = compute_fourier_features(t, period)
+
+                if period.condition_name is not None:
+                    condition_values = df_tensors[period.condition_name].unsqueeze(1)
+                    features *= condition_values
+
+                # Pack the features
+                seasonalities.append(features)
+                self.seasonalities_indices[f"seasonality_{name}"] = (
+                    current_idx,
+                    current_idx + features.size(1),
+                )
+                current_idx += features.size(1)
+        return torch.cat(seasonalities, dim=1)
+
+    def unpack_seasonality():
+        pass
 
 
 @dataclass
