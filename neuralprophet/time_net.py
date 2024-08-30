@@ -21,7 +21,7 @@ from neuralprophet.utils import (
     reg_func_trend,
     reg_func_trend_glocal,
 )
-from neuralprophet.utils_time_dataset import FeatureExtractor
+from neuralprophet.utils_time_dataset import ComponentStacker
 from neuralprophet.utils_torch import init_parameter, interprete_model
 
 log = logging.getLogger("NP.time_net")
@@ -63,10 +63,10 @@ class TimeNet(pl.LightningModule):
         num_seasonalities_modelled: int = 1,
         num_seasonalities_modelled_dict: dict = None,
         meta_used_in_model: bool = False,
-        train_features_extractor: Optional[FeatureExtractor] = None,
-        val_features_extractor: Optional[FeatureExtractor] = None,
-        test_features_extractor: Optional[FeatureExtractor] = None,
-        predict_features_extractor: Optional[FeatureExtractor] = None,
+        train_components_stacker: Optional[ComponentStacker] = None,
+        val_components_stacker: Optional[ComponentStacker] = None,
+        test_components_stacker: Optional[ComponentStacker] = None,
+        predict_components_stacker: Optional[ComponentStacker] = None,
     ):
         """
         Parameters
@@ -147,10 +147,10 @@ class TimeNet(pl.LightningModule):
         # General
         self.config_model = config_model
         self.n_forecasts = n_forecasts
-        self.train_features_extractor = train_features_extractor
-        self.val_features_extractor = val_features_extractor
-        self.test_features_extractor = test_features_extractor
-        self.predict_features_extractor = predict_features_extractor
+        self.train_components_stacker = train_components_stacker
+        self.val_components_stacker = val_components_stacker
+        self.test_components_stacker = test_components_stacker
+        self.predict_components_stacker = predict_components_stacker
 
         # Lightning Config
         self.config_train = config_train
@@ -320,15 +320,15 @@ class TimeNet(pl.LightningModule):
             if isinstance(layer, nn.Linear):
                 return layer.weight
 
-    def set_features_extractor(self, features_extractor, mode):
+    def set_components_stacker(self, components_stacker, mode):
         if mode == "train":
-            self.train_features_extractor = features_extractor
+            self.train_components_stacker = components_stacker
         if mode == "val":
-            self.val_features_extractor = features_extractor
+            self.val_components_stacker = components_stacker
         if mode == "test":
-            self.test_features_extractor = features_extractor
+            self.test_components_stacker = components_stacker
         if mode == "predict":
-            self.predict_features_extractor = features_extractor
+            self.predict_components_stacker = components_stacker
 
     def get_covar_weights(self, covar_input=None) -> torch.Tensor:
         """
@@ -523,16 +523,16 @@ class TimeNet(pl.LightningModule):
     def forward(
         self,
         input_tensor: torch.Tensor,
-        features_extractor=FeatureExtractor,
+        components_stacker=ComponentStacker,
         meta: Dict = None,
         compute_components_flag: bool = False,
         predict_mode: bool = False,
     ) -> torch.Tensor:
         """This method defines the model forward pass."""
 
-        print(f"indices = {features_extractor.feature_indices}")
+        print(f"indices = {components_stacker.feature_indices}")
 
-        time_input = features_extractor.extract_component(component_name="time", batch_tensor=input_tensor)
+        time_input = components_stacker.unstack_component(component_name="time", batch_tensor=input_tensor)
         # Handle meta argument
         if meta is None and self.meta_used_in_model:
             name_id_dummy = self.id_list[0]
@@ -562,7 +562,7 @@ class TimeNet(pl.LightningModule):
         # Unpack and process seasonalities
         seasonalities_input = None
         if self.config_seasonality and self.config_seasonality.periods:
-            seasonalities_input = features_extractor.extract_component(
+            seasonalities_input = components_stacker.unstack_component(
                 component_name="seasonalities", batch_tensor=input_tensor
             )
             s = self.seasonality(s=seasonalities_input, meta=meta)
@@ -576,15 +576,15 @@ class TimeNet(pl.LightningModule):
         additive_events_input = None
         multiplicative_events_input = None
         if self.events_dims is not None:
-            if "additive_events" in features_extractor.feature_indices:
-                additive_events_input = features_extractor.extract_component(
+            if "additive_events" in components_stacker.feature_indices:
+                additive_events_input = components_stacker.unstack_component(
                     component_name="additive_events", batch_tensor=input_tensor
                 )
                 additive_events = self.scalar_features_effects(additive_events_input, self.event_params["additive"])
                 additive_components_nonstationary += additive_events
                 components["additive_events"] = additive_events
-            if "multiplicative_events" in features_extractor.feature_indices:
-                multiplicative_events_input = features_extractor.extract_component(
+            if "multiplicative_events" in components_stacker.feature_indices:
+                multiplicative_events_input = components_stacker.unstack_component(
                     component_name="multiplicative_events", batch_tensor=input_tensor
                 )
                 multiplicative_events = self.scalar_features_effects(
@@ -596,15 +596,15 @@ class TimeNet(pl.LightningModule):
         # Unpack and process regressors
         additive_regressors_input = None
         multiplicative_regressors_input = None
-        if "additive_regressors" in features_extractor.feature_indices:
-            additive_regressors_input = features_extractor.extract_component(
+        if "additive_regressors" in components_stacker.feature_indices:
+            additive_regressors_input = components_stacker.unstack_component(
                 component_name="additive_regressors", batch_tensor=input_tensor
             )
             additive_regressors = self.future_regressors(additive_regressors_input, "additive")
             additive_components_nonstationary += additive_regressors
             components["additive_regressors"] = additive_regressors
-        if "multiplicative_regressors" in features_extractor.feature_indices:
-            multiplicative_regressors_input = features_extractor.extract_component(
+        if "multiplicative_regressors" in components_stacker.feature_indices:
+            multiplicative_regressors_input = components_stacker.unstack_component(
                 component_name="multiplicative_regressors", batch_tensor=input_tensor
             )
             multiplicative_regressors = self.future_regressors(multiplicative_regressors_input, "multiplicative")
@@ -613,8 +613,8 @@ class TimeNet(pl.LightningModule):
 
         # Unpack and process lags
         lags_input = None
-        if "lags" in features_extractor.feature_indices:
-            lags_input = features_extractor.extract_component(component_name="lags", batch_tensor=input_tensor)
+        if "lags" in components_stacker.feature_indices:
+            lags_input = components_stacker.unstack_component(component_name="lags", batch_tensor=input_tensor)
             nonstationary_components = (
                 trend[:, : self.n_lags, 0]
                 + additive_components_nonstationary[:, : self.n_lags, 0]
@@ -628,7 +628,7 @@ class TimeNet(pl.LightningModule):
         # Unpack and process covariates
         covariates_input = None
         if self.config_lagged_regressors and self.config_lagged_regressors.regressors is not None:
-            covariates_input = features_extractor.extract_component(
+            covariates_input = components_stacker.unstack_component(
                 component_name="lagged_regressors", batch_tensor=input_tensor
             )
             covariates = self.forward_covar_net(covariates=covariates_input)
@@ -785,15 +785,15 @@ class TimeNet(pl.LightningModule):
         epoch_float = self.trainer.current_epoch + batch_idx / float(self.train_steps_per_epoch)
         self.train_progress = epoch_float / float(self.config_train.epochs)
 
-        targets = self.train_features_extractor.extract_component("targets", batch_tensor=inputs_tensor)
-        time = self.train_features_extractor.extract_component("time", batch_tensor=inputs_tensor)
+        targets = self.train_components_stacker.unstack_component("targets", batch_tensor=inputs_tensor)
+        time = self.train_components_stacker.unstack_component("time", batch_tensor=inputs_tensor)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs_tensor, self.train_features_extractor, meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, self.train_components_stacker, meta_name_tensor)
         # Store predictions in self for later network visualization
         self.train_epoch_prediction = predicted
         # Calculate loss
@@ -830,15 +830,15 @@ class TimeNet(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         inputs_tensor, meta = batch
-        targets = self.val_features_extractor.extract_component("targets", batch_tensor=inputs_tensor)
-        time = self.val_features_extractor.extract_component("time", batch_tensor=inputs_tensor)
+        targets = self.val_components_stacker.unstack_component("targets", batch_tensor=inputs_tensor)
+        time = self.val_components_stacker.unstack_component("time", batch_tensor=inputs_tensor)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs_tensor, self.val_features_extractor, meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, self.val_components_stacker, meta_name_tensor)
         # Calculate loss
         loss, reg_loss = self.loss_func(time, predicted, targets)
         # Metrics
@@ -852,15 +852,15 @@ class TimeNet(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         inputs_tensor, meta = batch
-        targets = self.test_features_extractor.extract_component("targets", batch_tensor=inputs_tensor)
-        time = self.test_features_extractor.extract_component("time", batch_tensor=inputs_tensor)
+        targets = self.test_components_stacker.unstack_component("targets", batch_tensor=inputs_tensor)
+        time = self.test_components_stacker.unstack_component("time", batch_tensor=inputs_tensor)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs_tensor, self.test_features_extractor, meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, self.test_components_stacker, meta_name_tensor)
         # Calculate loss
         loss, reg_loss = self.loss_func(time, predicted, targets)
         # Metrics
@@ -884,7 +884,7 @@ class TimeNet(pl.LightningModule):
         # Run forward calculation
         prediction, components = self.forward(
             inputs_tensor,
-            self.predict_features_extractor,
+            self.predict_components_stacker,
             meta_name_tensor,
             self.compute_components_flag,
             predict_mode=True,

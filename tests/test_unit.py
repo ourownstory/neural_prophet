@@ -97,7 +97,7 @@ def test_timedataset_minimal():
         df = df_utils.normalize(df, global_data_params)
         df["ID"] = "__df__"
 
-        features_extractor = utils_time_dataset.FeatureExtractor(
+        components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=n_lags,
             n_forecasts=n_forecasts,
             max_lags=n_lags,
@@ -119,7 +119,7 @@ def test_timedataset_minimal():
             config_lagged_regressors=None,
             config_missing=config_missing,
             config_model=None,
-            features_extractor=features_extractor,
+            components_stacker=components_stacker,
         )
         input, meta = dataset.__getitem__(0)
         # # inputs50, targets50, meta50 = dataset.__getitem__(50)
@@ -693,15 +693,15 @@ def test_globaltimedataset():
         )
         m.config_normalization = config_normalization
         df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
-        features_extractor = utils_time_dataset.FeatureExtractor(
+        components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=m.n_lags,
             n_forecasts=m.n_forecasts,
             max_lags=m.max_lags,
             config_seasonality=m.config_seasonality,
             lagged_regressor_config=m.config_lagged_regressors,
         )
-        _create_dataset(m, df_global, predict_mode=False, features_extractor=features_extractor)
-        _create_dataset(m, df_global, predict_mode=True, features_extractor=features_extractor)
+        _create_dataset(m, df_global, predict_mode=False, components_stacker=components_stacker)
+        _create_dataset(m, df_global, predict_mode=True, components_stacker=components_stacker)
 
     # lagged_regressors, future_regressors
     df4 = df.copy()
@@ -723,15 +723,15 @@ def test_globaltimedataset():
         config_normalization.init_data_params(df4, m.config_lagged_regressors, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
         df4 = _normalize(df=df4, config_normalization=m.config_normalization)
-        features_extractor = utils_time_dataset.FeatureExtractor(
+        components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=m.n_lags,
             n_forecasts=m.n_forecasts,
             max_lags=m.max_lags,
             config_seasonality=m.config_seasonality,
             lagged_regressor_config=m.config_lagged_regressors,
         )
-        _create_dataset(m, df4, predict_mode=False, features_extractor=features_extractor)
-        _create_dataset(m, df4, predict_mode=True, features_extractor=features_extractor)
+        _create_dataset(m, df4, predict_mode=False, components_stacker=components_stacker)
+        _create_dataset(m, df4, predict_mode=True, components_stacker=components_stacker)
 
 
 def test_dataloader():
@@ -760,14 +760,14 @@ def test_dataloader():
     config_normalization.init_data_params(df_global, m.config_lagged_regressors, m.config_regressors, m.config_events)
     m.config_normalization = config_normalization
     df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
-    features_extractor = utils_time_dataset.FeatureExtractor(
+    components_stacker = utils_time_dataset.ComponentStacker(
         n_lags=3,
         n_forecasts=2,
         max_lags=3,
         config_seasonality=None,
         lagged_regressor_config=None,
     )
-    dataset = _create_dataset(m, df_global, predict_mode=False, features_extractor=features_extractor)
+    dataset = _create_dataset(m, df_global, predict_mode=False, components_stacker=components_stacker)
     loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
     for _, meta in loader:
         assert set(meta["df_name"]) == set(df_global["ID"].unique())
@@ -895,7 +895,7 @@ def test_too_many_NaN():
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
-        features_extractor = utils_time_dataset.FeatureExtractor(
+        components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=n_lags,
             n_forecasts=n_forecasts,
             max_lags=n_lags,
@@ -916,7 +916,7 @@ def test_too_many_NaN():
             config_lagged_regressors=None,
             config_missing=config_missing,
             config_model=None,
-            features_extractor=features_extractor,
+            components_stacker=components_stacker,
         )
 
 

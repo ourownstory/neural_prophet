@@ -34,7 +34,7 @@ class TimeDataset(Dataset):
         config_lagged_regressors,
         config_missing,
         config_model,
-        features_extractor,
+        components_stacker,
     ):
         """Initialize Timedataset from time-series df.
         Parameters
@@ -136,7 +136,7 @@ class TimeDataset(Dataset):
         if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
             self.calculate_seasonalities()
 
-        self.features_extractor = features_extractor
+        self.components_stacker = components_stacker
 
         self.stack_all_features()
 
@@ -149,30 +149,30 @@ class TimeDataset(Dataset):
         current_idx = 0
 
         # Call individual stacking functions
-        current_idx = self.features_extractor.pack_trend_component(self.df_tensors, feature_list, current_idx)
-        current_idx = self.features_extractor.pack_targets_component(self.df_tensors, feature_list, current_idx)
+        current_idx = self.components_stacker.stack_trend_component(self.df_tensors, feature_list, current_idx)
+        current_idx = self.components_stacker.stack_targets_component(self.df_tensors, feature_list, current_idx)
 
-        current_idx = self.features_extractor.pack_lags_component(
+        current_idx = self.components_stacker.stack_lags_component(
             self.df_tensors, feature_list, current_idx, self.n_lags
         )
-        current_idx = self.features_extractor.pack_lagged_regerssors_component(
+        current_idx = self.components_stacker.stack_lagged_regerssors_component(
             self.df_tensors, feature_list, current_idx, self.config_lagged_regressors
         )
-        current_idx = self.features_extractor.pack_additive_events_component(
+        current_idx = self.components_stacker.stack_additive_events_component(
             self.df_tensors, feature_list, current_idx, self.additive_event_and_holiday_names
         )
-        current_idx = self.features_extractor.pack_multiplicative_events_component(
+        current_idx = self.components_stacker.stack_multiplicative_events_component(
             self.df_tensors, feature_list, current_idx, self.multiplicative_event_and_holiday_names
         )
-        current_idx = self.features_extractor.pack_additive_regressors_component(
+        current_idx = self.components_stacker.stack_additive_regressors_component(
             self.df_tensors, feature_list, current_idx, self.additive_regressors_names
         )
-        current_idx = self.features_extractor.pack_multiplicative_regressors_component(
+        current_idx = self.components_stacker.stack_multiplicative_regressors_component(
             self.df_tensors, feature_list, current_idx, self.multiplicative_regressors_names
         )
 
         if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-            current_idx = self.features_extractor.pack_seasonalities_component(
+            current_idx = self.components_stacker.stack_seasonalities_component(
                 feature_list, current_idx, self.config_seasonality, self.seasonalities
             )
 
@@ -603,7 +603,7 @@ class GlobalTimeDataset(TimeDataset):
         config_lagged_regressors,
         config_missing,
         config_model,
-        features_extractor,
+        components_stacker,
     ):
         """Initialize Timedataset from time-series df.
         Parameters
@@ -630,7 +630,7 @@ class GlobalTimeDataset(TimeDataset):
                 config_lagged_regressors=config_lagged_regressors,
                 config_missing=config_missing,
                 config_model=config_model,
-                features_extractor=features_extractor,
+                components_stacker=components_stacker,
             )
         self.length = sum(dataset.length for (name, dataset) in self.datasets.items())
         global_sample_to_local_ID = []

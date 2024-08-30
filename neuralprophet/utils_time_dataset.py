@@ -3,7 +3,7 @@ from collections import OrderedDict
 import torch
 
 
-class FeatureExtractor:
+class ComponentStacker:
     def __init__(
         self,
         n_lags,
@@ -14,7 +14,7 @@ class FeatureExtractor:
         lagged_regressor_config=None,
     ):
         """
-        Initializes the FeatureExtractor with the necessary parameters.
+        Initializes the ComponentStacker with the necessary parameters.
 
         Args:
             n_lags (int): Number of lags used in the model.
@@ -31,56 +31,56 @@ class FeatureExtractor:
         self.config_seasonality = config_seasonality
         self.lagged_regressor_config = lagged_regressor_config
 
-    def extract_component(self, component_name, batch_tensor):
+    def unstack_component(self, component_name, batch_tensor):
         """
-        Routes the extraction process to the appropriate function based on the component name.
+        Routes the unstackion process to the appropriate function based on the component name.
 
         Args:
-            component_name (str): The name of the component to extract.
+            component_name (str): The name of the component to unstack.
 
         Returns:
-            Various: The output of the specific extraction function.
+            Various: The output of the specific unstackion function.
         """
         if component_name == "targets":
-            return self.extract_targets(batch_tensor)
+            return self.unstack_targets(batch_tensor)
         elif component_name == "time":
-            return self.extract_time(batch_tensor)
+            return self.unstack_time(batch_tensor)
         elif component_name == "seasonalities":
-            return self.extract_seasonalities(batch_tensor)
+            return self.unstack_seasonalities(batch_tensor)
         elif component_name == "lagged_regressors":
-            return self.extract_lagged_regressors(batch_tensor)
+            return self.unstack_lagged_regressors(batch_tensor)
         elif component_name == "lags":
-            return self.extract_lags(batch_tensor)
+            return self.unstack_lags(batch_tensor)
         elif component_name == "additive_events":
-            return self.extract_additive_events(batch_tensor)
+            return self.unstack_additive_events(batch_tensor)
         elif component_name == "multiplicative_events":
-            return self.extract_multiplicative_events(batch_tensor)
+            return self.unstack_multiplicative_events(batch_tensor)
         elif component_name == "additive_regressors":
-            return self.extract_additive_regressors(batch_tensor)
+            return self.unstack_additive_regressors(batch_tensor)
         elif component_name == "multiplicative_regressors":
-            return self.extract_multiplicative_regressors(batch_tensor)
+            return self.unstack_multiplicative_regressors(batch_tensor)
         else:
             raise ValueError(f"Unknown component name: {component_name}")
 
-    def extract_targets(self, batch_tensor):
+    def unstack_targets(self, batch_tensor):
         targets_start_idx, targets_end_idx = self.feature_indices["targets"]
         if self.max_lags > 0:
             return batch_tensor[:, self.max_lags : self.max_lags + self.n_forecasts, targets_start_idx].unsqueeze(2)
         else:
             return batch_tensor[:, targets_start_idx : targets_end_idx + 1].unsqueeze(1)
 
-    def extract_time(self, batch_tensor):
+    def unstack_time(self, batch_tensor):
         start_idx, end_idx = self.feature_indices["time"]
         if self.max_lags > 0:
             return batch_tensor[:, self.max_lags - self.n_lags : self.max_lags + self.n_forecasts, start_idx]
         else:
             return batch_tensor[:, start_idx : end_idx + 1]
 
-    def extract_lags(self, batch_tensor):
+    def unstack_lags(self, batch_tensor):
         lags_start_idx, _ = self.feature_indices["lags"]
         return batch_tensor[:, self.max_lags - self.n_lags : self.max_lags, lags_start_idx]
 
-    def extract_lagged_regressors(self, batch_tensor):
+    def unstack_lagged_regressors(self, batch_tensor):
         lagged_regressors = OrderedDict()
         if self.lagged_regressor_config is not None and self.lagged_regressor_config.regressors is not None:
             for name, lagged_regressor in self.lagged_regressor_config.regressors.items():
@@ -96,7 +96,7 @@ class FeatureExtractor:
                     ]
         return lagged_regressors
 
-    def extract_seasonalities(self, batch_tensor):
+    def unstack_seasonalities(self, batch_tensor):
         seasonalities = OrderedDict()
         if self.max_lags > 0:
             for seasonality_name in self.config_seasonality.periods.keys():
@@ -119,7 +119,7 @@ class FeatureExtractor:
 
         return seasonalities
 
-    def extract_additive_events(self, batch_tensor):
+    def unstack_additive_events(self, batch_tensor):
         if self.max_lags > 0:
             events_start_idx, events_end_idx = self.feature_indices["additive_events"]
             future_offset = self.max_lags - self.n_lags
@@ -130,7 +130,7 @@ class FeatureExtractor:
             events_start_idx, events_end_idx = self.feature_indices["additive_events"]
             return batch_tensor[:, events_start_idx : events_end_idx + 1].unsqueeze(1)
 
-    def extract_multiplicative_events(self, batch_tensor):
+    def unstack_multiplicative_events(self, batch_tensor):
         if self.max_lags > 0:
             events_start_idx, events_end_idx = self.feature_indices["multiplicative_events"]
             return batch_tensor[
@@ -140,7 +140,7 @@ class FeatureExtractor:
             events_start_idx, events_end_idx = self.feature_indices["multiplicative_events"]
             return batch_tensor[:, events_start_idx : events_end_idx + 1].unsqueeze(1)
 
-    def extract_additive_regressors(self, batch_tensor):
+    def unstack_additive_regressors(self, batch_tensor):
         if self.max_lags > 0:
             regressors_start_idx, regressors_end_idx = self.feature_indices["additive_regressors"]
             return batch_tensor[
@@ -152,7 +152,7 @@ class FeatureExtractor:
             regressors_start_idx, regressors_end_idx = self.feature_indices["additive_regressors"]
             return batch_tensor[:, regressors_start_idx : regressors_end_idx + 1].unsqueeze(1)
 
-    def extract_multiplicative_regressors(self, batch_tensor):
+    def unstack_multiplicative_regressors(self, batch_tensor):
         if self.max_lags > 0:
             regressors_start_idx, regressors_end_idx = self.feature_indices["multiplicative_regressors"]
             future_offset = self.max_lags - self.n_lags
@@ -165,7 +165,7 @@ class FeatureExtractor:
             regressors_start_idx, regressors_end_idx = self.feature_indices["multiplicative_regressors"]
             return batch_tensor[:, regressors_start_idx : regressors_end_idx + 1].unsqueeze(1)
 
-    def pack_trend_component(self, df_tensors, feature_list, current_idx):
+    def stack_trend_component(self, df_tensors, feature_list, current_idx):
         """
         Stack the trend (time) feature.
         """
@@ -174,7 +174,7 @@ class FeatureExtractor:
         self.feature_indices["time"] = (current_idx, current_idx)
         return current_idx + 1
 
-    def pack_lags_component(self, df_tensors, feature_list, current_idx, n_lags):
+    def stack_lags_component(self, df_tensors, feature_list, current_idx, n_lags):
         """
         Stack the lags feature.
         """
@@ -185,7 +185,7 @@ class FeatureExtractor:
             return current_idx + 1
         return current_idx
 
-    def pack_targets_component(self, df_tensors, feature_list, current_idx):
+    def stack_targets_component(self, df_tensors, feature_list, current_idx):
         """
         Stack the targets feature.
         """
@@ -196,7 +196,7 @@ class FeatureExtractor:
             return current_idx + 1
         return current_idx
 
-    def pack_lagged_regerssors_component(self, df_tensors, feature_list, current_idx, config_lagged_regressors):
+    def stack_lagged_regerssors_component(self, df_tensors, feature_list, current_idx, config_lagged_regressors):
         """
         Stack the lagged regressor features.
         """
@@ -215,7 +215,7 @@ class FeatureExtractor:
             return current_idx + num_features
         return current_idx
 
-    def pack_additive_events_component(
+    def stack_additive_events_component(
         self,
         df_tensors,
         feature_list,
@@ -238,7 +238,7 @@ class FeatureExtractor:
             return current_idx + additive_events_tensor.size(1)
         return current_idx
 
-    def pack_multiplicative_events_component(
+    def stack_multiplicative_events_component(
         self, df_tensors, feature_list, current_idx, multiplicative_event_and_holiday_names
     ):
         """
@@ -256,7 +256,7 @@ class FeatureExtractor:
             return current_idx + multiplicative_events_tensor.size(1)
         return current_idx
 
-    def pack_additive_regressors_component(self, df_tensors, feature_list, current_idx, additive_regressors_names):
+    def stack_additive_regressors_component(self, df_tensors, feature_list, current_idx, additive_regressors_names):
         """
         Stack the additive regressor features.
         """
@@ -272,7 +272,7 @@ class FeatureExtractor:
             return current_idx + additive_regressors_tensor.size(1)
         return current_idx
 
-    def pack_multiplicative_regressors_component(
+    def stack_multiplicative_regressors_component(
         self, df_tensors, feature_list, current_idx, multiplicative_regressors_names
     ):
         """
@@ -290,7 +290,7 @@ class FeatureExtractor:
             return current_idx + len(multiplicative_regressors_names)
         return current_idx
 
-    def pack_seasonalities_component(self, feature_list, current_idx, config_seasonality, seasonalities):
+    def stack_seasonalities_component(self, feature_list, current_idx, config_seasonality, seasonalities):
         """
         Stack the seasonality features.
         """

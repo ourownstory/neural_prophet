@@ -575,7 +575,7 @@ def _handle_missing_data(
     return df
 
 
-def _create_dataset(model, df, predict_mode, prediction_frequency=None, features_extractor=None):
+def _create_dataset(model, df, predict_mode, prediction_frequency=None, components_stacker=None):
     """Construct dataset from dataframe.
 
     (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -627,13 +627,13 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None, features
         config_lagged_regressors=model.config_lagged_regressors,
         config_missing=model.config_missing,
         config_model=model.config_model,
-        features_extractor=features_extractor,
+        components_stacker=components_stacker,
         # config_train=model.config_train, # no longer needed since JIT tabularization.
     )
 
 
-def _create_features_extractor(n_lags, n_forecasts, max_lags, config_seasonality, config_lagged_regressors):
-    return utils_time_dataset.FeatureExtractor(
+def _create_components_stacker(n_lags, n_forecasts, max_lags, config_seasonality, config_lagged_regressors):
+    return utils_time_dataset.ComponentStacker(
         n_lags=n_lags,
         n_forecasts=n_forecasts,
         max_lags=max_lags,
