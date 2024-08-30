@@ -1011,14 +1011,11 @@ class NeuralProphet:
         if self.fitted:
             raise RuntimeError("Model has been fitted already.")
 
-        # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
-        df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
-        df = _check_dataframe(self, df, check_y=True, exogenous=True)
-
         # Infer from config if lags are activated
         self.config_model.set_max_num_lags(
             n_lags=self.config_ar.n_lags, config_lagged_regressors=self.config_lagged_regressors
         )
+
         if self.config_model.max_lags == 0 and self.n_forecasts > 1:
             self.n_forecasts = 1
             self.predict_steps = 1
@@ -1026,6 +1023,11 @@ class NeuralProphet:
                 "Changing n_forecasts to 1. Without lags, the forecast can be "
                 "computed for any future time, independent of lagged values"
             )
+
+        # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
+        df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
+        df = _check_dataframe(self, df, check_y=True, exogenous=True)
+
         # Infer frequency from data
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.config_model.max_lags, freq=freq)
 

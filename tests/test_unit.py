@@ -110,7 +110,7 @@ def test_timedataset_minimal():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
-            config_model=None,
+            config_model=configure.Model(),
         )
         input, meta = dataset.__getitem__(0)
         # # inputs50, targets50, meta50 = dataset.__getitem__(50)
@@ -878,7 +878,7 @@ def test_too_many_NaN():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
-            config_model=None,
+            config_model=configure.Model(),
         )
 
 
