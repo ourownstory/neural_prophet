@@ -2070,10 +2070,10 @@ class NeuralProphet:
                 config_missing=self.config_missing,
                 config_model=self.config_model,
                 config_seasonality=self.config_seasonality,
-                # config_events=None,
-                # config_country_holidays=None,
-                # config_regressors=None,
-                # config_lagged_regressors=None,
+                config_events=None,
+                config_country_holidays=None,
+                config_regressors=None,
+                config_lagged_regressors=None,
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
@@ -2087,7 +2087,7 @@ class NeuralProphet:
                     max_lags=0,
                     feature_indices=self.config_model.features_map,
                     config_seasonality=self.config_seasonality,
-                    # lagged_regressor_config=None,
+                    lagged_regressor_config=None,
                 )
                 # Meta as a tensor for prediction
                 if self.model.config_seasonality is None:
