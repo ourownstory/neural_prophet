@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
-import io
 import logging
 import os
 import pathlib
 
 import pandas as pd
-import pytest
 
-from neuralprophet import NeuralProphet, df_utils, load, save
+from neuralprophet import NeuralProphet
 
 log = logging.getLogger("NP.test")
 log.setLevel("ERROR")
@@ -53,6 +51,7 @@ def test_custom_lr_scheduler():
         scheduler_args={"T_0": 5, "T_mult": 2},
     )
     metrics = m.fit(df, freq="D")
+    print(f"metrics = {metrics}")
     # Set in NeuralProphet(), no args
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -61,7 +60,7 @@ def test_custom_lr_scheduler():
         scheduler="StepLR",
     )
     metrics = m.fit(df, freq="D")
-
+    print(f"metrics = {metrics}")
     # Set in fit()
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
     metrics = m.fit(
@@ -70,7 +69,7 @@ def test_custom_lr_scheduler():
         scheduler="ExponentialLR",
         scheduler_args={"gamma": 0.95},
     )
-
+    print(f"metrics = {metrics}")
     # Set in fit(), no args
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
     metrics = m.fit(
@@ -78,3 +77,4 @@ def test_custom_lr_scheduler():
         freq="D",
         scheduler="OneCycleLR",
     )
+    print(f"metrics = {metrics}")
