@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 
-import io
 import logging
 import os
 import pathlib
 
 import pandas as pd
-import pytest
 
-from neuralprophet import NeuralProphet, df_utils, load, save
+from neuralprophet import NeuralProphet
 
 log = logging.getLogger("NP.test")
 log.setLevel("ERROR")
