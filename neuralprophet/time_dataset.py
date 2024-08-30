@@ -10,7 +10,6 @@ from numpy.lib.stride_tricks import sliding_window_view
 from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure, utils
-from neuralprophet.df_utils import get_max_num_lags
 from neuralprophet.event_utils import get_all_holidays
 from neuralprophet.utils_time_dataset import (
     pack_additive_events_component,
@@ -89,8 +88,7 @@ class TimeDataset(Dataset):
         self.config_missing = config_missing
         self.config_model = config_model
 
-        self.max_lags = get_max_num_lags(n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors)
-        if self.max_lags == 0:
+        if self.config_model.max_lags == 0:
             assert self.n_forecasts == 1
         self.two_level_inputs = ["seasonalities", "covariates", "events", "regressors"]
 
@@ -247,8 +245,8 @@ class TimeDataset(Dataset):
         df_index = self.sample_index_to_df_index(index)
 
         # Extract features from dataframe at given target index position
-        if self.max_lags > 0:
-            min_start_index = df_index - self.max_lags + 1
+        if self.config_model.max_lags > 0:
+            min_start_index = df_index - self.config_model.max_lags + 1
             max_end_index = df_index + self.n_forecasts + 1
             inputs = self.all_features[min_start_index:max_end_index, :]
         else:
@@ -273,7 +271,7 @@ class TimeDataset(Dataset):
         # Limit target range due to input lags and number of forecasts
         df_length = len(df_tensors["ds"])
         origin_start_end_mask = self.create_origin_start_end_mask(
-            df_length=df_length, max_lags=self.max_lags, n_forecasts=self.n_forecasts
+            df_length=df_length, max_lags=self.config_model.max_lags, n_forecasts=self.n_forecasts
         )
 
         # Prediction Frequency
@@ -289,7 +287,7 @@ class TimeDataset(Dataset):
         nan_mask = self.create_nan_mask(
             df_tensors=df_tensors,
             predict_mode=self.predict_mode,
-            max_lags=self.max_lags,
+            max_lags=self.config_model.max_lags,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             config_lagged_regressors=self.config_lagged_regressors,

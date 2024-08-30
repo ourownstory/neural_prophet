@@ -70,7 +70,7 @@ def load(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=True, iterations=1
 
     df, _, _, m.id_list = df_utils.prep_or_copy_df(df)
     df = _check_dataframe(m, df, check_y=True, exogenous=True)
-    m.data_freq = df_utils.infer_frequency(df, n_lags=m.max_lags, freq=freq)
+    m.data_freq = df_utils.infer_frequency(df, n_lags=m.config_model.max_lags, freq=freq)
     df = _handle_missing_data(
         df=df,
         freq=m.data_freq,
