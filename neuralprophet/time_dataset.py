@@ -599,6 +599,7 @@ class TimeDataset(Dataset):
                     multiplicative_regressors_names.append(reg)
         return additive_regressors_names, multiplicative_regressors_names
 
+
 class GlobalTimeDataset(TimeDataset):
     def __init__(
         self,

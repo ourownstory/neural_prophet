@@ -609,7 +609,7 @@ class TimeNet(pl.LightningModule):
 
         # Unpack and process covariates
         covariates_input = None
-        if self.config_lagged_regressors:
+        if self.config_lagged_regressors and self.config_lagged_regressors.regressors is not None:
             covariates_input = self.features_extractor.extract_component(component_name="lagged_regressors")
             covariates = self.forward_covar_net(covariates=covariates_input)
             additive_components += covariates

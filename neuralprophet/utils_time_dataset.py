@@ -95,8 +95,8 @@ class FeatureExtractor:
 
     def extract_lagged_regressors(self):
         lagged_regressors = OrderedDict()
-        if self.lagged_regressor_config:
-            for name, lagged_regressor in self.lagged_regressor_config.items():
+        if self.lagged_regressor_config is not None and self.lagged_regressor_config.regressors is not None:
+            for name, lagged_regressor in self.lagged_regressor_config.regressors.items():
                 lagged_regressor_key = f"lagged_regressor_{name}"
                 if lagged_regressor_key in self.feature_indices:
                     lagged_regressor_start_idx, _ = self.feature_indices[lagged_regressor_key]
@@ -217,12 +217,14 @@ def pack_lagged_regerssors_component(df_tensors, feature_list, feature_indices, 
     """
     Stack the lagged regressor features.
     """
-    if config_lagged_regressors:
-        lagged_regressor_tensors = [df_tensors[name].unsqueeze(-1) for name in config_lagged_regressors.keys()]
+    if config_lagged_regressors is not None and config_lagged_regressors.regressors is not None:
+        lagged_regressor_tensors = [
+            df_tensors[name].unsqueeze(-1) for name in config_lagged_regressors.regressors.keys()
+        ]
         stacked_lagged_regressor_tensor = torch.cat(lagged_regressor_tensors, dim=-1)
         feature_list.append(stacked_lagged_regressor_tensor)
         num_features = stacked_lagged_regressor_tensor.size(-1)
-        for i, name in enumerate(config_lagged_regressors.keys()):
+        for i, name in enumerate(config_lagged_regressors.regressors.keys()):
             feature_indices[f"lagged_regressor_{name}"] = (
                 current_idx + i,
                 current_idx + i + 1,

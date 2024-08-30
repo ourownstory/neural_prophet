@@ -1070,7 +1070,7 @@ class NeuralProphet:
             or any(value != 1 for value in self.num_seasonalities_modelled_dict.values())
         )
 
-        ##### Data Setup, and Training Setup  #####
+        # Data Setup, and Training Setup
         # Train Configuration: overwrite self.config_train with user provided values
         if learning_rate is not None:
             self.config_train.learning_rate = learning_rate
@@ -1213,8 +1213,8 @@ class NeuralProphet:
         if self.config_train.learning_rate is None:
             assert not self.fitted, "Learning rate must be provided for re-training a fitted model."
 
-            ## Init a separate Model, Loader and Trainer copy for LR finder (optional, done for safety)
-            ## Note Leads to a CUDA issue. Needs to be fixed before enabling this feature.
+            # Init a separate Model, Loader and Trainer copy for LR finder (optional, done for safety)
+            # Note Leads to a CUDA issue. Needs to be fixed before enabling this feature.
             # model_lr_finder = self._init_model()
             # loader_lr_finder = DataLoader(
             #     dataset,
