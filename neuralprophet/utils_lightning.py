@@ -166,12 +166,10 @@ def configure_trainer(
             pl_trainer_config["accelerator"] = accelerator
             pl_trainer_config["devices"] = 1
 
-        if "accelerator" in pl_trainer_config:
-            log.info(
-                f"Using accelerator {pl_trainer_config['accelerator']} with {pl_trainer_config['devices']} device(s)."
-            )
-        else:
-            log.info("No accelerator available. Using CPU for training.")
+    if "accelerator" in pl_trainer_config:
+        log.info(f"Using accelerator {pl_trainer_config['accelerator']} with {pl_trainer_config['devices']} device(s).")
+    elif accelerator == "auto":
+        log.info("No accelerator available. Using CPU for training.")
 
     # Configure metrics
     if metrics_enabled:

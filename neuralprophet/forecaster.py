@@ -1292,7 +1292,7 @@ class NeuralProphet:
             config_seasonality=self.config_seasonality,
             predicting=False,
         )
-        # df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = _normalize(df=df, config_normalization=self.config_normalization)
         dataset = _create_dataset(self, df, predict_mode=False)
         test_loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
@@ -2703,7 +2703,7 @@ class NeuralProphet:
         -------
             torch DataLoader
         """
-        # df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
 
         if not self.fitted:
             # Initialize data normalization parameters
@@ -2790,7 +2790,7 @@ class NeuralProphet:
         # Set up  DataLoaders: Validation
         validation_enabled = df_val is not None and isinstance(df_val, pd.DataFrame)
         if validation_enabled:
-            # df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             df_val = _normalize(df=df_val, config_normalization=self.config_normalization)
             dataset_val = _create_dataset(self, df_val, predict_mode=False)
             loader_val = DataLoader(dataset_val, batch_size=min(1024, len(dataset_val)), shuffle=False, drop_last=False)
@@ -2840,7 +2840,7 @@ class NeuralProphet:
             # Save the suggested learning rate
             self.config_train.learning_rate = suggested_lr
             # Clean up the LR finder copies of Model, Loader and Trainer
-            del model_lr_finder, loader_lr_finder, trainer_lr_finder
+            # del model_lr_finder, loader_lr_finder, trainer_lr_finder
 
         # Set up the model for training
         if not self.fitted:
