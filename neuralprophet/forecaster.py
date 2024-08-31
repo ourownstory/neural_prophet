@@ -1220,7 +1220,7 @@ class NeuralProphet:
                 max_lags=self.max_lags,
                 n_forecasts=self.n_forecasts,
                 config_seasonality=self.config_seasonality,
-                config_lagged_regressors=self.config_lagged_regressors,
+                lagged_regressor_config=self.config_lagged_regressors,
                 feature_indices={},
             )
             dataset_val = _create_dataset(self, df_val, predict_mode=False, components_stacker=val_components_stacker)
