@@ -27,7 +27,6 @@ from neuralprophet import (
 from neuralprophet.data.process import (
     _check_dataframe,
     _convert_raw_predictions_to_raw_df,
-    _create_components_stacker,
     _create_dataset,
     _handle_missing_data,
     _prepare_dataframe_to_predict,
@@ -1216,12 +1215,13 @@ class NeuralProphet:
             )
             # df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             df_val = _normalize(df=df_val, config_normalization=self.config_normalization)
-            val_components_stacker = _create_components_stacker(
+            val_components_stacker = utils_time_dataset.ComponentStacker(
                 n_lags=self.n_lags,
                 max_lags=self.max_lags,
                 n_forecasts=self.n_forecasts,
                 config_seasonality=self.config_seasonality,
                 config_lagged_regressors=self.config_lagged_regressors,
+                feature_indices={},
             )
             dataset_val = _create_dataset(self, df_val, predict_mode=False, components_stacker=val_components_stacker)
             loader_val = DataLoader(dataset_val, batch_size=min(1024, len(dataset_val)), shuffle=False, drop_last=False)

@@ -630,14 +630,3 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None, componen
         components_stacker=components_stacker,
         # config_train=model.config_train, # no longer needed since JIT tabularization.
     )
-
-
-def _create_components_stacker(n_lags, n_forecasts, max_lags, config_seasonality, config_lagged_regressors):
-    return utils_time_dataset.ComponentStacker(
-        n_lags=n_lags,
-        n_forecasts=n_forecasts,
-        max_lags=max_lags,
-        config_seasonality=config_seasonality,
-        lagged_regressor_config=config_lagged_regressors,
-        feature_indices={},
-    )
