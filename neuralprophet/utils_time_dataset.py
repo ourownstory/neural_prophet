@@ -128,6 +128,7 @@ class ComponentStacker:
             ]
         else:
             events_start_idx, events_end_idx = self.feature_indices["additive_events"]
+
             return batch_tensor[:, events_start_idx : events_end_idx + 1].unsqueeze(1)
 
     def unstack_multiplicative_events(self, batch_tensor):

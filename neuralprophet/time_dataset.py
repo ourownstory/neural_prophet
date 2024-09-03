@@ -10,7 +10,6 @@ from numpy.lib.stride_tricks import sliding_window_view
 from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure, utils
-from neuralprophet.df_utils import get_max_num_lags
 from neuralprophet.event_utils import get_all_holidays
 
 log = logging.getLogger("NP.time_dataset")
@@ -79,8 +78,7 @@ class TimeDataset(Dataset):
         self.config_missing = config_missing
         self.config_model = config_model
 
-        self.max_lags = get_max_num_lags(n_lags=self.n_lags, config_lagged_regressors=self.config_lagged_regressors)
-        if self.max_lags == 0:
+        if self.config_model.max_lags == 0:
             assert self.n_forecasts == 1
         self.two_level_inputs = ["seasonalities", "covariates", "events", "regressors"]
 
@@ -162,19 +160,39 @@ class TimeDataset(Dataset):
         self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
 
     def calculate_seasonalities(self):
+        """Computes Fourier series components with the specified frequency and order."""
         self.seasonalities = OrderedDict({})
         dates = self.df_tensors["ds"]
         t = (dates - torch.tensor(datetime(1900, 1, 1).timestamp())).float() / (3600 * 24.0)
 
-        def compute_fourier_features(t, period):
-            factor = 2.0 * np.pi / period.period
-            sin_terms = torch.sin(factor * t[:, None] * torch.arange(1, period.resolution + 1))
-            cos_terms = torch.cos(factor * t[:, None] * torch.arange(1, period.resolution + 1))
-            return torch.cat((sin_terms, cos_terms), dim=1)
+        def compute_fourier_features(t, period, resolution):
+            """Provides Fourier series components with the specified frequency and order.
+            Note
+            ----
+            This function's calculation is identical to Meta AI's Prophet Library
+            Parameters
+            ----------
+                t : pd.Series
+                    Containing time as floating point number of days
+                period : float
+                    Number of days of the period
+                resolution : int
+                    Number of fourier components
+            Returns
+            -------
+                tensor : torch.Tensor
+                    Matrix with seasonality features, dims: (len(t), 2 * resolution)
+            """
+            resolutions = torch.arange(1, resolution + 1)
+            factor = 2.0 * np.pi / period
+            periodicities = factor * resolutions * t[:, None]
+            features = torch.cat((torch.sin(periodicities), torch.cos(periodicities)), dim=1)
+            features.requires_grad = False
+            return features
 
         for name, period in self.config_seasonality.periods.items():
             if period.resolution > 0:
-                features = compute_fourier_features(t, period)
+                features = compute_fourier_features(t, period.period, period.resolution)
 
                 if period.condition_name is not None:
                     condition_values = self.df_tensors[period.condition_name].unsqueeze(1)
@@ -216,8 +234,8 @@ class TimeDataset(Dataset):
         df_index = self.sample_index_to_df_index(index)
 
         # Extract features from dataframe at given target index position
-        if self.max_lags > 0:
-            min_start_index = df_index - self.max_lags + 1
+        if self.config_model.max_lags > 0:
+            min_start_index = df_index - self.config_model.max_lags + 1
             max_end_index = df_index + self.n_forecasts + 1
             inputs = self.all_features[min_start_index:max_end_index, :]
         else:
@@ -242,7 +260,7 @@ class TimeDataset(Dataset):
         # Limit target range due to input lags and number of forecasts
         df_length = len(df_tensors["ds"])
         origin_start_end_mask = self.create_origin_start_end_mask(
-            df_length=df_length, max_lags=self.max_lags, n_forecasts=self.n_forecasts
+            df_length=df_length, max_lags=self.config_model.max_lags, n_forecasts=self.n_forecasts
         )
 
         # Prediction Frequency
@@ -258,7 +276,7 @@ class TimeDataset(Dataset):
         nan_mask = self.create_nan_mask(
             df_tensors=df_tensors,
             predict_mode=self.predict_mode,
-            max_lags=self.max_lags,
+            max_lags=self.config_model.max_lags,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             config_lagged_regressors=self.config_lagged_regressors,
@@ -636,50 +654,3 @@ class GlobalTimeDataset(TimeDataset):
         df_name = self.global_sample_to_local_ID[idx]
         local_pos = self.global_sample_to_local_sample[idx]
         return self.datasets[df_name].__getitem__(local_pos)
-
-
-def fourier_series(dates, period, series_order):
-    """Provides Fourier series components with the specified frequency and order.
-    Note
-    ----
-    Identical to OG Prophet.
-    Parameters
-    ----------
-        dates : pd.Series
-            Containing time stamps
-        period : float
-            Number of days of the period
-        series_order : int
-            Number of fourier components
-    Returns
-    -------
-        np.array
-            Matrix with seasonality features
-    """
-    # convert to days since epoch
-    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
-    return fourier_series_t(t, period, series_order)
-
-
-def fourier_series_t(t, period, series_order):
-    """Provides Fourier series components with the specified frequency and order.
-    Note
-    ----
-    This function is identical to Meta AI's Prophet Library
-    Parameters
-    ----------
-        t : pd.Series, float
-            Containing time as floating point number of days
-        period : float
-            Number of days of the period
-        series_order : int
-            Number of fourier components
-    Returns
-    -------
-        np.array
-            Matrix with seasonality features
-    """
-    features = np.column_stack(
-        [fun((2.0 * (i + 1) * np.pi * t / period)) for i in range(series_order) for fun in (np.sin, np.cos)]
-    )
-    return features

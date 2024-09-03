@@ -74,6 +74,8 @@ def test_timedataset_minimal():
     log.debug(f"Infile shape: {df_in.shape}")
     valid_p = 0.2
     for n_forecasts, n_lags in [(1, 0), (1, 5), (3, 5)]:
+        config_model = configure.Model()
+        config_model.set_max_num_lags(n_lags)
         config_missing = configure.MissingDataHandling()
         # config_train = configure.Train()
         df, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
@@ -118,7 +120,7 @@ def test_timedataset_minimal():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
-            config_model=None,
+            config_model=config_model,
             components_stacker=components_stacker,
         )
         input, meta = dataset.__getitem__(0)
@@ -694,9 +696,9 @@ def test_globaltimedataset():
         m.config_normalization = config_normalization
         df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
         components_stacker = utils_time_dataset.ComponentStacker(
-            n_lags=m.n_lags,
+            n_lags=m.config_ar.n_lags,
             n_forecasts=m.n_forecasts,
-            max_lags=m.max_lags,
+            max_lags=m.config_model.max_lags,
             config_seasonality=m.config_seasonality,
             lagged_regressor_config=m.config_lagged_regressors,
         )
@@ -724,9 +726,9 @@ def test_globaltimedataset():
         m.config_normalization = config_normalization
         df4 = _normalize(df=df4, config_normalization=m.config_normalization)
         components_stacker = utils_time_dataset.ComponentStacker(
-            n_lags=m.n_lags,
+            n_lags=m.config_ar.n_lags,
             n_forecasts=m.n_forecasts,
-            max_lags=m.max_lags,
+            max_lags=m.config_model.max_lags,
             config_seasonality=m.config_seasonality,
             lagged_regressor_config=m.config_lagged_regressors,
         )
@@ -870,6 +872,8 @@ def test_make_future():
 def test_too_many_NaN():
     n_lags = 12
     n_forecasts = 1
+    config_model = configure.Model()
+    config_model.set_max_num_lags(n_lags)
     config_missing = configure.MissingDataHandling(
         impute_missing=True,
         impute_linear=5,
@@ -915,7 +919,7 @@ def test_too_many_NaN():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
-            config_model=None,
+            config_model=config_model,
             components_stacker=components_stacker,
         )
 

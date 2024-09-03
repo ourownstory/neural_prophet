@@ -54,7 +54,6 @@ class TimeNet(pl.LightningModule):
         config_holidays: Optional[configure.ConfigCountryHolidays] = None,
         n_forecasts: int = 1,
         n_lags: int = 0,
-        max_lags: int = 0,
         ar_layers: Optional[List[int]] = [],
         compute_components_flag: bool = False,
         metrics: Optional[np_types.CollectMetricsMode] = {},
@@ -91,9 +90,6 @@ class TimeNet(pl.LightningModule):
                 Note
                 ----
                 The default value is ``0``, which initializes no auto-regression.
-
-            max_lags : int
-                Number of max. previous steps of time series used as input (aka AR-order).
 
             ar_layers : list
                 List of hidden layers (for AR-Net).
@@ -267,7 +263,6 @@ class TimeNet(pl.LightningModule):
         self.config_ar = config_ar
         self.n_lags = n_lags
         self.ar_layers = ar_layers
-        self.max_lags = max_lags
         if self.n_lags > 0:
             ar_net_layers = []
             d_inputs = self.n_lags
@@ -776,7 +771,6 @@ class TimeNet(pl.LightningModule):
 
         epoch_float = self.trainer.current_epoch + batch_idx / float(self.train_steps_per_epoch)
         self.train_progress = epoch_float / float(self.config_train.epochs)
-
         targets = self.train_components_stacker.unstack_component("targets", batch_tensor=inputs_tensor)
         time = self.train_components_stacker.unstack_component("time", batch_tensor=inputs_tensor)
         # Global-local
@@ -947,7 +941,7 @@ class TimeNet(pl.LightningModule):
         reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False, device=self.device)
         if delay_weight > 0:
             # Add regularization of AR weights - sparsify
-            if self.max_lags > 0 and self.config_ar.reg_lambda is not None:
+            if self.config_model.max_lags > 0 and self.config_ar.reg_lambda is not None:
                 reg_ar = self.config_ar.regularize(self.ar_weights)
                 reg_ar = torch.sum(reg_ar).squeeze() / self.n_forecasts
                 reg_loss += self.config_ar.reg_lambda * reg_ar

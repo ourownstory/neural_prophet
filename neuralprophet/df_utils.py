@@ -88,29 +88,6 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
     return new_df
 
 
-def get_max_num_lags(n_lags: int, config_lagged_regressors: Optional[ConfigLaggedRegressors]) -> int:
-    """Get the greatest number of lags between the autoregression lags and the covariates lags.
-
-    Parameters
-    ----------
-        n_lags : int
-            number of lagged values of series to include as model inputs
-        config_lagged_regressors : configure.ConfigLaggedRegressors
-            Configurations for lagged regressors
-
-    Returns
-    -------
-        int
-            Maximum number of lags between the autoregression lags and the covariates lags.
-    """
-    if config_lagged_regressors is not None and config_lagged_regressors.regressors is not None:
-        # log.debug("config_lagged_regressors exists")
-        return max([n_lags] + [val.n_lags for key, val in config_lagged_regressors.regressors.items()])
-    else:
-        # log.debug("config_lagged_regressors.regressors does not exist")
-        return n_lags
-
-
 def merge_dataframes(df: pd.DataFrame) -> pd.DataFrame:
     """Join dataframes for procedures such as splitting data, set auto seasonalities, and others.
 

@@ -1,14 +1,46 @@
 import logging
 import warnings
 from collections import OrderedDict
+from datetime import datetime
 from typing import Optional
 
 import numpy as np
 import torch
 
-from neuralprophet import time_dataset, utils_torch
+from neuralprophet import utils_torch
 
 log = logging.getLogger("NP.plotting")
+
+
+def fourier_series_numpy(dates, period, series_order):
+    """Provides Fourier series components with the specified frequency and order.
+    Note
+    ----
+    Identical to OG Prophet.
+    Parameters
+    ----------
+        dates : pd.Series
+            Containing time stamps
+        period : float
+            Number of days of the period
+        series_order : int
+            Number of fourier components
+    Returns
+    -------
+        np.array
+            Matrix with seasonality features
+    """
+    # convert to days since epoch (numeric)
+    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
+    features = fourier_series_numpy_numeric(t, period, series_order)
+    return features
+
+
+def fourier_series_numpy_numeric(t, period, series_order):
+    features = np.column_stack(
+        [fun((2.0 * (i + 1) * np.pi * t / period)) for i in range(series_order) for fun in (np.sin, np.cos)]
+    )
+    return features
 
 
 def log_warning_deprecation_plotly(plotting_backend):
@@ -81,10 +113,8 @@ def predict_one_season(m, quantile, name, n_steps=100, df_name="__df__"):
 
     """
     config = m.config_seasonality.periods[name]
-    t_i = np.arange(n_steps + 1) / float(n_steps)
-    features = time_dataset.fourier_series_t(
-        t=t_i * config.period, period=config.period, series_order=config.resolution
-    )
+    t_i = np.arange(n_steps + 1) / float(n_steps) * config.period
+    features = fourier_series_numpy_numeric(t=t_i, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
 
     if df_name == "__df__":
@@ -129,7 +159,7 @@ def predict_season_from_dates(m, dates, name, quantile, df_name="__df__"):
              presdicted seasonal component
     """
     config = m.config_seasonality.periods[name]
-    features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
+    features = fourier_series_numpy(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
     if df_name == "__df__":
         meta_name_tensor = None

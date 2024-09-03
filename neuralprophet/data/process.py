@@ -276,12 +276,12 @@ def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: 
                 raise ValueError("only datestamps provided but y values needed for auto-regression.")
             df_i = _check_dataframe(model, df_i, check_y=False, exogenous=False)
         else:
-            df_i = _check_dataframe(model, df_i, check_y=model.max_lags > 0, exogenous=False)
+            df_i = _check_dataframe(model, df_i, check_y=model.config_model.max_lags > 0, exogenous=False)
             # fill in missing nans except for nans at end
             df_i = _handle_missing_data(
                 df=df_i,
                 freq=freq,
-                n_lags=model.n_lags,
+                n_lags=model.config_ar.n_lags,
                 n_forecasts=model.n_forecasts,
                 config_missing=model.config_missing,
                 config_regressors=model.config_regressors,
@@ -401,7 +401,7 @@ def _check_dataframe(
         pd.DataFrame
             checked dataframe
     """
-    if len(df) < (model.n_forecasts + model.n_lags) and not future:
+    if len(df) < (model.n_forecasts + model.config_ar.n_lags) and not future:
         raise ValueError(
             "Dataframe has less than n_forecasts + n_lags rows. "
             "Forecasting not possible. Please either use a larger dataset, or adjust the model parameters."
@@ -616,7 +616,7 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None, componen
     return time_dataset.GlobalTimeDataset(
         df,
         predict_mode=predict_mode,
-        n_lags=model.n_lags,
+        n_lags=model.config_ar.n_lags,
         n_forecasts=model.n_forecasts,
         prediction_frequency=prediction_frequency,
         predict_steps=model.predict_steps,

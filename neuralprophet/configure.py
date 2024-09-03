@@ -5,7 +5,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Type, Union
 
@@ -23,8 +23,10 @@ log = logging.getLogger("NP.config")
 @dataclass
 class Model:
     features_map: dict
-    lagged_reg_layers: Optional[List[int]]
     quantiles: Optional[List[float]] = None
+    prediction_frequency: Optional[Dict[str]] = None
+    features_map: Optional[dict] = field(default_factory=dict)
+    max_lags: Optional[int] = field(init=False)
 
     def setup_quantiles(self):
         # convert quantiles to empty list [] if None
@@ -42,6 +44,32 @@ class Model:
         self.quantiles = [quantile for quantile in self.quantiles if not math.isclose(0.5, quantile)]
         # 0 is the median quantile index
         self.quantiles.insert(0, 0.5)
+
+    def set_max_num_lags(self, n_lags: int, config_lagged_regressors: Optional[ConfigLaggedRegressors] = None) -> int:
+        """Get the greatest number of lags between the autoregression lags and the covariates lags.
+
+        Parameters
+        ----------
+            n_lags : int
+                number of autoregressive lagged values of series to include as model inputs
+            config_lagged_regressors : configure.ConfigLaggedRegressors
+                Configurations for lagged regressors
+
+        Returns
+        -------
+            int
+                Maximum number of lags between the autoregression lags and the covariates lags.
+        """
+        if (
+            config_lagged_regressors is not None
+            and config_lagged_regressors.regressors is not None
+            and len(config_lagged_regressors.regressors) > 0
+        ):
+            lagged_regressor_lags = [val.n_lags for key, val in config_lagged_regressors.regressors.items()]
+            max_lagged_regressor_lags = max(lagged_regressor_lags)
+            self.max_lags = max(n_lags, max_lagged_regressor_lags)
+        else:
+            self.max_lags = n_lags
 
 
 ConfigModel = Model

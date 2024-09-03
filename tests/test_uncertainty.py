@@ -68,7 +68,7 @@ def test_uncertainty_estimation_peyton_manning():
     )
 
     # add lagged regressors
-    if m.n_lags > 0:
+    if m.config_ar.n_lags > 0:
         df["A"] = df["y"].rolling(7, min_periods=1).mean()
         df["B"] = df["y"].rolling(30, min_periods=1).mean()
         m = m.add_lagged_regressor(names="A")
