@@ -22,7 +22,6 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
-    features_map: dict
     quantiles: Optional[List[float]] = None
     prediction_frequency: Optional[Dict[str]] = None
     features_map: Optional[dict] = field(default_factory=dict)
