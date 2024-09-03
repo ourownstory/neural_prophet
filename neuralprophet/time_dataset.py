@@ -21,18 +21,16 @@ class TimeDataset(Dataset):
     def __init__(
         self,
         df,
+        components_stacker,
         predict_mode,
-        prediction_frequency,
-        predict_steps,
+        config_missing,
+        config_model,
         config_ar,
         config_seasonality,
         config_events,
         config_country_holidays,
         config_regressors,
         config_lagged_regressors,
-        config_missing,
-        config_model,
-        components_stacker,
     ):
         """Initialize Timedataset from time-series df.
         Parameters
@@ -65,8 +63,6 @@ class TimeDataset(Dataset):
         self.meta["df_name"] = self.df_name
 
         self.predict_mode = predict_mode
-        self.prediction_frequency = prediction_frequency
-        # self.predict_steps = predict_steps  # currently unused
         self.config_ar = config_ar
         self.config_seasonality = config_seasonality
         self.config_events = config_events
@@ -264,7 +260,7 @@ class TimeDataset(Dataset):
         # Prediction Frequency
         # Filter missing samples and prediction frequency (does not actually drop, but creates indexmapping)
         prediction_frequency_mask = self.create_prediction_frequency_filter_mask(
-            df_tensors["ds"], self.prediction_frequency
+            df_tensors["ds"], self.config_model.prediction_frequency
         )
 
         # Combine prediction origin masks
@@ -589,18 +585,16 @@ class GlobalTimeDataset(TimeDataset):
     def __init__(
         self,
         df,
+        components_stacker,
         predict_mode,
-        prediction_frequency,
-        predict_steps,
+        config_missing,
+        config_model,
         config_ar,
         config_seasonality,
         config_events,
         config_country_holidays,
         config_regressors,
         config_lagged_regressors,
-        config_missing,
-        config_model,
-        components_stacker,
     ):
         """Initialize Timedataset from time-series df.
         Parameters
@@ -616,8 +610,6 @@ class GlobalTimeDataset(TimeDataset):
             self.datasets[df_name] = TimeDataset(
                 df=df[df["ID"] == df_name],
                 predict_mode=predict_mode,
-                prediction_frequency=prediction_frequency,
-                predict_steps=predict_steps,
                 config_ar=config_ar,
                 config_seasonality=config_seasonality,
                 config_events=config_events,
