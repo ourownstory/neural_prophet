@@ -479,14 +479,16 @@ class NeuralProphet:
 
         # General
         self.name = "NeuralProphet"
-        self.n_forecasts = n_forecasts
 
         # Model
         self.config_model = configure.Model(
+            n_forecasts=n_forecasts,
             quantiles=quantiles,
             prediction_frequency=prediction_frequency,
         )
         self.config_model.setup_quantiles()
+
+        self.n_forecasts = self.config_model.n_forecasts
 
         # Data Normalization settings
         self.config_normalization = configure.Normalization(
