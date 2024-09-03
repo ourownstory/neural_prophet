@@ -11,7 +11,7 @@ import pytest
 from torch.utils.data import DataLoader
 
 from neuralprophet import NeuralProphet, configure, df_utils, time_dataset, utils_time_dataset
-from neuralprophet.data.process import _create_dataset, _handle_missing_data
+from neuralprophet.data.process import _handle_missing_data
 from neuralprophet.data.transform import _normalize
 
 log = logging.getLogger("NP.test")
@@ -702,8 +702,8 @@ def test_globaltimedataset():
             config_seasonality=m.config_seasonality,
             lagged_regressor_config=m.config_lagged_regressors,
         )
-        _create_dataset(m, df_global, predict_mode=False, components_stacker=components_stacker)
-        _create_dataset(m, df_global, predict_mode=True, components_stacker=components_stacker)
+        m._create_dataset(df_global, predict_mode=False, components_stacker=components_stacker)
+        m._create_dataset(df_global, predict_mode=True, components_stacker=components_stacker)
 
     # lagged_regressors, future_regressors
     df4 = df.copy()
@@ -732,8 +732,8 @@ def test_globaltimedataset():
             config_seasonality=m.config_seasonality,
             lagged_regressor_config=m.config_lagged_regressors,
         )
-        _create_dataset(m, df4, predict_mode=False, components_stacker=components_stacker)
-        _create_dataset(m, df4, predict_mode=True, components_stacker=components_stacker)
+        m._create_dataset(df4, predict_mode=False, components_stacker=components_stacker)
+        m._create_dataset(df4, predict_mode=True, components_stacker=components_stacker)
 
 
 def test_dataloader():
@@ -769,7 +769,7 @@ def test_dataloader():
         config_seasonality=None,
         lagged_regressor_config=None,
     )
-    dataset = _create_dataset(m, df_global, predict_mode=False, components_stacker=components_stacker)
+    dataset = m._create_dataset(df_global, predict_mode=False, components_stacker=components_stacker)
     loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
     for _, meta in loader:
         assert set(meta["df_name"]) == set(df_global["ID"].unique())

@@ -27,7 +27,6 @@ from neuralprophet import (
 from neuralprophet.data.process import (
     _check_dataframe,
     _convert_raw_predictions_to_raw_df,
-    _create_dataset,
     _handle_missing_data,
     _prepare_dataframe_to_predict,
     _reshape_raw_predictions_to_forecst_df,
@@ -594,6 +593,44 @@ class NeuralProphet:
         # later set by user (optional)
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
+
+    def _create_dataset(self, df, predict_mode, components_stacker=None):
+        """Construct dataset from dataframe.
+
+        (Configured Hyperparameters can be overridden by explicitly supplying them.
+        Useful to predict a single model component.)
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
+                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
+            predict_mode : bool
+                specifies predict mode
+
+                Options
+                    * ``False``: includes target values.
+                    * ``True``: does not include targets but includes entire dataset as input
+
+        Returns
+        -------
+            TimeDataset
+        """
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        return time_dataset.GlobalTimeDataset(
+            df,
+            predict_mode=predict_mode,
+            predict_steps=self.predict_steps,
+            config_ar=self.config_ar,
+            config_seasonality=self.config_seasonality,
+            config_events=self.config_events,
+            config_country_holidays=self.config_country_holidays,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_missing=self.config_missing,
+            config_model=self.config_model,
+            components_stacker=components_stacker,
+        )
 
     def add_lagged_regressor(
         self,
@@ -1180,13 +1217,7 @@ class NeuralProphet:
             lagged_regressor_config=self.config_lagged_regressors,
             feature_indices={},
         )
-        dataset = _create_dataset(
-            self,
-            df,
-            predict_mode=False,
-            prediction_frequency=self.config_model.prediction_frequency,
-            components_stacker=train_components_stacker,
-        )
+        dataset = self._create_dataset(df, predict_mode=False, components_stacker=train_components_stacker)
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
         # Create Train DataLoader
@@ -1229,7 +1260,7 @@ class NeuralProphet:
                 lagged_regressor_config=self.config_lagged_regressors,
                 feature_indices={},
             )
-            dataset_val = _create_dataset(self, df_val, predict_mode=False, components_stacker=val_components_stacker)
+            dataset_val = self._create_dataset(df_val, predict_mode=False, components_stacker=val_components_stacker)
             loader_val = DataLoader(dataset_val, batch_size=min(1024, len(dataset_val)), shuffle=False, drop_last=False)
 
         # Init the Trainer
@@ -1391,9 +1422,7 @@ class NeuralProphet:
         df = _normalize(df=df, config_normalization=self.config_normalization)
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            dates, predicted, components = self._predict_raw(
-                df_i, df_name, include_components=decompose, prediction_frequency=self.config_model.prediction_frequency
-            )
+            dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose)
             df_i = df_utils.drop_missing_from_df(
                 df_i, self.config_missing.drop_missing, self.predict_steps, self.config_ar.n_lags
             )
@@ -1469,7 +1498,7 @@ class NeuralProphet:
             lagged_regressor_config=self.config_lagged_regressors,
             feature_indices={},
         )
-        dataset = _create_dataset(self, df, predict_mode=False, components_stacker=components_stacker)
+        dataset = self._create_dataset(df, predict_mode=False, components_stacker=components_stacker)
         self.model.set_components_stacker(components_stacker, mode="test")
         test_loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         # Use Lightning to calculate metrics
@@ -2919,7 +2948,7 @@ class NeuralProphet:
         log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
         return sTPE
 
-    def _predict_raw(self, df, df_name, include_components=False, prediction_frequency=None):
+    def _predict_raw(self, df, df_name, include_components=False):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -2969,13 +2998,7 @@ class NeuralProphet:
             lagged_regressor_config=self.config_lagged_regressors,
             feature_indices={},
         )
-        dataset = _create_dataset(
-            self,
-            df,
-            predict_mode=True,
-            prediction_frequency=prediction_frequency,
-            components_stacker=components_stacker,
-        )
+        dataset = self._create_dataset(df, predict_mode=True, components_stacker=components_stacker)
         self.model.set_components_stacker(components_stacker, mode="predict")
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.config_model.n_forecasts > 1:

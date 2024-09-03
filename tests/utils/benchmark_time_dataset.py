@@ -8,8 +8,8 @@ import pandas as pd
 import torch.utils.benchmark as benchmark
 from torch.utils.data import DataLoader
 
-from neuralprophet import NeuralProphet, df_utils, utils
-from neuralprophet.data.process import _check_dataframe, _create_dataset, _handle_missing_data
+from neuralprophet import NeuralProphet, df_utils, utils, utils_time_dataset
+from neuralprophet.data.process import _check_dataframe, _handle_missing_data
 from neuralprophet.data.transform import _normalize
 
 # from neuralprophet.forecaster import
@@ -55,9 +55,12 @@ def load(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=True, iterations=1
     freq = "5min"
     num_workers = 0
 
+    n_lags = (12,)
+    n_forecasts = (6,)
+
     m = NeuralProphet(
-        n_lags=12,
-        n_forecasts=6,
+        n_lags=n_lags,
+        n_forecasts=n_forecasts,
         epochs=epochs,
         batch_size=batch,
         learning_rate=LR,
@@ -98,8 +101,16 @@ def load(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=True, iterations=1
     if m.config_country_holidays is not None:
         m.config_country_holidays.init_holidays(df_merged)
 
-    dataset = _create_dataset(
-        m, df, predict_mode=False, prediction_frequency=m.model_config.prediction_frequency
+    components_stacker = utils_time_dataset.ComponentStacker(
+        n_lags=m.config_ar.n_lags,
+        n_forecasts=m.config_model.n_forecasts,
+        max_lags=m.config_model.max_lags,
+        config_seasonality=m.config_seasonality,
+        lagged_regressor_config=m.config_lagged_regressors,
+    )
+
+    dataset = m._create_dataset(
+        df, predict_mode=False, components_stacker=components_stacker
     )  # needs to be called after set_auto_seasonalities
 
     # Determine the max_number of epochs
@@ -120,11 +131,11 @@ def load(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=True, iterations=1
     tic = time.perf_counter()
     for i in range(iterations):
         data, target, meta = next(dataloader_iterator)
-        # try:
-        #     data, target, meta = next(dataloader_iterator)
-        # except StopIteration:
-        #     dataloader_iterator = iter(loader)
-        #     data, target, meta = next(dataloader_iterator)
+        try:
+            data, target, meta = next(dataloader_iterator)
+        except StopIteration:
+            dataloader_iterator = iter(loader)
+            data, target, meta = next(dataloader_iterator)
         # do_something()
     toc = time.perf_counter()
     # print_input_shapes(data)
