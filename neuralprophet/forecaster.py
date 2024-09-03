@@ -485,7 +485,6 @@ class NeuralProphet:
         self.config_model = configure.Model(
             quantiles=quantiles,
             prediction_frequency=prediction_frequency,
-            features_map={},
         )
         self.config_model.setup_quantiles()
 
