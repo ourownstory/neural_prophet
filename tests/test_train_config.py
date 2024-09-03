@@ -50,7 +50,9 @@ def test_custom_lr_scheduler():
         scheduler="CosineAnnealingWarmRestarts",
         scheduler_args={"T_0": 5, "T_mult": 2},
     )
-    _ = m.fit(df, freq="D")
+    metrics = m.fit(df, freq="D")
+    print(f"metrics = {metrics}")
+
     # Set in NeuralProphet(), no args
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -58,7 +60,8 @@ def test_custom_lr_scheduler():
         learning_rate=LR,
         scheduler="StepLR",
     )
-    _ = m.fit(df, freq="D")
+    metrics = m.fit(df, freq="D")
+    print(f"metrics = {metrics}")
 
     # Set in fit()
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
@@ -68,7 +71,7 @@ def test_custom_lr_scheduler():
         scheduler="ExponentialLR",
         scheduler_args={"gamma": 0.95},
     )
-
+    print(f"metrics = {metrics}")
     # Set in fit(), no args
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
     _ = m.fit(
@@ -76,3 +79,4 @@ def test_custom_lr_scheduler():
         freq="D",
         scheduler="OneCycleLR",
     )
+    print(f"metrics = {metrics}")

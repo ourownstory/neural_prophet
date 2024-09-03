@@ -21,6 +21,7 @@ from neuralprophet.utils import (
     reg_func_trend,
     reg_func_trend_glocal,
 )
+from neuralprophet.utils_time_dataset import ComponentStacker
 from neuralprophet.utils_torch import init_parameter, interprete_model
 
 log = logging.getLogger("NP.time_net")
@@ -62,6 +63,10 @@ class TimeNet(pl.LightningModule):
         num_seasonalities_modelled: int = 1,
         num_seasonalities_modelled_dict: dict = None,
         meta_used_in_model: bool = False,
+        train_components_stacker: Optional[ComponentStacker] = None,
+        val_components_stacker: Optional[ComponentStacker] = None,
+        test_components_stacker: Optional[ComponentStacker] = None,
+        predict_components_stacker: Optional[ComponentStacker] = None,
     ):
         """
         Parameters
@@ -142,11 +147,16 @@ class TimeNet(pl.LightningModule):
         # General
         self.config_model = config_model
         self.n_forecasts = n_forecasts
+        self.train_components_stacker = train_components_stacker
+        self.val_components_stacker = val_components_stacker
+        self.test_components_stacker = test_components_stacker
+        self.predict_components_stacker = predict_components_stacker
 
         # Lightning Config
         self.config_train = config_train
         self.config_normalization = config_normalization
         self.compute_components_flag = compute_components_flag
+        self.config_model = config_model
 
         # Manual optimization: we are responsible for calling .backward(), .step(), .zero_grad().
         self.automatic_optimization = False
@@ -309,6 +319,16 @@ class TimeNet(pl.LightningModule):
         for layer in self.ar_net:
             if isinstance(layer, nn.Linear):
                 return layer.weight
+
+    def set_components_stacker(self, components_stacker, mode):
+        if mode == "train":
+            self.train_components_stacker = components_stacker
+        if mode == "val":
+            self.val_components_stacker = components_stacker
+        if mode == "test":
+            self.test_components_stacker = components_stacker
+        if mode == "predict":
+            self.predict_components_stacker = components_stacker
 
     def get_covar_weights(self, covar_input=None) -> torch.Tensor:
         """
@@ -500,192 +520,174 @@ class TimeNet(pl.LightningModule):
         x = x.view(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def forward(self, inputs: Dict, meta: Dict = None, compute_components_flag: bool = False) -> torch.Tensor:
-        """This method defines the model forward pass.
-        Note
-        ----
-        Time input is required. Minimum model setup is a linear trend.
-        Parameters
-        ----------
-            inputs : dict
-                Model inputs, each of len(df) but with varying dimensions
-                Note
-                ----
-                Contains the following data:
-                Model Inputs
-                    * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
-                    * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
-                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features
-                    (values), dims of each dict value (batch, n_forecasts, n_features)
-                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features
-                    (values), dims of each dict value: (batch, n_lags)
-                    * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
-                    * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
-                    * ``predict_mode`` (bool), optional and only passed during prediction
-            meta : dict, default=None
-                Metadata about the all the samples of the model input batch.
-                Contains the following:
-                Model Meta:
-                    * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
-                Note
-                ----
-                The meta is sorted in the same way the inputs are sorted.
-                Note
-                ----
-                The default None value allows the forward method to be used without providing the meta argument.
-                This was designed to avoid issues with the library `lr_finder` https://github.com/davidtvs/pytorch-lr-finder
-                while having  ``config_trend.trend_global_local="local"``.
-                The turnaround consists on passing the same meta (dummy ID) to all the samples of the batch.
-                Internally, this is equivalent to use ``config_trend.trend_global_local="global"`` to find the optimal
-                learning rate.
-            compute_components_flag : bool, default=False
-                If True, components will be computed.
+    def forward(
+        self,
+        input_tensor: torch.Tensor,
+        components_stacker=ComponentStacker,
+        meta: Dict = None,
+        compute_components_flag: bool = False,
+        predict_mode: bool = False,
+    ) -> torch.Tensor:
+        """This method defines the model forward pass."""
 
-        Returns
-        -------
-            torch.Tensor
-                Forecast of dims (batch, n_forecasts, no_quantiles)
-        """
-        # Turnaround to avoid issues when the meta argument is None and meta_used_in_model
+        time_input = components_stacker.unstack_component(component_name="time", batch_tensor=input_tensor)
+        # Handle meta argument
         if meta is None and self.meta_used_in_model:
             name_id_dummy = self.id_list[0]
             meta = OrderedDict()
-            meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
+            meta["df_name"] = [name_id_dummy for _ in range(time_input.shape[0])]
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
 
+        # Initialize components and nonstationary tensors
         components = {}
         additive_components = torch.zeros(
-            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)),
+            size=(time_input.shape[0], self.n_forecasts, len(self.quantiles)),
             device=self.device,
         )
         additive_components_nonstationary = torch.zeros(
-            size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
+            size=(time_input.shape[0], time_input.shape[1], len(self.quantiles)),
+            device=self.device,
         )
         multiplicative_components_nonstationary = torch.zeros(
-            size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
+            size=(time_input.shape[0], time_input.shape[1], len(self.quantiles)),
+            device=self.device,
         )
 
-        trend = self.trend(t=inputs["time"], meta=meta)
+        # Unpack time feature and compute trend
+        trend = self.trend(t=time_input, meta=meta)
         components["trend"] = trend
 
-        if "seasonalities" in inputs:
-            s = self.seasonality(s=inputs["seasonalities"], meta=meta)
+        # Unpack and process seasonalities
+        seasonalities_input = None
+        if self.config_seasonality and self.config_seasonality.periods:
+            seasonalities_input = components_stacker.unstack_component(
+                component_name="seasonalities", batch_tensor=input_tensor
+            )
+            s = self.seasonality(s=seasonalities_input, meta=meta)
             if self.config_seasonality.mode == "additive":
                 additive_components_nonstationary += s
             elif self.config_seasonality.mode == "multiplicative":
                 multiplicative_components_nonstationary += s
             components["seasonalities"] = s
 
-        if "events" in inputs:
-            if "additive" in inputs["events"].keys():
-                additive_events = self.scalar_features_effects(
-                    inputs["events"]["additive"], self.event_params["additive"]
+        # Unpack and process events
+        additive_events_input = None
+        multiplicative_events_input = None
+        if self.events_dims is not None:
+            if "additive_events" in components_stacker.feature_indices:
+                additive_events_input = components_stacker.unstack_component(
+                    component_name="additive_events", batch_tensor=input_tensor
                 )
+                additive_events = self.scalar_features_effects(additive_events_input, self.event_params["additive"])
                 additive_components_nonstationary += additive_events
                 components["additive_events"] = additive_events
-            if "multiplicative" in inputs["events"].keys():
+            if "multiplicative_events" in components_stacker.feature_indices:
+                multiplicative_events_input = components_stacker.unstack_component(
+                    component_name="multiplicative_events", batch_tensor=input_tensor
+                )
                 multiplicative_events = self.scalar_features_effects(
-                    inputs["events"]["multiplicative"], self.event_params["multiplicative"]
+                    multiplicative_events_input, self.event_params["multiplicative"]
                 )
                 multiplicative_components_nonstationary += multiplicative_events
                 components["multiplicative_events"] = multiplicative_events
 
-        if "regressors" in inputs:
-            if "additive" in inputs["regressors"].keys():
-                additive_regressors = self.future_regressors(inputs["regressors"]["additive"], "additive")
-                additive_components_nonstationary += additive_regressors
-                components["additive_regressors"] = additive_regressors
-            if "multiplicative" in inputs["regressors"].keys():
-                multiplicative_regressors = self.future_regressors(
-                    inputs["regressors"]["multiplicative"], "multiplicative"
-                )
-                multiplicative_components_nonstationary += multiplicative_regressors
-                components["multiplicative_regressors"] = multiplicative_regressors
+        # Unpack and process regressors
+        additive_regressors_input = None
+        multiplicative_regressors_input = None
+        if "additive_regressors" in components_stacker.feature_indices:
+            additive_regressors_input = components_stacker.unstack_component(
+                component_name="additive_regressors", batch_tensor=input_tensor
+            )
+            additive_regressors = self.future_regressors(additive_regressors_input, "additive")
+            additive_components_nonstationary += additive_regressors
+            components["additive_regressors"] = additive_regressors
+        if "multiplicative_regressors" in components_stacker.feature_indices:
+            multiplicative_regressors_input = components_stacker.unstack_component(
+                component_name="multiplicative_regressors", batch_tensor=input_tensor
+            )
+            multiplicative_regressors = self.future_regressors(multiplicative_regressors_input, "multiplicative")
+            multiplicative_components_nonstationary += multiplicative_regressors
+            components["multiplicative_regressors"] = multiplicative_regressors
 
-        # stationarized input
-        if "lags" in inputs:
-            # combinde all non-stationary components over AR input range
-            nonstationary_components = (  # dimensions - [batch, n_lags, median quantile]
+        # Unpack and process lags
+        lags_input = None
+        if "lags" in components_stacker.feature_indices:
+            lags_input = components_stacker.unstack_component(component_name="lags", batch_tensor=input_tensor)
+            nonstationary_components = (
                 trend[:, : self.n_lags, 0]
                 + additive_components_nonstationary[:, : self.n_lags, 0]
                 + trend[:, : self.n_lags, 0].detach() * multiplicative_components_nonstationary[:, : self.n_lags, 0]
             )
-            stationarized_lags = inputs["lags"] - nonstationary_components
+            stationarized_lags = lags_input - nonstationary_components
             lags = self.auto_regression(lags=stationarized_lags)
             additive_components += lags
             components["lags"] = lags
 
-        if "covariates" in inputs:
-            covariates = self.forward_covar_net(covariates=inputs["covariates"])
+        # Unpack and process covariates
+        covariates_input = None
+        if self.config_lagged_regressors and self.config_lagged_regressors.regressors is not None:
+            covariates_input = components_stacker.unstack_component(
+                component_name="lagged_regressors", batch_tensor=input_tensor
+            )
+            covariates = self.forward_covar_net(covariates=covariates_input)
             additive_components += covariates
             components["covariates"] = covariates
 
-        # combine all non-stationary components over forecast range
+        # Combine components and compute predictions
         predictions_nonstationary = (
-            trend[:, self.n_lags : inputs["time"].shape[1], :]
-            + additive_components_nonstationary[:, self.n_lags : inputs["time"].shape[1], :]
-            + trend[:, self.n_lags : inputs["time"].shape[1], :].detach()
-            * multiplicative_components_nonstationary[:, self.n_lags : inputs["time"].shape[1], :]
+            trend[:, self.n_lags : time_input.shape[1], :]
+            + additive_components_nonstationary[:, self.n_lags : time_input.shape[1], :]
+            + trend[:, self.n_lags : time_input.shape[1], :].detach()
+            * multiplicative_components_nonstationary[:, self.n_lags : time_input.shape[1], :]
         )
-        prediction = predictions_nonstationary + additive_components  # dimensions - [batch, n_forecasts, no_quantiles]
+        prediction = predictions_nonstationary + additive_components
 
-        # check for crossing quantiles and correct them here
-        if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
-            predict_mode = True
-        else:
-            predict_mode = False
+        # Correct crossing quantiles
         prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
 
-        # component calculation
+        # Compute components if required
         if compute_components_flag:
-            components = self.compute_components(inputs, components, meta)
+            components = self.compute_components(
+                time_input,
+                seasonalities_input,
+                lags_input,
+                covariates_input,
+                additive_events_input,
+                multiplicative_events_input,
+                additive_regressors_input,
+                multiplicative_regressors_input,
+                components,
+                meta,
+            )
         else:
             components = None
 
         return prediction_with_quantiles, components
 
-    def compute_components(self, inputs: Dict, components_raw: Dict, meta: Dict) -> Dict:
-        """This method returns the values of each model component.
-        Note
-        ----
-        Time input is required. Minimum model setup is a linear trend.
-        Parameters
-        ----------
-            inputs : dict
-                Model inputs, each of len(df) but with varying dimensions
-                Note
-                ----
-                Contains the following data:
-                Model Inputs
-                    * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
-                    * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
-                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features
-                    (values), dims of each dict value (batch, n_forecasts, n_features)
-                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features
-                    (values), dims of each dict value: (batch, n_lags)
-                    * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
-                    * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
-            components_raw : dict
-                components to be computed
-        -------
-            dict
-                Containing forecast coomponents with elements of dims (batch, n_forecasts)
-        """
+    def compute_components(
+        self,
+        time_input,
+        seasonality_input,
+        lags_input,
+        covariates_input,
+        additive_events_input,
+        multiplicative_events_input,
+        additive_regressors_input,
+        multiplicative_regressors_input,
+        components_raw: Dict,
+        meta: Dict,
+    ) -> Dict:
         components = {}
 
-        components["trend"] = components_raw["trend"][:, self.n_lags : inputs["time"].shape[1], :]
-        if self.config_trend is not None and "seasonalities" in inputs:
-            for name, features in inputs["seasonalities"].items():
+        components["trend"] = components_raw["trend"][:, self.n_lags : time_input.shape[1], :]
+        if self.config_trend is not None and seasonality_input is not None:
+            for name, features in seasonality_input.items():
                 components[f"season_{name}"] = self.seasonality.compute_fourier(
-                    features=features[:, self.n_lags : inputs["time"].shape[1], :], name=name, meta=meta
+                    features=features[:, self.n_lags : time_input.shape[1], :], name=name, meta=meta
                 )
-        if self.n_lags > 0 and "lags" in inputs:
+        if self.n_lags > 0 and lags_input is not None:
             components["ar"] = components_raw["lags"]
-        if (
-            self.config_lagged_regressors is not None
-            and self.config_lagged_regressors.regressors is not None
-            and "covariates" in inputs
-        ):
+        if self.config_lagged_regressors is not None and covariates_input is not None:
             # Combined forward pass
             all_covariates = components_raw["covariates"]
             # Calculate the contribution of each covariate on each forecast
@@ -694,7 +696,7 @@ class TimeNet(pl.LightningModule):
             covar_attribution_sum_per_forecast = reduce(
                 torch.add, [torch.sum(covar, axis=1) for _, covar in covar_attributions.items()]
             ).to(all_covariates.device)
-            for name in inputs["covariates"].keys():
+            for name in covariates_input.keys():
                 # Distribute the contribution of the current covariate to the combined forward pass
                 # 1. Calculate the relative share of each covariate on the total attributions
                 # 2. Multiply the relative share with the combined forward pass
@@ -705,59 +707,62 @@ class TimeNet(pl.LightningModule):
                         covar_attribution_sum_per_forecast,
                     ).reshape(self.n_forecasts, len(self.quantiles)),
                 )
-        if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
-            if "additive" in inputs["events"].keys():
+        if self.config_events is not None or self.config_holidays is not None:
+            if additive_events_input is not None:
                 components["events_additive"] = components_raw["additive_events"][
-                    :, self.n_lags : inputs["time"].shape[1], :
+                    :, self.n_lags : time_input.shape[1], :
                 ]
-            if "multiplicative" in inputs["events"].keys():
+            if multiplicative_events_input is not None:
                 components["events_multiplicative"] = components_raw["multiplicative_events"][
-                    :, self.n_lags : inputs["time"].shape[1], :
+                    :, self.n_lags : time_input.shape[1], :
                 ]
             for event, configs in self.events_dims.items():
                 mode = configs["mode"]
                 indices = configs["event_indices"]
                 if mode == "additive":
-                    features = inputs["events"]["additive"][:, self.n_lags : inputs["time"].shape[1], :]
+                    features = additive_events_input[:, self.n_lags : time_input.shape[1], :]
                     params = self.event_params["additive"]
                 else:
-                    features = inputs["events"]["multiplicative"][:, self.n_lags : inputs["time"].shape[1], :]
+                    features = multiplicative_events_input[:, self.n_lags : time_input.shape[1], :]
                     params = self.event_params["multiplicative"]
                 components[f"event_{event}"] = self.scalar_features_effects(
                     features=features, params=params, indices=indices
                 )
-        if self.config_regressors.regressors is not None and "regressors" in inputs:
-            if "additive" in inputs["regressors"].keys():
+        if self.config_regressors.regressors is not None:
+            if additive_regressors_input is not None:
                 components["future_regressors_additive"] = components_raw["additive_regressors"][
-                    :, self.n_lags : inputs["time"].shape[1], :
+                    :, self.n_lags : time_input.shape[1], :
                 ]
 
-            if "multiplicative" in inputs["regressors"].keys():
+            if multiplicative_regressors_input is not None:
                 components["future_regressors_multiplicative"] = components_raw["multiplicative_regressors"][
-                    :, self.n_lags : inputs["time"].shape[1], :
+                    :, self.n_lags : time_input.shape[1], :
                 ]
 
             for regressor, configs in self.future_regressors.regressors_dims.items():
                 mode = configs["mode"]
                 index = []
                 index.append(configs["regressor_index"])
-                features = inputs["regressors"][mode]
-                components[f"future_regressor_{regressor}"] = self.future_regressors(
-                    features[:, self.n_lags : inputs["time"].shape[1], :], mode, indeces=index
-                )
-
+                if mode == "additive" and additive_regressors_input is not None:
+                    components[f"future_regressor_{regressor}"] = self.future_regressors(
+                        additive_regressors_input[:, self.n_lags : time_input.shape[1], :], mode, indeces=index
+                    )
+                if mode == "multiplicative" and multiplicative_regressors_input is not None:
+                    components[f"future_regressor_{regressor}"] = self.future_regressors(
+                        multiplicative_regressors_input[:, self.n_lags : time_input.shape[1], :], mode, indeces=index
+                    )
         return components
 
     def set_compute_components(self, compute_components_flag):
         self.compute_components_flag = compute_components_flag
 
-    def loss_func(self, inputs, predicted, targets):
+    def loss_func(self, time, predicted, targets):
         loss = None
         # Compute loss. no reduction.
         loss = self.config_train.loss_func(predicted, targets)
         if self.config_train.newer_samples_weight > 1.0:
             # Weigh newer samples more.
-            loss = loss * self._get_time_based_sample_weight(t=inputs["time"][:, self.n_lags :])
+            loss = loss * self._get_time_based_sample_weight(t=time[:, self.n_lags :])
         loss = loss.sum(dim=2).mean()
         # Regularize.
         if self.reg_enabled and not self.finding_lr:
@@ -767,20 +772,24 @@ class TimeNet(pl.LightningModule):
         return loss, reg_loss
 
     def training_step(self, batch, batch_idx):
-        inputs, targets, meta = batch
+        inputs_tensor, meta = batch
+
         epoch_float = self.trainer.current_epoch + batch_idx / float(self.train_steps_per_epoch)
         self.train_progress = epoch_float / float(self.config_train.epochs)
+
+        targets = self.train_components_stacker.unstack_component("targets", batch_tensor=inputs_tensor)
+        time = self.train_components_stacker.unstack_component("time", batch_tensor=inputs_tensor)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs, meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, self.train_components_stacker, meta_name_tensor)
         # Store predictions in self for later network visualization
         self.train_epoch_prediction = predicted
         # Calculate loss
-        loss, reg_loss = self.loss_func(inputs, predicted, targets)
+        loss, reg_loss = self.loss_func(time, predicted, targets)
 
         # Optimization
         optimizer = self.optimizers()
@@ -803,6 +812,7 @@ class TimeNet(pl.LightningModule):
         if self.metrics_enabled and not self.finding_lr:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
+            target_denorm = target_denorm.contiguous()
             self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss", loss, **self.log_args)
             self.log("RegLoss", reg_loss, **self.log_args)
@@ -811,54 +821,66 @@ class TimeNet(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        inputs, targets, meta = batch
+        inputs_tensor, meta = batch
+        targets = self.val_components_stacker.unstack_component("targets", batch_tensor=inputs_tensor)
+        time = self.val_components_stacker.unstack_component("time", batch_tensor=inputs_tensor)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs, meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, self.val_components_stacker, meta_name_tensor)
         # Calculate loss
-        loss, reg_loss = self.loss_func(inputs, predicted, targets)
+        loss, reg_loss = self.loss_func(time, predicted, targets)
         # Metrics
         if self.metrics_enabled:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
+            target_denorm = target_denorm.contiguous()
             self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss_val", loss, **self.log_args)
             self.log("RegLoss_val", reg_loss, **self.log_args)
 
     def test_step(self, batch, batch_idx):
-        inputs, targets, meta = batch
+        inputs_tensor, meta = batch
+        targets = self.test_components_stacker.unstack_component("targets", batch_tensor=inputs_tensor)
+        time = self.test_components_stacker.unstack_component("time", batch_tensor=inputs_tensor)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs, meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, self.test_components_stacker, meta_name_tensor)
         # Calculate loss
-        loss, reg_loss = self.loss_func(inputs, predicted, targets)
+        loss, reg_loss = self.loss_func(time, predicted, targets)
         # Metrics
         if self.metrics_enabled:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
+            # target_denorm = target_denorm.detach().clone()
+            target_denorm = target_denorm.contiguous()
             self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss_test", loss, **self.log_args)
             self.log("RegLoss_test", reg_loss, **self.log_args)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        inputs, _, meta = batch
+        inputs_tensor, meta = batch
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
-        # Add predict_mode flag to dataset
-        inputs["predict_mode"] = True
+
         # Run forward calculation
-        prediction, components = self.forward(inputs, meta_name_tensor, self.compute_components_flag)
+        prediction, components = self.forward(
+            inputs_tensor,
+            self.predict_components_stacker,
+            meta_name_tensor,
+            self.compute_components_flag,
+            predict_mode=True,
+        )
         return prediction, components
 
     def configure_optimizers(self):

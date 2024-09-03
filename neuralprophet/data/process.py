@@ -575,7 +575,7 @@ def _handle_missing_data(
     return df
 
 
-def _create_dataset(model, df, predict_mode, prediction_frequency=None):
+def _create_dataset(model, df, predict_mode, prediction_frequency=None, components_stacker=None):
     """Construct dataset from dataframe.
 
     (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -626,5 +626,7 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
         config_regressors=model.config_regressors,
         config_lagged_regressors=model.config_lagged_regressors,
         config_missing=model.config_missing,
+        config_model=model.config_model,
+        components_stacker=components_stacker,
         # config_train=model.config_train, # no longer needed since JIT tabularization.
     )

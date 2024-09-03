@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from torch.utils.data import DataLoader
 
-from neuralprophet import NeuralProphet, configure, df_utils, time_dataset
+from neuralprophet import NeuralProphet, configure, df_utils, time_dataset, utils_time_dataset
 from neuralprophet.data.process import _create_dataset, _handle_missing_data
 from neuralprophet.data.transform import _normalize
 
@@ -97,6 +97,14 @@ def test_timedataset_minimal():
         df = df_utils.normalize(df, global_data_params)
         df["ID"] = "__df__"
 
+        components_stacker = utils_time_dataset.ComponentStacker(
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            max_lags=n_lags,
+            config_seasonality=None,
+            lagged_regressor_config=None,
+        )
+
         dataset = time_dataset.TimeDataset(
             df=df,
             predict_mode=False,
@@ -110,16 +118,18 @@ def test_timedataset_minimal():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
+            config_model=None,
+            components_stacker=components_stacker,
         )
-        inputs, targets, meta = dataset.__getitem__(0)
-        # inputs50, targets50, meta50 = dataset.__getitem__(50)
-        log.debug(f"(n_forecasts {n_forecasts}, n_lags {n_lags})")
-        log.debug(f"tabularized targets: {targets.shape}")
-        log.debug(
-            "tabularized inputs: {}".format(
-                "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
-            )
-        )
+        input, meta = dataset.__getitem__(0)
+        # # inputs50, targets50, meta50 = dataset.__getitem__(50)
+        # log.debug(f"(n_forecasts {n_forecasts}, n_lags {n_lags})")
+        # log.debug(f"tabularized targets: {targets.shape}")
+        # log.debug(
+        #     "tabularized inputs: {}".format(
+        #         "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
+        #     )
+        # )
 
 
 def test_normalize():
@@ -683,8 +693,15 @@ def test_globaltimedataset():
         )
         m.config_normalization = config_normalization
         df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
-        _create_dataset(m, df_global, predict_mode=False)
-        _create_dataset(m, df_global, predict_mode=True)
+        components_stacker = utils_time_dataset.ComponentStacker(
+            n_lags=m.n_lags,
+            n_forecasts=m.n_forecasts,
+            max_lags=m.max_lags,
+            config_seasonality=m.config_seasonality,
+            lagged_regressor_config=m.config_lagged_regressors,
+        )
+        _create_dataset(m, df_global, predict_mode=False, components_stacker=components_stacker)
+        _create_dataset(m, df_global, predict_mode=True, components_stacker=components_stacker)
 
     # lagged_regressors, future_regressors
     df4 = df.copy()
@@ -706,8 +723,15 @@ def test_globaltimedataset():
         config_normalization.init_data_params(df4, m.config_lagged_regressors, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
         df4 = _normalize(df=df4, config_normalization=m.config_normalization)
-        _create_dataset(m, df4, predict_mode=False)
-        _create_dataset(m, df4, predict_mode=True)
+        components_stacker = utils_time_dataset.ComponentStacker(
+            n_lags=m.n_lags,
+            n_forecasts=m.n_forecasts,
+            max_lags=m.max_lags,
+            config_seasonality=m.config_seasonality,
+            lagged_regressor_config=m.config_lagged_regressors,
+        )
+        _create_dataset(m, df4, predict_mode=False, components_stacker=components_stacker)
+        _create_dataset(m, df4, predict_mode=True, components_stacker=components_stacker)
 
 
 def test_dataloader():
@@ -736,9 +760,16 @@ def test_dataloader():
     config_normalization.init_data_params(df_global, m.config_lagged_regressors, m.config_regressors, m.config_events)
     m.config_normalization = config_normalization
     df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
-    dataset = _create_dataset(m, df_global, predict_mode=False)
+    components_stacker = utils_time_dataset.ComponentStacker(
+        n_lags=3,
+        n_forecasts=2,
+        max_lags=3,
+        config_seasonality=None,
+        lagged_regressor_config=None,
+    )
+    dataset = _create_dataset(m, df_global, predict_mode=False, components_stacker=components_stacker)
     loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
-    for inputs, targets, meta in loader:
+    for _, meta in loader:
         assert set(meta["df_name"]) == set(df_global["ID"].unique())
         break
 
@@ -864,6 +895,13 @@ def test_too_many_NaN():
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
+        components_stacker = utils_time_dataset.ComponentStacker(
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            max_lags=n_lags,
+            config_seasonality=None,
+            lagged_regressor_config=None,
+        )
         time_dataset.TimeDataset(
             df=df,
             predict_mode=False,
@@ -877,6 +915,8 @@ def test_too_many_NaN():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
+            config_model=None,
+            components_stacker=components_stacker,
         )
 
 

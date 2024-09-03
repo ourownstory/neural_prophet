@@ -22,6 +22,8 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
+    features_map: dict
+    lagged_reg_layers: Optional[List[int]]
     quantiles: Optional[List[float]] = None
 
     def setup_quantiles(self):
@@ -40,6 +42,9 @@ class Model:
         self.quantiles = [quantile for quantile in self.quantiles if not math.isclose(0.5, quantile)]
         # 0 is the median quantile index
         self.quantiles.insert(0, 0.5)
+
+
+ConfigModel = Model
 
 
 @dataclass
