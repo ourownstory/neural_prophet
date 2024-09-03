@@ -620,7 +620,6 @@ class NeuralProphet:
         return time_dataset.GlobalTimeDataset(
             df,
             predict_mode=predict_mode,
-            predict_steps=self.predict_steps,
             config_ar=self.config_ar,
             config_seasonality=self.config_seasonality,
             config_events=self.config_events,
@@ -2154,7 +2153,6 @@ class NeuralProphet:
                 df=df_i,
                 predict_mode=True,
                 prediction_frequency=self.config_model.prediction_frequency,
-                predict_steps=1,
                 config_ar=self.config_ar,
                 config_missing=self.config_missing,
                 config_model=self.config_model,
