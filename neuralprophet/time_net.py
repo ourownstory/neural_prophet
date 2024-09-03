@@ -735,7 +735,6 @@ class TimeNet(pl.LightningModule):
                 ]
 
             for regressor, configs in self.future_regressors.regressors_dims.items():
-                print(f"regressor = {regressor}")
                 mode = configs["mode"]
                 index = []
                 index.append(configs["regressor_index"])
