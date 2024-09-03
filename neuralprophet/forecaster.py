@@ -2140,15 +2140,6 @@ class NeuralProphet:
             for name in self.config_seasonality.periods:
                 predicted[name] = list()
             for inputs_tensor, meta in loader:
-                feature_extractor = FeatureExtractor(
-                    data_tensor=inputs_tensor,
-                    n_lags=0,
-                    n_forecasts=1,
-                    max_lags=0,
-                    feature_indices=self.config_model.features_map,
-                    config_seasonality=self.config_seasonality,
-                    lagged_regressor_config=None,
-                )
                 # Meta as a tensor for prediction
                 if self.model.config_seasonality is None:
                     meta_name_tensor = None
