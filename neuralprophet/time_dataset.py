@@ -192,7 +192,7 @@ class TimeDataset(Dataset):
 
         for name, period in self.config_seasonality.periods.items():
             if period.resolution > 0:
-                features = compute_fourier_features(t, period)
+                features = compute_fourier_features(t, period.period, period.resolution)
 
                 if period.condition_name is not None:
                     condition_values = self.df_tensors[period.condition_name].unsqueeze(1)
