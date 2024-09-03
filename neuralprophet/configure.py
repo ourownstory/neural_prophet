@@ -75,9 +75,6 @@ class Model:
 ConfigModel = Model
 
 
-ConfigModel = Model
-
-
 @dataclass
 class Normalization:
     normalize: str

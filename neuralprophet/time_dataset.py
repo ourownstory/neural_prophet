@@ -11,17 +11,7 @@ from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure, utils
 from neuralprophet.event_utils import get_all_holidays
-from neuralprophet.utils_time_dataset import (
-    pack_additive_events_component,
-    pack_additive_regressors_component,
-    pack_lagged_regerssors_component,
-    pack_lags_component,
-    pack_multiplicative_events_component,
-    pack_multiplicative_regressors_component,
-    pack_seasonalities_component,
-    pack_targets_component,
-    pack_trend_component,
-)
+from neuralprophet.utils_time_dataset import ComponentStacker, fourier_series, fourier_series_t
 
 log = logging.getLogger("NP.time_dataset")
 
@@ -170,51 +160,51 @@ class TimeDataset(Dataset):
         # Concatenate all features into one big tensor
         self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
 
-        self.stack_all_features()
+        # self.stack_all_features()
 
-    def stack_all_features(self):
-        """
-        Stack all features into one large tensor by calling individual stacking methods.
-        """
-        feature_list = []
-        feature_indices = {}
+    # def stack_all_features(self):
+    #     """
+    #     Stack all features into one large tensor by calling individual stacking methods.
+    #     """
+    #     feature_list = []
+    #     feature_indices = {}
 
-        current_idx = 0
+    #     current_idx = 0
 
-        # Call individual stacking functions
-        current_idx = pack_trend_component(self.df_tensors, feature_list, feature_indices, current_idx)
-        current_idx = pack_targets_component(self.df_tensors, feature_list, feature_indices, current_idx)
+    #     # Call individual stacking functions
+    #     current_idx = pack_trend_component(self.df_tensors, feature_list, feature_indices, current_idx)
+    #     current_idx = pack_targets_component(self.df_tensors, feature_list, feature_indices, current_idx)
 
-        current_idx = pack_lags_component(self.df_tensors, feature_list, feature_indices, current_idx, self.n_lags)
-        current_idx = pack_lagged_regerssors_component(
-            self.df_tensors, feature_list, feature_indices, current_idx, self.config_lagged_regressors
-        )
-        current_idx = pack_additive_events_component(
-            self.df_tensors, feature_list, feature_indices, current_idx, self.additive_event_and_holiday_names
-        )
-        current_idx = pack_multiplicative_events_component(
-            self.df_tensors, feature_list, feature_indices, current_idx, self.multiplicative_event_and_holiday_names
-        )
-        current_idx = pack_additive_regressors_component(
-            self.df_tensors, feature_list, feature_indices, current_idx, self.additive_regressors_names
-        )
-        current_idx = pack_multiplicative_regressors_component(
-            self.df_tensors, feature_list, feature_indices, current_idx, self.multiplicative_regressors_names
-        )
+    #     current_idx = pack_lags_component(self.df_tensors, feature_list, feature_indices, current_idx, self.n_lags)
+    #     current_idx = pack_lagged_regerssors_component(
+    #         self.df_tensors, feature_list, feature_indices, current_idx, self.config_lagged_regressors
+    #     )
+    #     current_idx = pack_additive_events_component(
+    #         self.df_tensors, feature_list, feature_indices, current_idx, self.additive_event_and_holiday_names
+    #     )
+    #     current_idx = pack_multiplicative_events_component(
+    #         self.df_tensors, feature_list, feature_indices, current_idx, self.multiplicative_event_and_holiday_names
+    #     )
+    #     current_idx = pack_additive_regressors_component(
+    #         self.df_tensors, feature_list, feature_indices, current_idx, self.additive_regressors_names
+    #     )
+    #     current_idx = pack_multiplicative_regressors_component(
+    #         self.df_tensors, feature_list, feature_indices, current_idx, self.multiplicative_regressors_names
+    #     )
 
-        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-            current_idx = pack_seasonalities_component(
-                feature_list, feature_indices, current_idx, self.config_seasonality, self.seasonalities
-            )
+    #     if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
+    #         current_idx = pack_seasonalities_component(
+    #             feature_list, feature_indices, current_idx, self.config_seasonality, self.seasonalities
+    #         )
 
-        # Concatenate all features into one big tensor
-        self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
+    #     # Concatenate all features into one big tensor
+    #     self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
 
-        # Update the model's features map if applicable
-        if self.config_model is not None:
-            self.config_model.features_map = feature_indices
+    #     # Update the model's features map if applicable
+    #     if self.config_model is not None:
+    #         self.config_model.features_map = feature_indices
 
-        return feature_indices
+    #     return feature_indices
 
     def calculate_seasonalities(self):
         self.seasonalities = OrderedDict({})
@@ -691,50 +681,3 @@ class GlobalTimeDataset(TimeDataset):
         df_name = self.global_sample_to_local_ID[idx]
         local_pos = self.global_sample_to_local_sample[idx]
         return self.datasets[df_name].__getitem__(local_pos)
-
-
-def fourier_series(dates, period, series_order):
-    """Provides Fourier series components with the specified frequency and order.
-    Note
-    ----
-    Identical to OG Prophet.
-    Parameters
-    ----------
-        dates : pd.Series
-            Containing time stamps
-        period : float
-            Number of days of the period
-        series_order : int
-            Number of fourier components
-    Returns
-    -------
-        np.array
-            Matrix with seasonality features
-    """
-    # convert to days since epoch
-    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
-    return fourier_series_t(t, period, series_order)
-
-
-def fourier_series_t(t, period, series_order):
-    """Provides Fourier series components with the specified frequency and order.
-    Note
-    ----
-    This function is identical to Meta AI's Prophet Library
-    Parameters
-    ----------
-        t : pd.Series, float
-            Containing time as floating point number of days
-        period : float
-            Number of days of the period
-        series_order : int
-            Number of fourier components
-    Returns
-    -------
-        np.array
-            Matrix with seasonality features
-    """
-    features = np.column_stack(
-        [fun((2.0 * (i + 1) * np.pi * t / period)) for i in range(series_order) for fun in (np.sin, np.cos)]
-    )
-    return features
