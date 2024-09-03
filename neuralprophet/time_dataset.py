@@ -22,8 +22,6 @@ class TimeDataset(Dataset):
         self,
         df,
         predict_mode,
-        n_lags,
-        n_forecasts,
         prediction_frequency,
         predict_steps,
         config_seasonality,
@@ -66,8 +64,6 @@ class TimeDataset(Dataset):
         self.meta["df_name"] = self.df_name
 
         self.predict_mode = predict_mode
-        self.n_lags = n_lags
-        self.n_forecasts = n_forecasts
         self.prediction_frequency = prediction_frequency
         self.predict_steps = predict_steps  # currently unused
         self.config_seasonality = config_seasonality
@@ -79,7 +75,7 @@ class TimeDataset(Dataset):
         self.config_model = config_model
 
         if self.config_model.max_lags == 0:
-            assert self.n_forecasts == 1
+            assert self.config_model.n_forecasts == 1
         self.two_level_inputs = ["seasonalities", "covariates", "events", "regressors"]
 
         # Preprocessing of events and holidays features (added to self.df)
@@ -133,7 +129,7 @@ class TimeDataset(Dataset):
         current_idx = self.components_stacker.stack_targets_component(self.df_tensors, feature_list, current_idx)
 
         current_idx = self.components_stacker.stack_lags_component(
-            self.df_tensors, feature_list, current_idx, self.n_lags
+            self.df_tensors, feature_list, current_idx, self.config_ar.n_lags
         )
         current_idx = self.components_stacker.stack_lagged_regerssors_component(
             self.df_tensors, feature_list, current_idx, self.config_lagged_regressors
@@ -236,7 +232,7 @@ class TimeDataset(Dataset):
         # Extract features from dataframe at given target index position
         if self.config_model.max_lags > 0:
             min_start_index = df_index - self.config_model.max_lags + 1
-            max_end_index = df_index + self.n_forecasts + 1
+            max_end_index = df_index + self.config_model.n_forecasts + 1
             inputs = self.all_features[min_start_index:max_end_index, :]
         else:
             inputs = self.all_features[df_index, :]
@@ -260,7 +256,7 @@ class TimeDataset(Dataset):
         # Limit target range due to input lags and number of forecasts
         df_length = len(df_tensors["ds"])
         origin_start_end_mask = self.create_origin_start_end_mask(
-            df_length=df_length, max_lags=self.config_model.max_lags, n_forecasts=self.n_forecasts
+            df_length=df_length, max_lags=self.config_model.max_lags, n_forecasts=self.config_model.n_forecasts
         )
 
         # Prediction Frequency
@@ -277,8 +273,8 @@ class TimeDataset(Dataset):
             df_tensors=df_tensors,
             predict_mode=self.predict_mode,
             max_lags=self.config_model.max_lags,
-            n_lags=self.n_lags,
-            n_forecasts=self.n_forecasts,
+            n_lags=self.config_ar.n_lags,
+            n_forecasts=self.config_model.n_forecasts,
             config_lagged_regressors=self.config_lagged_regressors,
             future_regressor_names=self.additive_regressors_names + self.multiplicative_regressors_names,
             event_names=self.additive_event_and_holiday_names + self.multiplicative_event_and_holiday_names,
