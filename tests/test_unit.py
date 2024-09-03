@@ -74,6 +74,7 @@ def test_timedataset_minimal():
     log.debug(f"Infile shape: {df_in.shape}")
     valid_p = 0.2
     for n_forecasts, n_lags in [(1, 0), (1, 5), (3, 5)]:
+        config_ar = configure.Autoregression(n_lags=n_lags)
         config_model = configure.Model(n_forecasts=n_forecasts)
         config_model.set_max_num_lags(n_lags)
         config_missing = configure.MissingDataHandling()
@@ -109,19 +110,16 @@ def test_timedataset_minimal():
 
         dataset = time_dataset.TimeDataset(
             df=df,
+            components_stacker=components_stacker,
             predict_mode=False,
-            n_lags=n_lags,
-            n_forecasts=n_forecasts,
-            prediction_frequency=None,
-            predict_steps=1,
+            config_model=config_model,
+            config_missing=config_missing,
+            config_ar=config_ar,
             config_seasonality=None,
             config_events=None,
             config_country_holidays=None,
             config_regressors=None,
             config_lagged_regressors=None,
-            config_missing=config_missing,
-            config_model=config_model,
-            components_stacker=components_stacker,
         )
         input, meta = dataset.__getitem__(0)
         # # inputs50, targets50, meta50 = dataset.__getitem__(50)
@@ -872,6 +870,7 @@ def test_make_future():
 def test_too_many_NaN():
     n_lags = 12
     n_forecasts = 1
+    config_ar = configure.AR(n_lags=n_lags)
     config_model = configure.Model(n_forecasts=n_forecasts)
     config_model.set_max_num_lags(n_lags)
     config_missing = configure.MissingDataHandling(
@@ -902,25 +901,22 @@ def test_too_many_NaN():
         components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=n_lags,
             n_forecasts=n_forecasts,
-            max_lags=n_lags,
+            max_lags=config_model.max_lags,
             config_seasonality=None,
             lagged_regressor_config=None,
         )
         time_dataset.TimeDataset(
             df=df,
+            components_stacker=components_stacker,
             predict_mode=False,
-            n_lags=n_lags,
-            n_forecasts=n_forecasts,
-            prediction_frequency=None,
-            predict_steps=1,
+            config_model=config_model,
+            config_missing=config_missing,
+            config_ar=config_ar,
             config_seasonality=None,
             config_events=None,
             config_country_holidays=None,
             config_regressors=None,
             config_lagged_regressors=None,
-            config_missing=config_missing,
-            config_model=config_model,
-            components_stacker=components_stacker,
         )
 
 
