@@ -307,16 +307,6 @@ class TimeNet(pl.LightningModule):
         else:
             self.config_regressors.regressors = None
 
-        # Features Extractor
-        self.features_extractor = FeatureExtractor(
-            n_lags=self.n_lags,
-            n_forecasts=self.n_forecasts,
-            max_lags=self.config_model.max_lags,
-            config_seasonality=self.config_seasonality,
-            lagged_regressor_config=self.config_lagged_regressors,
-            feature_indices=self.config_model.features_map,
-        )
-
     @property
     def ar_weights(self) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
