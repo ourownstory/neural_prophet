@@ -25,7 +25,6 @@ class Model:
     n_forecasts: int
     quantiles: Optional[List[float]] = None
     prediction_frequency: Optional[Dict[str]] = None
-    features_map: Optional[dict] = field(default_factory=dict)
     max_lags: Optional[int] = field(init=False)
 
     def setup_quantiles(self):

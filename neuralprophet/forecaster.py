@@ -2101,12 +2101,14 @@ class NeuralProphet:
             raise ValueError("The quantile needs to have been specified in the model configuration.")
 
         df_seasonal = pd.DataFrame()
-        prev_n_forecasts = self.config_model.n_forecasts
         prev_n_lags = self.config_ar.n_lags
         prev_max_lags = self.config_model.max_lags
+        prev_n_forecasts = self.config_model.n_forecasts
         prev_features_map = {key: value for key, value in self.config_model.features_map.items()}
 
         self.config_model.max_lags = 0
+        self.config_ar.n_lags = 0
+        self.config_model.n_forecasts = 1
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
@@ -2122,10 +2124,9 @@ class NeuralProphet:
             dataset = time_dataset.TimeDataset(
                 df=df_i,
                 predict_mode=True,
-                n_lags=0,
-                n_forecasts=1,
                 prediction_frequency=self.config_model.prediction_frequency,
                 predict_steps=1,
+                config_ar=self.config_ar,
                 config_missing=self.config_missing,
                 config_model=self.config_model,
                 config_seasonality=self.config_seasonality,
@@ -2172,9 +2173,9 @@ class NeuralProphet:
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
         # reset possibly altered values
-        self.config_model.n_forecasts = prev_n_forecasts
         self.config_ar.n_lags = prev_n_lags
         self.config_model.max_lags = prev_max_lags
+        self.config_model.n_forecasts = prev_n_forecasts
         self.config_model.features_map = prev_features_map
         return df
 

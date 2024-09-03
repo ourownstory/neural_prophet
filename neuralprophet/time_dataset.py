@@ -24,6 +24,7 @@ class TimeDataset(Dataset):
         predict_mode,
         prediction_frequency,
         predict_steps,
+        config_ar,
         config_seasonality,
         config_events,
         config_country_holidays,
@@ -65,7 +66,8 @@ class TimeDataset(Dataset):
 
         self.predict_mode = predict_mode
         self.prediction_frequency = prediction_frequency
-        self.predict_steps = predict_steps  # currently unused
+        # self.predict_steps = predict_steps  # currently unused
+        self.config_ar = config_ar
         self.config_seasonality = config_seasonality
         self.config_events = config_events
         self.config_country_holidays = config_country_holidays
@@ -588,10 +590,9 @@ class GlobalTimeDataset(TimeDataset):
         self,
         df,
         predict_mode,
-        n_lags,
-        n_forecasts,
         prediction_frequency,
         predict_steps,
+        config_ar,
         config_seasonality,
         config_events,
         config_country_holidays,
@@ -615,10 +616,9 @@ class GlobalTimeDataset(TimeDataset):
             self.datasets[df_name] = TimeDataset(
                 df=df[df["ID"] == df_name],
                 predict_mode=predict_mode,
-                n_lags=n_lags,
-                n_forecasts=n_forecasts,
                 prediction_frequency=prediction_frequency,
                 predict_steps=predict_steps,
+                config_ar=config_ar,
                 config_seasonality=config_seasonality,
                 config_events=config_events,
                 config_country_holidays=config_country_holidays,
