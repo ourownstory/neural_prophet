@@ -1,7 +1,5 @@
 from collections import OrderedDict
-from datetime import datetime
 
-import numpy as np
 import torch
 
 
@@ -307,50 +305,3 @@ class ComponentStacker:
                 )
                 current_idx += seasonal_tensor.size(1)
         return current_idx
-
-
-def fourier_series(dates, period, series_order):
-    """Provides Fourier series components with the specified frequency and order.
-    Note
-    ----
-    Identical to OG Prophet.
-    Parameters
-    ----------
-        dates : pd.Series
-            Containing time stamps
-        period : float
-            Number of days of the period
-        series_order : int
-            Number of fourier components
-    Returns
-    -------
-        np.array
-            Matrix with seasonality features
-    """
-    # convert to days since epoch
-    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float32)) / (3600 * 24.0)
-    return fourier_series_t(t, period, series_order)
-
-
-def fourier_series_t(t, period, series_order):
-    """Provides Fourier series components with the specified frequency and order.
-    Note
-    ----
-    This function is identical to Meta AI's Prophet Library
-    Parameters
-    ----------
-        t : pd.Series, float
-            Containing time as floating point number of days
-        period : float
-            Number of days of the period
-        series_order : int
-            Number of fourier components
-    Returns
-    -------
-        np.array
-            Matrix with seasonality features
-    """
-    features = np.column_stack(
-        [fun((2.0 * (i + 1) * np.pi * t / period)) for i in range(series_order) for fun in (np.sin, np.cos)]
-    )
-    return features

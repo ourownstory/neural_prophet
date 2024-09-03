@@ -160,15 +160,35 @@ class TimeDataset(Dataset):
         self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
 
     def calculate_seasonalities(self):
+        """Computes Fourier series components with the specified frequency and order."""
         self.seasonalities = OrderedDict({})
         dates = self.df_tensors["ds"]
         t = (dates - torch.tensor(datetime(1900, 1, 1).timestamp())).float() / (3600 * 24.0)
 
-        def compute_fourier_features(t, period):
-            factor = 2.0 * np.pi / period.period
-            sin_terms = torch.sin(factor * t[:, None] * torch.arange(1, period.resolution + 1))
-            cos_terms = torch.cos(factor * t[:, None] * torch.arange(1, period.resolution + 1))
-            return torch.cat((sin_terms, cos_terms), dim=1)
+        def compute_fourier_features(t, period, resolution):
+            """Provides Fourier series components with the specified frequency and order.
+            Note
+            ----
+            This function's calculation is identical to Meta AI's Prophet Library
+            Parameters
+            ----------
+                t : pd.Series
+                    Containing time as floating point number of days
+                period : float
+                    Number of days of the period
+                resolution : int
+                    Number of fourier components
+            Returns
+            -------
+                tensor : torch.Tensor
+                    Matrix with seasonality features, dims: (len(t), 2 * resolution)
+            """
+            resolutions = torch.arange(1, resolution + 1)
+            factor = 2.0 * np.pi / period
+            periodicities = factor * resolutions * t[:, None]
+            features = torch.cat((torch.sin(periodicities), torch.cos(periodicities)), dim=1)
+            features.requires_grad = False
+            return features
 
         for name, period in self.config_seasonality.periods.items():
             if period.resolution > 0:
