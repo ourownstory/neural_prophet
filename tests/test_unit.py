@@ -726,9 +726,9 @@ def test_globaltimedataset():
         m.config_normalization = config_normalization
         df4 = _normalize(df=df4, config_normalization=m.config_normalization)
         components_stacker = utils_time_dataset.ComponentStacker(
-            n_lags=m.n_lags,
+            n_lags=m.config_ar.n_lags,
             n_forecasts=m.n_forecasts,
-            max_lags=m.max_lags,
+            max_lags=m.config_model.max_lags,
             config_seasonality=m.config_seasonality,
             lagged_regressor_config=m.config_lagged_regressors,
         )
