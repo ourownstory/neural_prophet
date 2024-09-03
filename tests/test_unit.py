@@ -120,7 +120,7 @@ def test_timedataset_minimal():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
-            config_model=None,
+            config_model=config_model,
             components_stacker=components_stacker,
         )
         input, meta = dataset.__getitem__(0)
@@ -696,9 +696,9 @@ def test_globaltimedataset():
         m.config_normalization = config_normalization
         df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
         components_stacker = utils_time_dataset.ComponentStacker(
-            n_lags=m.n_lags,
+            n_lags=m.config_ar.n_lags,
             n_forecasts=m.n_forecasts,
-            max_lags=m.max_lags,
+            max_lags=m.config_model.max_lags,
             config_seasonality=m.config_seasonality,
             lagged_regressor_config=m.config_lagged_regressors,
         )
@@ -919,7 +919,7 @@ def test_too_many_NaN():
             config_regressors=None,
             config_lagged_regressors=None,
             config_missing=config_missing,
-            config_model=None,
+            config_model=config_model,
             components_stacker=components_stacker,
         )
 
