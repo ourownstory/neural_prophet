@@ -2151,17 +2151,16 @@ class NeuralProphet:
             )
             dataset = time_dataset.TimeDataset(
                 df=df_i,
+                components_stacker=feature_unstackor,
                 predict_mode=True,
-                prediction_frequency=self.config_model.prediction_frequency,
-                config_ar=self.config_ar,
-                config_missing=self.config_missing,
                 config_model=self.config_model,
+                config_missing=self.config_missing,
+                config_ar=self.config_ar,
                 config_seasonality=self.config_seasonality,
                 config_events=None,
                 config_country_holidays=None,
                 config_regressors=None,
                 config_lagged_regressors=None,
-                components_stacker=feature_unstackor,
             )
             self.model.set_components_stacker(feature_unstackor, mode="predict")
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
