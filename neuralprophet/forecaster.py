@@ -13,7 +13,17 @@ from matplotlib import pyplot
 from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 
-from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_lightning, utils_metrics
+from neuralprophet import (
+    configure,
+    df_utils,
+    np_types,
+    time_dataset,
+    time_net,
+    utils,
+    utils_lightning,
+    utils_metrics,
+    utils_time_dataset,
+)
 from neuralprophet.data.process import (
     _check_dataframe,
     _convert_raw_predictions_to_raw_df,
@@ -34,7 +44,7 @@ from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly, select_plotting_backend
 from neuralprophet.uncertainty import Conformal
-from neuralprophet.utils_time_dataset import FeatureExtractor
+from neuralprophet.utils_time_dataset import ComponentStacker
 
 log = logging.getLogger("NP.forecaster")
 
@@ -475,6 +485,7 @@ class NeuralProphet:
         self.config_model = configure.Model(
             quantiles=quantiles,
             prediction_frequency=prediction_frequency,
+            features_map={},
         )
         self.config_model.setup_quantiles()
 
@@ -1160,8 +1171,20 @@ class NeuralProphet:
         # Set up  DataLoaders: Train
         # Create TimeDataset
         # Note: _create_dataset() needs to be called after set_auto_seasonalities()
+        train_components_stacker = utils_time_dataset.ComponentStacker(
+            n_lags=self.config_ar.n_lags,
+            n_forecasts=self.n_forecasts,
+            max_lags=self.config_model.max_lags,
+            config_seasonality=self.config_seasonality,
+            lagged_regressor_config=self.config_lagged_regressors,
+            feature_indices={},
+        )
         dataset = _create_dataset(
-            self, df, predict_mode=False, prediction_frequency=self.config_model.prediction_frequency
+            self,
+            df,
+            predict_mode=False,
+            prediction_frequency=self.config_model.prediction_frequency,
+            components_stacker=train_components_stacker,
         )
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
@@ -1172,6 +1195,7 @@ class NeuralProphet:
             shuffle=True,
             num_workers=num_workers,
         )
+
         self.config_train.set_batches_per_epoch(len(loader))
         log.info(f"Train Dataset size: {len(dataset)}")
         log.info(f"Number of batches per training epoch: {len(loader)}")
@@ -1196,7 +1220,15 @@ class NeuralProphet:
             )
             # df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             df_val = _normalize(df=df_val, config_normalization=self.config_normalization)
-            dataset_val = _create_dataset(self, df_val, predict_mode=False)
+            val_components_stacker = utils_time_dataset.ComponentStacker(
+                n_lags=self.n_lags,
+                max_lags=self.max_lags,
+                n_forecasts=self.n_forecasts,
+                config_seasonality=self.config_seasonality,
+                lagged_regressor_config=self.config_lagged_regressors,
+                feature_indices={},
+            )
+            dataset_val = _create_dataset(self, df_val, predict_mode=False, components_stacker=val_components_stacker)
             loader_val = DataLoader(dataset_val, batch_size=min(1024, len(dataset_val)), shuffle=False, drop_last=False)
 
         # Init the Trainer
@@ -1215,6 +1247,10 @@ class NeuralProphet:
         # # Set up the model for training
         if not self.fitted:
             self.model = self._init_model()
+
+        self.model.set_components_stacker(components_stacker=train_components_stacker, mode="train")
+        if validation_enabled:
+            self.model.set_components_stacker(components_stacker=val_components_stacker, mode="val")
 
         # Find suitable learning rate if not set
         if self.config_train.learning_rate is None:
@@ -1424,7 +1460,16 @@ class NeuralProphet:
         )
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = _normalize(df=df, config_normalization=self.config_normalization)
-        dataset = _create_dataset(self, df, predict_mode=False)
+        components_stacker = utils_time_dataset.ComponentStacker(
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            max_lags=self.max_lags,
+            config_seasonality=self.config_seasonality,
+            lagged_regressor_config=self.config_lagged_regressors,
+            feature_indices={},
+        )
+        dataset = _create_dataset(self, df, predict_mode=False, components_stacker=components_stacker)
+        self.model.set_components_stacker(components_stacker, mode="test")
         test_loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         # Use Lightning to calculate metrics
         val_metrics = self.trainer.test(self.model, dataloaders=test_loader, verbose=verbose)
@@ -2066,6 +2111,13 @@ class NeuralProphet:
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         df = _normalize(df=df, config_normalization=self.config_normalization)
         for df_name, df_i in df.groupby("ID"):
+            feature_unstackor = ComponentStacker(
+                n_lags=0,
+                max_lags=0,
+                n_forecasts=1,
+                config_seasonality=self.config_seasonality,
+                lagged_regressor_config=self.config_lagged_regressors,
+            )
             dataset = time_dataset.TimeDataset(
                 df=df_i,
                 predict_mode=True,
@@ -2080,7 +2132,9 @@ class NeuralProphet:
                 config_country_holidays=None,
                 config_regressors=None,
                 config_lagged_regressors=None,
+                components_stacker=feature_unstackor,
             )
+            self.model.set_components_stacker(feature_unstackor, mode="predict")
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
             for name in self.config_seasonality.periods:
@@ -2100,12 +2154,12 @@ class NeuralProphet:
                     meta_name_tensor = None
                 elif self.model.config_seasonality.global_local in ["local", "glocal"]:
                     meta = OrderedDict()
-                    time_input = feature_extractor.extract_component("time")
+                    time_input = feature_unstackor.unstack_component("time", inputs_tensor)
                     meta["df_name"] = [df_name for _ in range(time_input.shape[0])]
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
                 else:
                     meta_name_tensor = None
-                seasonalities_input = feature_extractor.extract_component("seasonalities")
+                seasonalities_input = feature_unstackor.unstack_component("seasonalities", inputs_tensor)
                 for name in self.config_seasonality.periods:
                     features = seasonalities_input[name]
                     quantile_index = self.config_model.quantiles.index(quantile)
@@ -2913,7 +2967,22 @@ class NeuralProphet:
         assert len(df["ID"].unique()) == 1
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
-        dataset = _create_dataset(self, df, predict_mode=True, prediction_frequency=prediction_frequency)
+        components_stacker = utils_time_dataset.ComponentStacker(
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            max_lags=self.max_lags,
+            config_seasonality=self.config_seasonality,
+            lagged_regressor_config=self.config_lagged_regressors,
+            feature_indices={},
+        )
+        dataset = _create_dataset(
+            self,
+            df,
+            predict_mode=True,
+            prediction_frequency=prediction_frequency,
+            components_stacker=components_stacker,
+        )
+        self.model.set_components_stacker(components_stacker, mode="predict")
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.config_model.max_lags : -self.n_forecasts + 1]
@@ -2926,7 +2995,7 @@ class NeuralProphet:
             self.model.set_covar_weights(self.model.get_covar_weights())
         # Compute the predictions and components (if requested)
         result = self.trainer.predict(self.model, loader)
-        # Extract the prediction and components
+        # unstack the prediction and components
         predicted, component_vectors = zip(*result)
         predicted = np.concatenate(predicted)
 

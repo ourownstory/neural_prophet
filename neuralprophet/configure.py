@@ -22,6 +22,8 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
+    features_map: dict
+    lagged_reg_layers: Optional[List[int]]
     quantiles: Optional[List[float]] = None
     prediction_frequency: Optional[Dict[str]] = None
     features_map: Optional[dict] = field(default_factory=dict)
@@ -69,6 +71,9 @@ class Model:
             self.max_lags = max(n_lags, max_lagged_regressor_lags)
         else:
             self.max_lags = n_lags
+
+
+ConfigModel = Model
 
 
 ConfigModel = Model

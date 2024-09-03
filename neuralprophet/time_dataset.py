@@ -44,6 +44,7 @@ class TimeDataset(Dataset):
         config_lagged_regressors,
         config_missing,
         config_model,
+        components_stacker,
     ):
         """Initialize Timedataset from time-series df.
         Parameters
@@ -120,29 +121,54 @@ class TimeDataset(Dataset):
         self.df["ds"] = self.df["ds"].apply(lambda x: x.timestamp())  # Convert to Unix timestamp in seconds
         self.df_tensors["ds"] = torch.tensor(self.df["ds"].values, dtype=torch.int64)
 
-        if self.additive_event_and_holiday_names:
-            self.df_tensors["additive_event_and_holiday"] = torch.stack(
-                [self.df_tensors[name] for name in self.additive_event_and_holiday_names], dim=1
-            )
-        if self.multiplicative_event_and_holiday_names:
-            self.df_tensors["multiplicative_event_and_holiday"] = torch.stack(
-                [self.df_tensors[name] for name in self.multiplicative_event_and_holiday_names], dim=1
-            )
-
-        if self.additive_regressors_names:
-            self.df_tensors["additive_regressors"] = torch.stack(
-                [self.df_tensors[name] for name in self.additive_regressors_names], dim=1
-            )
-        if self.multiplicative_regressors_names:
-            self.df_tensors["multiplicative_regressors"] = torch.stack(
-                [self.df_tensors[name] for name in self.multiplicative_regressors_names], dim=1
-            )
+        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
+            self.calculate_seasonalities()
 
         # Construct index map
         self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.df_tensors)
 
+        self.components_stacker = components_stacker
+
+        self.stack_all_features()
+
+    def stack_all_features(self):
+        """
+        Stack all features into one large tensor by calling individual stacking methods.
+        """
+        feature_list = []
+
+        current_idx = 0
+
+        # Call individual stacking functions
+        current_idx = self.components_stacker.stack_trend_component(self.df_tensors, feature_list, current_idx)
+        current_idx = self.components_stacker.stack_targets_component(self.df_tensors, feature_list, current_idx)
+
+        current_idx = self.components_stacker.stack_lags_component(
+            self.df_tensors, feature_list, current_idx, self.n_lags
+        )
+        current_idx = self.components_stacker.stack_lagged_regerssors_component(
+            self.df_tensors, feature_list, current_idx, self.config_lagged_regressors
+        )
+        current_idx = self.components_stacker.stack_additive_events_component(
+            self.df_tensors, feature_list, current_idx, self.additive_event_and_holiday_names
+        )
+        current_idx = self.components_stacker.stack_multiplicative_events_component(
+            self.df_tensors, feature_list, current_idx, self.multiplicative_event_and_holiday_names
+        )
+        current_idx = self.components_stacker.stack_additive_regressors_component(
+            self.df_tensors, feature_list, current_idx, self.additive_regressors_names
+        )
+        current_idx = self.components_stacker.stack_multiplicative_regressors_component(
+            self.df_tensors, feature_list, current_idx, self.multiplicative_regressors_names
+        )
+
         if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-            self.calculate_seasonalities()
+            current_idx = self.components_stacker.stack_seasonalities_component(
+                feature_list, current_idx, self.config_seasonality, self.seasonalities
+            )
+
+        # Concatenate all features into one big tensor
+        self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
 
         self.stack_all_features()
 
@@ -614,6 +640,7 @@ class GlobalTimeDataset(TimeDataset):
         config_lagged_regressors,
         config_missing,
         config_model,
+        components_stacker,
     ):
         """Initialize Timedataset from time-series df.
         Parameters
@@ -640,6 +667,7 @@ class GlobalTimeDataset(TimeDataset):
                 config_lagged_regressors=config_lagged_regressors,
                 config_missing=config_missing,
                 config_model=config_model,
+                components_stacker=components_stacker,
             )
         self.length = sum(dataset.length for (name, dataset) in self.datasets.items())
         global_sample_to_local_ID = []
