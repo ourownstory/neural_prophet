@@ -1221,8 +1221,8 @@ class NeuralProphet:
             # df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             df_val = _normalize(df=df_val, config_normalization=self.config_normalization)
             val_components_stacker = utils_time_dataset.ComponentStacker(
-                n_lags=self.n_lags,
-                max_lags=self.max_lags,
+                n_lags=self.config_ar.n_lags,
+                max_lags=self.config_model.max_lags,
                 n_forecasts=self.n_forecasts,
                 config_seasonality=self.config_seasonality,
                 lagged_regressor_config=self.config_lagged_regressors,
@@ -1461,9 +1461,9 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = _normalize(df=df, config_normalization=self.config_normalization)
         components_stacker = utils_time_dataset.ComponentStacker(
-            n_lags=self.n_lags,
+            n_lags=self.config_ar.n_lags,
             n_forecasts=self.n_forecasts,
-            max_lags=self.max_lags,
+            max_lags=self.config_model.max_lags,
             config_seasonality=self.config_seasonality,
             lagged_regressor_config=self.config_lagged_regressors,
             feature_indices={},
@@ -2116,7 +2116,7 @@ class NeuralProphet:
                 max_lags=0,
                 n_forecasts=1,
                 config_seasonality=self.config_seasonality,
-                lagged_regressor_config=self.config_lagged_regressors,
+                lagged_regressor_config=None,
             )
             dataset = time_dataset.TimeDataset(
                 df=df_i,
@@ -2959,9 +2959,9 @@ class NeuralProphet:
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         components_stacker = utils_time_dataset.ComponentStacker(
-            n_lags=self.n_lags,
+            n_lags=self.config_ar.n_lags,
             n_forecasts=self.n_forecasts,
-            max_lags=self.max_lags,
+            max_lags=self.config_model.max_lags,
             config_seasonality=self.config_seasonality,
             lagged_regressor_config=self.config_lagged_regressors,
             feature_indices={},
