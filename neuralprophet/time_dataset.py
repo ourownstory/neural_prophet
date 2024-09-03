@@ -160,52 +160,6 @@ class TimeDataset(Dataset):
         # Concatenate all features into one big tensor
         self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
 
-        # self.stack_all_features()
-
-    # def stack_all_features(self):
-    #     """
-    #     Stack all features into one large tensor by calling individual stacking methods.
-    #     """
-    #     feature_list = []
-    #     feature_indices = {}
-
-    #     current_idx = 0
-
-    #     # Call individual stacking functions
-    #     current_idx = pack_trend_component(self.df_tensors, feature_list, feature_indices, current_idx)
-    #     current_idx = pack_targets_component(self.df_tensors, feature_list, feature_indices, current_idx)
-
-    #     current_idx = pack_lags_component(self.df_tensors, feature_list, feature_indices, current_idx, self.n_lags)
-    #     current_idx = pack_lagged_regerssors_component(
-    #         self.df_tensors, feature_list, feature_indices, current_idx, self.config_lagged_regressors
-    #     )
-    #     current_idx = pack_additive_events_component(
-    #         self.df_tensors, feature_list, feature_indices, current_idx, self.additive_event_and_holiday_names
-    #     )
-    #     current_idx = pack_multiplicative_events_component(
-    #         self.df_tensors, feature_list, feature_indices, current_idx, self.multiplicative_event_and_holiday_names
-    #     )
-    #     current_idx = pack_additive_regressors_component(
-    #         self.df_tensors, feature_list, feature_indices, current_idx, self.additive_regressors_names
-    #     )
-    #     current_idx = pack_multiplicative_regressors_component(
-    #         self.df_tensors, feature_list, feature_indices, current_idx, self.multiplicative_regressors_names
-    #     )
-
-    #     if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-    #         current_idx = pack_seasonalities_component(
-    #             feature_list, feature_indices, current_idx, self.config_seasonality, self.seasonalities
-    #         )
-
-    #     # Concatenate all features into one big tensor
-    #     self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
-
-    #     # Update the model's features map if applicable
-    #     if self.config_model is not None:
-    #         self.config_model.features_map = feature_indices
-
-    #     return feature_indices
-
     def calculate_seasonalities(self):
         self.seasonalities = OrderedDict({})
         dates = self.df_tensors["ds"]
