@@ -2104,7 +2104,6 @@ class NeuralProphet:
         prev_n_lags = self.config_ar.n_lags
         prev_max_lags = self.config_model.max_lags
         prev_n_forecasts = self.config_model.n_forecasts
-        prev_features_map = {key: value for key, value in self.config_model.features_map.items()}
 
         self.config_model.max_lags = 0
         self.config_ar.n_lags = 0
@@ -2176,7 +2175,6 @@ class NeuralProphet:
         self.config_ar.n_lags = prev_n_lags
         self.config_model.max_lags = prev_max_lags
         self.config_model.n_forecasts = prev_n_forecasts
-        self.config_model.features_map = prev_features_map
         return df
 
     def set_true_ar_for_eval(self, true_ar_weights: np.ndarray):
