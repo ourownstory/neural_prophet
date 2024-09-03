@@ -2104,6 +2104,7 @@ class NeuralProphet:
         prev_n_lags = self.config_ar.n_lags
         prev_max_lags = self.config_model.max_lags
         prev_n_forecasts = self.config_model.n_forecasts
+        prev_predict_components_stacker = self.model.predict_components_stacker
 
         self.config_model.max_lags = 0
         self.config_ar.n_lags = 0
@@ -2175,6 +2176,8 @@ class NeuralProphet:
         self.config_ar.n_lags = prev_n_lags
         self.config_model.max_lags = prev_max_lags
         self.config_model.n_forecasts = prev_n_forecasts
+        self.model.predict_components_stacker = prev_predict_components_stacker
+
         return df
 
     def set_true_ar_for_eval(self, true_ar_weights: np.ndarray):
