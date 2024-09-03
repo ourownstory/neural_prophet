@@ -486,7 +486,7 @@ class ConfigSeasonality:
 
 
 @dataclass
-class AR:
+class AutoregRession:
     n_lags: int
     ar_reg: Optional[float] = None
     ar_layers: Optional[List[int]] = None

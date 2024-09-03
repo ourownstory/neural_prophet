@@ -46,7 +46,7 @@ class TimeNet(pl.LightningModule):
         config_seasonality: configure.ConfigSeasonality,
         config_train: Optional[configure.Train] = None,
         config_trend: Optional[configure.Trend] = None,
-        config_ar: Optional[configure.AR] = None,
+        config_ar: Optional[configure.AutoregRession] = None,
         config_normalization: Optional[configure.Normalization] = None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors: Optional[configure.ConfigFutureRegressors] = None,
@@ -75,7 +75,7 @@ class TimeNet(pl.LightningModule):
             config_train : configure.Train
             config_trend : configure.Trend
             config_seasonality : configure.ConfigSeasonality
-            config_ar : configure.AR
+            config_ar : configure.AutoregRession
             config_lagged_regressors : configure.ConfigLaggedRegressors
                 Configurations for lagged regressors
             config_regressors : configure.ConfigFutureRegressors

@@ -515,7 +515,7 @@ class NeuralProphet:
         self.metrics = utils_metrics.get_metrics(collect_metrics)
 
         # AR
-        self.config_ar = configure.AR(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
+        self.config_ar = configure.AutoregRession(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
 
         # Trend
         self.config_trend = configure.Trend(

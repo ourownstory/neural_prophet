@@ -74,7 +74,7 @@ def test_timedataset_minimal():
     log.debug(f"Infile shape: {df_in.shape}")
     valid_p = 0.2
     for n_forecasts, n_lags in [(1, 0), (1, 5), (3, 5)]:
-        config_ar = configure.Autoregression(n_lags=n_lags)
+        config_ar = configure.AutoregRession(n_lags=n_lags)
         config_model = configure.Model(n_forecasts=n_forecasts)
         config_model.set_max_num_lags(n_lags)
         config_missing = configure.MissingDataHandling()
@@ -870,7 +870,7 @@ def test_make_future():
 def test_too_many_NaN():
     n_lags = 12
     n_forecasts = 1
-    config_ar = configure.AR(n_lags=n_lags)
+    config_ar = configure.AutoregRession(n_lags=n_lags)
     config_model = configure.Model(n_forecasts=n_forecasts)
     config_model.set_max_num_lags(n_lags)
     config_missing = configure.MissingDataHandling(
