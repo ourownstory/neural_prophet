@@ -11,7 +11,6 @@ from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure, utils
 from neuralprophet.event_utils import get_all_holidays
-from neuralprophet.utils_time_dataset import ComponentStacker, fourier_series, fourier_series_t
 
 log = logging.getLogger("NP.time_dataset")
 
