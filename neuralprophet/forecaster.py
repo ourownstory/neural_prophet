@@ -574,7 +574,7 @@ class NeuralProphet:
         # Future Regressors
         self.config_regressors = configure_components.FutureRegressors(
             model=future_regressors_model,
-            regressors_layers=future_regressors_layers,
+            layers=future_regressors_layers,
         )
 
         # set during fit()

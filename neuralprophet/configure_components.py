@@ -261,8 +261,8 @@ class SingleFutureRegressor:
 
 @dataclass
 class FutureRegressors:
-    model: str
-    regressors_layers: Optional[List[int]]
+    model: Optional[str]
+    layers: Optional[List[int]]
     regressors: OrderedDict[SingleFutureRegressor] = field(init=False)  # contains Regressor objects
 
     def __post_init__(self):
