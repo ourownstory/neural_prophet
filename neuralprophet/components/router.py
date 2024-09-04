@@ -20,7 +20,7 @@ def get_trend(config, n_forecasts, quantiles, id_list, num_trends_modelled, devi
 
     Parameters
         ----------
-            config : configure.Trend
+            config : configure_components.Trend
             n_forecasts : int
                 number of steps to forecast. Aka number of model outputs
             quantiles : list

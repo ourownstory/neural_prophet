@@ -6,6 +6,7 @@ Code Documentation
 
    forecaster.py (NeuralProphet) <forecaster>
    configure.py <configure>
+   configure_components.py <configure_components>
    time_dataset.py <time_dataset>
    time_net.py <time_net>
    torch_prophet.py <torch_prophet>
@@ -23,6 +24,7 @@ Code Documentation
    plot_model_parameters_plotly.py <plot_model_parameters_plotly>
    plot_model_parameters_matplotlib.py <plot_model_parameters_matplotlib>
    utils.py <utils>
+   utils_time_dataset.py <utils_time_dataset>
    df_utils.py <df_utils>
    hdays_utils.py <hdays_utils>
    plot_utils.py <plot_utils>

@@ -15,7 +15,7 @@ from lightning_fabric.utilities.seed import seed_everything
 from neuralprophet import utils_torch
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
+    from neuralprophet import configure_components
 
 log = logging.getLogger("NP.utils")
 
@@ -217,15 +217,19 @@ def _regularize_weights(weights, reg_lambda):
     return reg_loss
 
 
-def reg_func_events(config_events: Optional[ConfigEvents], config_country_holidays, model):
+def reg_func_events(
+    config_events: Optional[configure_components.Events],
+    config_country_holidays: Optional[configure_components.Holidays],
+    model,
+):
     """
     Regularization of events coefficients to induce sparcity
 
     Parameters
     ----------
-        config_events : configure.ConfigEvents
+        config_events : configure_components.Events
             Configurations (upper, lower windows, regularization) for user specified events
-        config_country_holidays : configure.ConfigCountryHolidays
+        config_country_holidays : configure_components.Holidays
             Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
         model : TimeNet
@@ -249,13 +253,13 @@ def reg_func_events(config_events: Optional[ConfigEvents], config_country_holida
     return reg_events_loss
 
 
-def reg_func_covariates(config_lagged_regressors: ConfigLaggedRegressors, model):
+def reg_func_covariates(config_lagged_regressors: configure_components.LaggedRegressors, model):
     """
     Regularization of lagged covariates to induce sparsity
 
     Parameters
     ----------
-        config_lagged_regressors : configure.ConfigLaggedRegressors
+        config_lagged_regressors : configure_components.LaggedRegressors
             Configurations for lagged regressors
         model : TimeNet
             TimeNet model object
@@ -282,7 +286,7 @@ def reg_func_regressors(config_regressors, model):
 
     Parameters
     ----------
-        config_regressors : configure.ConfigFutureRegressors
+        config_regressors : configure_components.FutureRegressors
             Configurations for user specified regressors
         model : TimeNet
             TimeNet model object
@@ -350,12 +354,12 @@ def symmetric_total_percentage_error(values, estimates):
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
+def config_seasonality_to_model_dims(config_seasonality: configure_components.Seasonalities):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
     Parameters
     ----------
-        config_seasonality : configure.ConfigSeasonality
+        config_seasonality : configure_components.Seasonalities
             NeuralProphet seasonal model configuration
 
     Returns
@@ -374,16 +378,19 @@ def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
     return seasonal_dims
 
 
-def config_events_to_model_dims(config_events: Optional[ConfigEvents], config_country_holidays):
+def config_events_to_model_dims(
+    config_events: Optional[configure_components.Events],
+    config_country_holidays: Optional[configure_components.Holidays],
+):
     """
     Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
 
     Parameters
     ----------
-        config_events : configure.ConfigEvents
+        config_events : configure_components.Events
             Configurations (upper, lower windows, regularization) for user specified events
-        config_country_holidays : configure.ConfigCountryHolidays
+        config_country_holidays : configure_components.Holidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
     Returns
@@ -496,7 +503,7 @@ def config_regressors_to_model_dims(config_regressors):
 
     Parameters
     ----------
-        config_regressors : configure.ConfigFutureRegressors
+        config_regressors : configure_components.FutureRegressors
             Configurations for user specified regressors
 
     Returns
@@ -545,7 +552,7 @@ def config_regressors_to_model_dims(config_regressors):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, config_seasonality: ConfigSeasonality):
+def set_auto_seasonalities(df, config_seasonality: configure_components.Seasonalities):
     """Set seasonalities that were left on auto or set by user.
 
     Note
@@ -562,11 +569,11 @@ def set_auto_seasonalities(df, config_seasonality: ConfigSeasonality):
     ----------
         df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
-        config_seasonality : configure.ConfigSeasonality
+        config_seasonality : configure_components.Seasonalities
             NeuralProphet seasonal model configuration, as after __init__
     Returns
     -------
-        configure.ConfigSeasonality
+        configure_components.Seasonalities
             Processed NeuralProphet seasonal model configuration
 
     """

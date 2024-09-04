@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader
 
 from neuralprophet import (
     configure,
+    configure_components,
     df_utils,
     np_types,
     time_dataset,
@@ -27,7 +28,6 @@ from neuralprophet import (
 from neuralprophet.data.process import (
     _check_dataframe,
     _convert_raw_predictions_to_raw_df,
-    _create_dataset,
     _handle_missing_data,
     _prepare_dataframe_to_predict,
     _reshape_raw_predictions_to_forecst_df,
@@ -479,15 +479,15 @@ class NeuralProphet:
 
         # General
         self.name = "NeuralProphet"
-        self.n_forecasts = n_forecasts
 
         # Model
         self.config_model = configure.Model(
+            n_forecasts=n_forecasts,
             quantiles=quantiles,
             prediction_frequency=prediction_frequency,
-            features_map={},
         )
         self.config_model.setup_quantiles()
+        # self.n_forecasts = self.config_model.n_forecasts
 
         # Data Normalization settings
         self.config_normalization = configure.Normalization(
@@ -515,10 +515,10 @@ class NeuralProphet:
         self.metrics = utils_metrics.get_metrics(collect_metrics)
 
         # AR
-        self.config_ar = configure.AR(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
+        self.config_ar = configure_components.AutoregRession(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
 
         # Trend
-        self.config_trend = configure.Trend(
+        self.config_trend = configure_components.Trend(
             growth=growth,
             changepoints=changepoints,
             n_changepoints=n_changepoints,
@@ -545,7 +545,7 @@ class NeuralProphet:
         )
 
         # Seasonality
-        self.config_seasonality = configure.ConfigSeasonality(
+        self.config_seasonality = configure_components.Seasonalities(
             mode=seasonality_mode,
             reg_lambda=seasonality_reg,
             yearly_arg=yearly_seasonality,
@@ -560,11 +560,11 @@ class NeuralProphet:
         )
 
         # Events
-        self.config_events: Optional[configure.ConfigEvents] = None
-        self.config_country_holidays: Optional[configure.ConfigCountryHolidays] = None
+        self.config_events: Optional[configure_components.Events] = None
+        self.config_country_holidays: Optional[configure_components.Holidays] = None
 
         # Lagged Regressors
-        self.config_lagged_regressors = configure.ConfigLaggedRegressors(
+        self.config_lagged_regressors = configure_components.LaggedRegressors(
             layers=lagged_reg_layers,
         )
         # Update max_lags
@@ -572,9 +572,9 @@ class NeuralProphet:
             n_lags=self.config_ar.n_lags, config_lagged_regressors=self.config_lagged_regressors
         )
         # Future Regressors
-        self.config_regressors = configure.ConfigFutureRegressors(
+        self.config_regressors = configure_components.FutureRegressors(
             model=future_regressors_model,
-            regressors_layers=future_regressors_layers,
+            layers=future_regressors_layers,
         )
 
         # set during fit()
@@ -589,17 +589,54 @@ class NeuralProphet:
 
         # set during prediction
         self.future_periods = None
-        self.predict_steps = self.n_forecasts
+        self.predict_steps = self.config_model.n_forecasts
         # later set by user (optional)
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
+
+    def _create_dataset(self, df, predict_mode, components_stacker=None):
+        """Construct dataset from dataframe.
+
+        (Configured Hyperparameters can be overridden by explicitly supplying them.
+        Useful to predict a single model component.)
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
+                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
+            predict_mode : bool
+                specifies predict mode
+
+                Options
+                    * ``False``: includes target values.
+                    * ``True``: does not include targets but includes entire dataset as input
+
+        Returns
+        -------
+            TimeDataset
+        """
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        return time_dataset.GlobalTimeDataset(
+            df,
+            predict_mode=predict_mode,
+            config_ar=self.config_ar,
+            config_seasonality=self.config_seasonality,
+            config_events=self.config_events,
+            config_country_holidays=self.config_country_holidays,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_missing=self.config_missing,
+            config_model=self.config_model,
+            components_stacker=components_stacker,
+        )
 
     def add_lagged_regressor(
         self,
         names: Union[str, List[str]],
         n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
-        regularization: Optional[float] = None,
         normalize: Union[bool, str] = "auto",
+        regularization: Optional[float] = None,
     ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and
         predicting.
@@ -654,13 +691,12 @@ class NeuralProphet:
                 config_lagged_regressors=self.config_lagged_regressors,
                 config_regressors=self.config_regressors,
             )
-            if self.config_lagged_regressors.regressors is None:
-                self.config_lagged_regressors.regressors = OrderedDict()
-            self.config_lagged_regressors.regressors[name] = configure.LaggedRegressor(
-                reg_lambda=regularization,
-                normalize=normalize,
-                as_scalar=only_last_value,
+            self.config_lagged_regressors.add(
+                name=name,
                 n_lags=n_lags,
+                as_scalar=only_last_value,
+                normalize=normalize,
+                reg_lambda=regularization,
             )
         self.config_model.set_max_num_lags(
             n_lags=self.config_ar.n_lags, config_lagged_regressors=self.config_lagged_regressors
@@ -730,12 +766,9 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
         )
+        # add to Config
+        self.config_regressors.add(name, mode=mode, normalize=normalize, reg_lambda=regularization)
 
-        if self.config_regressors.regressors is None:
-            self.config_regressors.regressors = OrderedDict()
-        self.config_regressors.regressors[name] = configure.Regressor(
-            reg_lambda=regularization, normalize=normalize, mode=mode
-        )
         return self
 
     def add_events(
@@ -788,7 +821,7 @@ class NeuralProphet:
                 config_lagged_regressors=self.config_lagged_regressors,
                 config_regressors=self.config_regressors,
             )
-            self.config_events[event_name] = configure.Event(
+            self.config_events[event_name] = configure_components.SingleEvent(
                 lower_window=lower_window, upper_window=upper_window, reg_lambda=regularization, mode=mode
             )
         return self
@@ -835,7 +868,7 @@ class NeuralProphet:
                 raise ValueError("regularization must be >= 0")
             if regularization == 0:
                 regularization = None
-        self.config_country_holidays = configure.Holidays(
+        self.config_country_holidays = configure_components.Holidays(
             country=country_name,
             lower_window=lower_window,
             upper_window=upper_window,
@@ -1030,8 +1063,8 @@ class NeuralProphet:
             n_lags=self.config_ar.n_lags, config_lagged_regressors=self.config_lagged_regressors
         )
 
-        if self.config_model.max_lags == 0 and self.n_forecasts > 1:
-            self.n_forecasts = 1
+        if self.config_model.max_lags == 0 and self.config_model.n_forecasts > 1:
+            self.config_model.n_forecasts = 1
             self.predict_steps = 1
             log.error(
                 "Changing n_forecasts to 1. Without lags, the forecast can be "
@@ -1129,7 +1162,7 @@ class NeuralProphet:
             df=df,
             freq=self.data_freq,
             n_lags=self.config_ar.n_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             config_missing=self.config_missing,
             config_regressors=self.config_regressors,
             config_lagged_regressors=self.config_lagged_regressors,
@@ -1173,19 +1206,13 @@ class NeuralProphet:
         # Note: _create_dataset() needs to be called after set_auto_seasonalities()
         train_components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=self.config_ar.n_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             max_lags=self.config_model.max_lags,
             config_seasonality=self.config_seasonality,
             lagged_regressor_config=self.config_lagged_regressors,
             feature_indices={},
         )
-        dataset = _create_dataset(
-            self,
-            df,
-            predict_mode=False,
-            prediction_frequency=self.config_model.prediction_frequency,
-            components_stacker=train_components_stacker,
-        )
+        dataset = self._create_dataset(df, predict_mode=False, components_stacker=train_components_stacker)
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
         # Create Train DataLoader
@@ -1210,7 +1237,7 @@ class NeuralProphet:
                 df=df_val,
                 freq=self.data_freq,
                 n_lags=self.config_ar.n_lags,
-                n_forecasts=self.n_forecasts,
+                n_forecasts=self.config_model.n_forecasts,
                 config_missing=self.config_missing,
                 config_regressors=self.config_regressors,
                 config_lagged_regressors=self.config_lagged_regressors,
@@ -1223,12 +1250,12 @@ class NeuralProphet:
             val_components_stacker = utils_time_dataset.ComponentStacker(
                 n_lags=self.config_ar.n_lags,
                 max_lags=self.config_model.max_lags,
-                n_forecasts=self.n_forecasts,
+                n_forecasts=self.config_model.n_forecasts,
                 config_seasonality=self.config_seasonality,
                 lagged_regressor_config=self.config_lagged_regressors,
                 feature_indices={},
             )
-            dataset_val = _create_dataset(self, df_val, predict_mode=False, components_stacker=val_components_stacker)
+            dataset_val = self._create_dataset(df_val, predict_mode=False, components_stacker=val_components_stacker)
             loader_val = DataLoader(dataset_val, batch_size=min(1024, len(dataset_val)), shuffle=False, drop_last=False)
 
         # Init the Trainer
@@ -1379,7 +1406,7 @@ class NeuralProphet:
         # to get all forecasteable values with df given, maybe extend into future:
         df, periods_added = _maybe_extend_df(
             df=df,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             max_lags=self.config_model.max_lags,
             freq=self.data_freq,
             config_regressors=self.config_regressors,
@@ -1390,9 +1417,7 @@ class NeuralProphet:
         df = _normalize(df=df, config_normalization=self.config_normalization)
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            dates, predicted, components = self._predict_raw(
-                df_i, df_name, include_components=decompose, prediction_frequency=self.config_model.prediction_frequency
-            )
+            dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose)
             df_i = df_utils.drop_missing_from_df(
                 df_i, self.config_missing.drop_missing, self.predict_steps, self.config_ar.n_lags
             )
@@ -1400,7 +1425,7 @@ class NeuralProphet:
                 fcst = _convert_raw_predictions_to_raw_df(
                     dates=dates,
                     predicted=predicted,
-                    n_forecasts=self.n_forecasts,
+                    n_forecasts=self.config_model.n_forecasts,
                     quantiles=self.config_model.quantiles,
                     components=components,
                 )
@@ -1413,7 +1438,7 @@ class NeuralProphet:
                     components=components,
                     prediction_frequency=self.config_model.prediction_frequency,
                     dates=dates,
-                    n_forecasts=self.n_forecasts,
+                    n_forecasts=self.config_model.n_forecasts,
                     max_lags=self.config_model.max_lags,
                     freq=self.data_freq,
                     quantiles=self.config_model.quantiles,
@@ -1424,7 +1449,7 @@ class NeuralProphet:
             forecast = pd.concat((forecast, fcst), ignore_index=True)
 
         df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)
-        self.predict_steps = self.n_forecasts
+        self.predict_steps = self.config_model.n_forecasts
         return df
 
     def test(self, df: pd.DataFrame, verbose: bool = True):
@@ -1450,7 +1475,7 @@ class NeuralProphet:
             df=df,
             freq=freq,
             n_lags=self.config_ar.n_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             config_missing=self.config_missing,
             config_regressors=self.config_regressors,
             config_lagged_regressors=self.config_lagged_regressors,
@@ -1462,13 +1487,13 @@ class NeuralProphet:
         df = _normalize(df=df, config_normalization=self.config_normalization)
         components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=self.config_ar.n_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             max_lags=self.config_model.max_lags,
             config_seasonality=self.config_seasonality,
             lagged_regressor_config=self.config_lagged_regressors,
             feature_indices={},
         )
-        dataset = _create_dataset(self, df, predict_mode=False, components_stacker=components_stacker)
+        dataset = self._create_dataset(df, predict_mode=False, components_stacker=components_stacker)
         self.model.set_components_stacker(components_stacker, mode="test")
         test_loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         # Use Lightning to calculate metrics
@@ -1602,7 +1627,7 @@ class NeuralProphet:
             df=df,
             freq=freq,
             n_lags=self.config_ar.n_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             config_missing=self.config_missing,
             config_regressors=self.config_regressors,
             config_lagged_regressors=self.config_lagged_regressors,
@@ -1613,7 +1638,7 @@ class NeuralProphet:
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.config_model.max_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             valid_p=valid_p,
             inputs_overbleed=True,
             local_split=local_split,
@@ -1791,7 +1816,7 @@ class NeuralProphet:
             df=df,
             freq=freq,
             n_lags=self.config_ar.n_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             config_missing=self.config_missing,
             config_regressors=self.config_regressors,
             config_lagged_regressors=self.config_lagged_regressors,
@@ -1802,7 +1827,7 @@ class NeuralProphet:
         folds = df_utils.crossvalidation_split_df(
             df,
             n_lags=self.config_model.max_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             k=k,
             fold_pct=fold_pct,
             fold_overlap_pct=fold_overlap_pct,
@@ -1855,7 +1880,7 @@ class NeuralProphet:
             df=df,
             freq=freq,
             n_lags=self.config_ar.n_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             config_missing=self.config_missing,
             config_regressors=self.config_regressors,
             config_lagged_regressors=self.config_lagged_regressors,
@@ -1866,7 +1891,7 @@ class NeuralProphet:
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
             n_lags=self.config_model.max_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             k=k,
             valid_pct=valid_pct,
             test_pct=test_pct,
@@ -1983,7 +2008,7 @@ class NeuralProphet:
                 regressors_df=regressors_dict[df_name],
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
-                n_forecasts=self.n_forecasts,
+                n_forecasts=self.config_model.n_forecasts,
                 max_lags=self.config_model.max_lags,
                 freq=self.data_freq,
             )
@@ -2100,12 +2125,14 @@ class NeuralProphet:
             raise ValueError("The quantile needs to have been specified in the model configuration.")
 
         df_seasonal = pd.DataFrame()
-        prev_n_forecasts = self.n_forecasts
         prev_n_lags = self.config_ar.n_lags
         prev_max_lags = self.config_model.max_lags
-        prev_features_map = {key: value for key, value in self.config_model.features_map.items()}
+        prev_n_forecasts = self.config_model.n_forecasts
+        prev_predict_components_stacker = self.model.predict_components_stacker
 
         self.config_model.max_lags = 0
+        self.config_ar.n_lags = 0
+        self.config_model.n_forecasts = 1
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
@@ -2120,19 +2147,16 @@ class NeuralProphet:
             )
             dataset = time_dataset.TimeDataset(
                 df=df_i,
+                components_stacker=feature_unstackor,
                 predict_mode=True,
-                n_lags=0,
-                n_forecasts=1,
-                prediction_frequency=self.config_model.prediction_frequency,
-                predict_steps=1,
-                config_missing=self.config_missing,
                 config_model=self.config_model,
+                config_missing=self.config_missing,
+                config_ar=self.config_ar,
                 config_seasonality=self.config_seasonality,
                 config_events=None,
                 config_country_holidays=None,
                 config_regressors=None,
                 config_lagged_regressors=None,
-                components_stacker=feature_unstackor,
             )
             self.model.set_components_stacker(feature_unstackor, mode="predict")
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
@@ -2166,15 +2190,16 @@ class NeuralProphet:
                 if self.config_seasonality.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
-            df_i = df_i[:: self.config_model.prediction_frequency].reset_index(drop=True)
+            df_i = df_i[:: self.config_model.prediction_frequency].reset_index(drop=True)  # this may cause a bug
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
         # reset possibly altered values
-        self.n_forecasts = prev_n_forecasts
         self.config_ar.n_lags = prev_n_lags
         self.config_model.max_lags = prev_max_lags
-        self.config_model.features_map = prev_features_map
+        self.config_model.n_forecasts = prev_n_forecasts
+        self.model.predict_components_stacker = prev_predict_components_stacker
+
         return df
 
     def set_true_ar_for_eval(self, true_ar_weights: np.ndarray):
@@ -2225,7 +2250,7 @@ class NeuralProphet:
                 Set to None to reset.
         """
         if step_number is not None:
-            assert step_number <= self.n_forecasts
+            assert step_number <= self.config_model.n_forecasts
         self.highlight_forecast_step_n = step_number
         return self
 
@@ -2292,7 +2317,7 @@ class NeuralProphet:
             forecast_in_focus = self.highlight_forecast_step_n
         if len(self.config_model.quantiles) > 1:
             if (self.highlight_forecast_step_n) is None and (
-                self.n_forecasts > 1 or self.config_model.max_lags > 0
+                self.config_model.n_forecasts > 1 or self.config_model.max_lags > 0
             ):  # rather query if n_forecasts >1 than n_lags>1
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
@@ -2301,7 +2326,7 @@ class NeuralProphet:
             if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.config_model.max_lags == 0:
                 log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
                 self.highlight_forecast_step_n = None
-        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+        if forecast_in_focus is not None and forecast_in_focus > self.config_model.n_forecasts:
             raise ValueError(
                 "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
                 "prediction time step to forecast "
@@ -2309,7 +2334,7 @@ class NeuralProphet:
 
         if self.config_model.max_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
-            if num_forecasts < self.n_forecasts:
+            if num_forecasts < self.config_model.n_forecasts:
                 log.warning(
                     "Too few forecasts to plot a line per forecast step." "Plotting a line per forecast origin instead."
                 )
@@ -2404,9 +2429,9 @@ class NeuralProphet:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Getting data from ID {df_name}")
         if include_history_data is None:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.config_model.max_lags) :]
+            fcst = fcst[-(include_previous_forecasts + self.config_model.n_forecasts + self.config_model.max_lags) :]
         elif include_history_data is False:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
+            fcst = fcst[-(include_previous_forecasts + self.config_model.n_forecasts) :]
         elif include_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_latest_forecast(
@@ -2485,9 +2510,9 @@ class NeuralProphet:
                 " plots only the median quantile forecasts."
             )
         if plot_history_data is None:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.config_model.max_lags) :]
+            fcst = fcst[-(include_previous_forecasts + self.config_model.n_forecasts + self.config_model.max_lags) :]
         elif plot_history_data is False:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
+            fcst = fcst[-(include_previous_forecasts + self.config_model.n_forecasts) :]
         elif plot_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_latest_forecast(
@@ -2626,7 +2651,7 @@ class NeuralProphet:
             log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
             # self.highlight_forecast_step_n = None
             forecast_in_focus = None
-        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+        if forecast_in_focus is not None and forecast_in_focus > self.config_model.n_forecasts:
             raise ValueError(
                 "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
                 "prediction time step to forecast "
@@ -2779,7 +2804,7 @@ class NeuralProphet:
         if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.config_ar.n_lags == 0:
             log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
             forecast_in_focus = None
-        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+        if forecast_in_focus is not None and forecast_in_focus > self.config_model.n_forecasts:
             raise ValueError(
                 "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
                 "prediction time step to forecast "
@@ -2873,7 +2898,7 @@ class NeuralProphet:
             config_events=self.config_events,
             config_holidays=self.config_country_holidays,
             config_normalization=self.config_normalization,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             n_lags=self.config_ar.n_lags,
             ar_layers=self.config_ar.ar_layers,
             metrics=self.metrics,
@@ -2916,7 +2941,7 @@ class NeuralProphet:
         log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
         return sTPE
 
-    def _predict_raw(self, df, df_name, include_components=False, prediction_frequency=None):
+    def _predict_raw(self, df, df_name, include_components=False):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -2960,23 +2985,17 @@ class NeuralProphet:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=self.config_ar.n_lags,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             max_lags=self.config_model.max_lags,
             config_seasonality=self.config_seasonality,
             lagged_regressor_config=self.config_lagged_regressors,
             feature_indices={},
         )
-        dataset = _create_dataset(
-            self,
-            df,
-            predict_mode=True,
-            prediction_frequency=prediction_frequency,
-            components_stacker=components_stacker,
-        )
+        dataset = self._create_dataset(df, predict_mode=True, components_stacker=components_stacker)
         self.model.set_components_stacker(components_stacker, mode="predict")
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
-        if self.n_forecasts > 1:
-            dates = df["ds"].iloc[self.config_model.max_lags : -self.n_forecasts + 1]
+        if self.config_model.n_forecasts > 1:
+            dates = df["ds"].iloc[self.config_model.max_lags : -self.config_model.n_forecasts + 1]
         else:
             dates = df["ds"].iloc[self.config_model.max_lags :]
 
@@ -3114,7 +3133,7 @@ class NeuralProphet:
         c = Conformal(
             alpha=alpha,
             method=method,
-            n_forecasts=self.n_forecasts,
+            n_forecasts=self.config_model.n_forecasts,
             quantiles=self.config_model.quantiles,
         )
 
@@ -3150,7 +3169,7 @@ class NeuralProphet:
         # quantile regression dataframe
         cols = list(df.columns)
         qr_cols = [col for col in df.columns if "%" in col and "qhat" not in col]
-        forecast_cols = cols[: self.n_forecasts + 2]
+        forecast_cols = cols[: self.config_model.n_forecasts + 2]
         df_qr = df[forecast_cols + qr_cols]
 
         fig = self.highlight_nth_step_ahead_of_each_forecast(n_highlight).plot(df_qr, plotting_backend="plotly")

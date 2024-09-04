@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torchmetrics
 
-from neuralprophet import configure, np_types
+from neuralprophet import configure, configure_components, np_types
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
 from neuralprophet.utils import (
     check_for_regularization,
@@ -43,15 +43,15 @@ class TimeNet(pl.LightningModule):
     def __init__(
         self,
         config_model: configure.Model,
-        config_seasonality: configure.ConfigSeasonality,
+        config_seasonality: configure_components.Seasonalities,
         config_train: Optional[configure.Train] = None,
-        config_trend: Optional[configure.Trend] = None,
-        config_ar: Optional[configure.AR] = None,
+        config_trend: Optional[configure_components.Trend] = None,
+        config_ar: Optional[configure_components.AutoregRession] = None,
         config_normalization: Optional[configure.Normalization] = None,
-        config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
-        config_regressors: Optional[configure.ConfigFutureRegressors] = None,
-        config_events: Optional[configure.ConfigEvents] = None,
-        config_holidays: Optional[configure.ConfigCountryHolidays] = None,
+        config_lagged_regressors: Optional[configure_components.LaggedRegressors] = None,
+        config_regressors: Optional[configure_components.FutureRegressors] = None,
+        config_events: Optional[configure_components.Events] = None,
+        config_holidays: Optional[configure_components.Holidays] = None,
         n_forecasts: int = 1,
         n_lags: int = 0,
         ar_layers: Optional[List[int]] = [],
@@ -73,14 +73,14 @@ class TimeNet(pl.LightningModule):
             quantiles : list
                 the set of quantiles estimated
             config_train : configure.Train
-            config_trend : configure.Trend
-            config_seasonality : configure.ConfigSeasonality
-            config_ar : configure.AR
-            config_lagged_regressors : configure.ConfigLaggedRegressors
+            config_trend : configure_components.Trend
+            config_seasonality : configure_components.Seasonalities
+            config_ar : configure_components.AutoregRession
+            config_lagged_regressors : configure_components.LaggedRegressors
                 Configurations for lagged regressors
-            config_regressors : configure.ConfigFutureRegressors
+            config_regressors : configure_components.FutureRegressors
                 Configs of regressors with mode and index.
-            config_events : configure.ConfigEvents
+            config_events : configure_components.Events
             config_holidays : OrderedDict
             config_normalization: OrderedDict
             n_forecasts : int
@@ -142,7 +142,7 @@ class TimeNet(pl.LightningModule):
 
         # General
         self.config_model = config_model
-        self.n_forecasts = n_forecasts
+        self.config_model.n_forecasts = n_forecasts
         self.train_components_stacker = train_components_stacker
         self.val_components_stacker = val_components_stacker
         self.test_components_stacker = test_components_stacker
@@ -271,7 +271,7 @@ class TimeNet(pl.LightningModule):
                 ar_net_layers.append(nn.ReLU())
                 d_inputs = d_hidden_i
             # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
-            ar_net_layers.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+            ar_net_layers.append(nn.Linear(d_inputs, self.config_model.n_forecasts * len(self.quantiles), bias=False))
             self.ar_net = nn.Sequential(*ar_net_layers)
             for lay in self.ar_net:
                 if isinstance(lay, nn.Linear):
@@ -286,7 +286,9 @@ class TimeNet(pl.LightningModule):
                 covar_net_layers.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
                 covar_net_layers.append(nn.ReLU())
                 d_inputs = d_hidden_i
-            covar_net_layers.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+            covar_net_layers.append(
+                nn.Linear(d_inputs, self.config_model.n_forecasts * len(self.quantiles), bias=False)
+            )
             self.covar_net = nn.Sequential(*covar_net_layers)
             for lay in self.covar_net:
                 if isinstance(lay, nn.Linear):
@@ -490,7 +492,7 @@ class TimeNet(pl.LightningModule):
         """
         x = self.ar_net(lags)
         # segment the last dimension to match the quantiles
-        x = x.view(x.shape[0], self.n_forecasts, len(self.quantiles))
+        x = x.view(x.shape[0], self.config_model.n_forecasts, len(self.quantiles))
         return x
 
     def forward_covar_net(self, covariates):
@@ -512,7 +514,7 @@ class TimeNet(pl.LightningModule):
             x = covariates
         x = self.covar_net(x)
         # segment the last dimension to match the quantiles
-        x = x.view(x.shape[0], self.n_forecasts, len(self.quantiles))
+        x = x.view(x.shape[0], self.config_model.n_forecasts, len(self.quantiles))
         return x
 
     def forward(
@@ -536,7 +538,7 @@ class TimeNet(pl.LightningModule):
         # Initialize components and nonstationary tensors
         components = {}
         additive_components = torch.zeros(
-            size=(time_input.shape[0], self.n_forecasts, len(self.quantiles)),
+            size=(time_input.shape[0], self.config_model.n_forecasts, len(self.quantiles)),
             device=self.device,
         )
         additive_components_nonstationary = torch.zeros(
@@ -700,7 +702,7 @@ class TimeNet(pl.LightningModule):
                     torch.divide(
                         torch.sum(covar_attributions[name], axis=1).to(all_covariates.device),
                         covar_attribution_sum_per_forecast,
-                    ).reshape(self.n_forecasts, len(self.quantiles)),
+                    ).reshape(self.config_model.n_forecasts, len(self.quantiles)),
                 )
         if self.config_events is not None or self.config_holidays is not None:
             if additive_events_input is not None:
@@ -943,7 +945,7 @@ class TimeNet(pl.LightningModule):
             # Add regularization of AR weights - sparsify
             if self.config_model.max_lags > 0 and self.config_ar.reg_lambda is not None:
                 reg_ar = self.config_ar.regularize(self.ar_weights)
-                reg_ar = torch.sum(reg_ar).squeeze() / self.n_forecasts
+                reg_ar = torch.sum(reg_ar).squeeze() / self.config_model.n_forecasts
                 reg_loss += self.config_ar.reg_lambda * reg_ar
 
             # Regularize trend to be smoother/sparse

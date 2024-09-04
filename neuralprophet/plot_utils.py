@@ -385,7 +385,7 @@ def get_valid_configuration(
                     {
                         "plot_name": "Auto-Regression",
                         "comp_name": "ar",
-                        "num_overplot": m.n_forecasts,
+                        "num_overplot": m.config_model.n_forecasts,
                         "bar": True,
                     }
                 )
@@ -418,7 +418,7 @@ def get_valid_configuration(
                         {
                             "plot_name": f'Lagged Regressor "{name}"',
                             "comp_name": f"lagged_regressor_{name}",
-                            "num_overplot": m.n_forecasts,
+                            "num_overplot": m.config_model.n_forecasts,
                             "bar": True,
                         }
                     )
@@ -534,7 +534,7 @@ def get_valid_configuration(
         and forecast_in_focus is None
     ):
         if len(m.config_train.quantiles) > 1 and (
-            m.n_forecasts > 1 or m.config_ar.n_lags > 0
+            m.config_model.n_forecasts > 1 or m.config_ar.n_lags > 0
         ):  # rather query if n_forecasts >1 than n_lags>1
             raise ValueError(
                 "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"

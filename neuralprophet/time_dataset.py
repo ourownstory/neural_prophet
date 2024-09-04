@@ -9,7 +9,7 @@ import torch
 from numpy.lib.stride_tricks import sliding_window_view
 from torch.utils.data.dataset import Dataset
 
-from neuralprophet import configure, utils
+from neuralprophet import configure_components, utils
 from neuralprophet.event_utils import get_all_holidays
 
 log = logging.getLogger("NP.time_dataset")
@@ -21,19 +21,16 @@ class TimeDataset(Dataset):
     def __init__(
         self,
         df,
+        components_stacker,
         predict_mode,
-        n_lags,
-        n_forecasts,
-        prediction_frequency,
-        predict_steps,
+        config_missing,
+        config_model,
+        config_ar,
         config_seasonality,
         config_events,
         config_country_holidays,
         config_regressors,
         config_lagged_regressors,
-        config_missing,
-        config_model,
-        components_stacker,
     ):
         """Initialize Timedataset from time-series df.
         Parameters
@@ -66,10 +63,7 @@ class TimeDataset(Dataset):
         self.meta["df_name"] = self.df_name
 
         self.predict_mode = predict_mode
-        self.n_lags = n_lags
-        self.n_forecasts = n_forecasts
-        self.prediction_frequency = prediction_frequency
-        self.predict_steps = predict_steps  # currently unused
+        self.config_ar = config_ar
         self.config_seasonality = config_seasonality
         self.config_events = config_events
         self.config_country_holidays = config_country_holidays
@@ -79,7 +73,7 @@ class TimeDataset(Dataset):
         self.config_model = config_model
 
         if self.config_model.max_lags == 0:
-            assert self.n_forecasts == 1
+            assert self.config_model.n_forecasts == 1
         self.two_level_inputs = ["seasonalities", "covariates", "events", "regressors"]
 
         # Preprocessing of events and holidays features (added to self.df)
@@ -133,7 +127,7 @@ class TimeDataset(Dataset):
         current_idx = self.components_stacker.stack_targets_component(self.df_tensors, feature_list, current_idx)
 
         current_idx = self.components_stacker.stack_lags_component(
-            self.df_tensors, feature_list, current_idx, self.n_lags
+            self.df_tensors, feature_list, current_idx, self.config_ar.n_lags
         )
         current_idx = self.components_stacker.stack_lagged_regerssors_component(
             self.df_tensors, feature_list, current_idx, self.config_lagged_regressors
@@ -236,7 +230,7 @@ class TimeDataset(Dataset):
         # Extract features from dataframe at given target index position
         if self.config_model.max_lags > 0:
             min_start_index = df_index - self.config_model.max_lags + 1
-            max_end_index = df_index + self.n_forecasts + 1
+            max_end_index = df_index + self.config_model.n_forecasts + 1
             inputs = self.all_features[min_start_index:max_end_index, :]
         else:
             inputs = self.all_features[df_index, :]
@@ -260,13 +254,13 @@ class TimeDataset(Dataset):
         # Limit target range due to input lags and number of forecasts
         df_length = len(df_tensors["ds"])
         origin_start_end_mask = self.create_origin_start_end_mask(
-            df_length=df_length, max_lags=self.config_model.max_lags, n_forecasts=self.n_forecasts
+            df_length=df_length, max_lags=self.config_model.max_lags, n_forecasts=self.config_model.n_forecasts
         )
 
         # Prediction Frequency
         # Filter missing samples and prediction frequency (does not actually drop, but creates indexmapping)
         prediction_frequency_mask = self.create_prediction_frequency_filter_mask(
-            df_tensors["ds"], self.prediction_frequency
+            df_tensors["ds"], self.config_model.prediction_frequency
         )
 
         # Combine prediction origin masks
@@ -277,8 +271,8 @@ class TimeDataset(Dataset):
             df_tensors=df_tensors,
             predict_mode=self.predict_mode,
             max_lags=self.config_model.max_lags,
-            n_lags=self.n_lags,
-            n_forecasts=self.n_forecasts,
+            n_lags=self.config_ar.n_lags,
+            n_forecasts=self.config_model.n_forecasts,
             config_lagged_regressors=self.config_lagged_regressors,
             future_regressor_names=self.additive_regressors_names + self.multiplicative_regressors_names,
             event_names=self.additive_event_and_holiday_names + self.multiplicative_event_and_holiday_names,
@@ -325,7 +319,7 @@ class TimeDataset(Dataset):
         ----------
             event : str
                 Name of the event
-            config : configure.ConfigEvents
+            config : configure_components.Events
                 User specified events, holidays, and country specific holidays
             feature : pd.Series
                 Feature for the event
@@ -347,8 +341,8 @@ class TimeDataset(Dataset):
     def add_event_features_to_df(
         self,
         df,
-        config_events: Optional[configure.ConfigEvents] = None,
-        config_country_holidays: Optional[configure.ConfigCountryHolidays] = None,
+        config_events: Optional[configure_components.Events] = None,
+        config_country_holidays: Optional[configure_components.Holidays] = None,
     ):
         """
         Construct columns containing the features of each event, added to df.
@@ -356,9 +350,9 @@ class TimeDataset(Dataset):
         ----------
             df : pd.DataFrame
                 Dataframe with all values including the user specified events (provided by user)
-            config_events : configure.ConfigEvents
+            config_events : configure_components.Events
                 User specified events, each with their upper, lower windows (int), regularization
-            config_country_holidays : configure.ConfigCountryHolidays
+            config_country_holidays : configure_components.CountryHolidays
                 Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
         Returns
         -------
@@ -591,19 +585,16 @@ class GlobalTimeDataset(TimeDataset):
     def __init__(
         self,
         df,
+        components_stacker,
         predict_mode,
-        n_lags,
-        n_forecasts,
-        prediction_frequency,
-        predict_steps,
+        config_missing,
+        config_model,
+        config_ar,
         config_seasonality,
         config_events,
         config_country_holidays,
         config_regressors,
         config_lagged_regressors,
-        config_missing,
-        config_model,
-        components_stacker,
     ):
         """Initialize Timedataset from time-series df.
         Parameters
@@ -619,10 +610,7 @@ class GlobalTimeDataset(TimeDataset):
             self.datasets[df_name] = TimeDataset(
                 df=df[df["ID"] == df_name],
                 predict_mode=predict_mode,
-                n_lags=n_lags,
-                n_forecasts=n_forecasts,
-                prediction_frequency=prediction_frequency,
-                predict_steps=predict_steps,
+                config_ar=config_ar,
                 config_seasonality=config_seasonality,
                 config_events=config_events,
                 config_country_holidays=config_country_holidays,

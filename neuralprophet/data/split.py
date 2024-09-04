@@ -1,12 +1,9 @@
 import logging
-from typing import Optional
-from typing import OrderedDict as OrderedDictType
-from typing import Tuple
+from typing import Optional, Tuple
 
 import pandas as pd
 
-from neuralprophet import df_utils
-from neuralprophet.configure import ConfigEvents, Regressor
+from neuralprophet import configure_components, df_utils
 from neuralprophet.data.process import _check_dataframe
 
 log = logging.getLogger("NP.data.splitting")
@@ -17,8 +14,8 @@ def _maybe_extend_df(
     n_forecasts: int,
     max_lags: int,
     freq: Optional[str],
-    config_regressors: Optional[OrderedDictType[str, Regressor]],
-    config_events: Optional[ConfigEvents],
+    config_regressors: Optional[configure_components.FutureRegressors],
+    config_events: Optional[configure_components.Events],
 ) -> Tuple[pd.DataFrame, dict]:
     """
     Extend the input DataFrame based on the number of forecasts, maximum lags,
@@ -34,9 +31,9 @@ def _maybe_extend_df(
         Number of steps ahead of prediction time step to forecast.
     freq : str
         Frequency of the time series data.
-    config_regressors : OrderedDict[str, Regressor]
+    config_regressors : configure_components.FutureRegressors
         Configuration of regressors.
-    config_events : ConfigEvents
+    config_events : configure_components.Events
         Configuration of events.
 
     Returns
@@ -76,7 +73,7 @@ def _get_maybe_extend_periods(
     df: pd.DataFrame,
     n_forecasts: int,
     max_lags: int,
-    config_regressors: Optional[OrderedDictType[str, Regressor]],
+    config_regressors: Optional[configure_components.FutureRegressors],
 ) -> int:
     """
     Determine the number of periods to extend the input DataFrame based on the
@@ -91,7 +88,7 @@ def _get_maybe_extend_periods(
         Number of steps ahead of prediction time step to forecast.
     max_lags : int
         Maximum number of lags to consider.
-    config_regressors : OrderedDictType[str, Regressor]
+    config_regressors : configure_components.FutureRegressors
         Configuration of regressors. If None, the function may extend the
         DataFrame based on `n_forecasts` and `max_lags`.
 

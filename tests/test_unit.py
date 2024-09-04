@@ -10,8 +10,8 @@ import pandas as pd
 import pytest
 from torch.utils.data import DataLoader
 
-from neuralprophet import NeuralProphet, configure, df_utils, time_dataset, utils_time_dataset
-from neuralprophet.data.process import _create_dataset, _handle_missing_data
+from neuralprophet import NeuralProphet, configure, configure_components, df_utils, time_dataset, utils_time_dataset
+from neuralprophet.data.process import _handle_missing_data
 from neuralprophet.data.transform import _normalize
 
 log = logging.getLogger("NP.test")
@@ -74,7 +74,8 @@ def test_timedataset_minimal():
     log.debug(f"Infile shape: {df_in.shape}")
     valid_p = 0.2
     for n_forecasts, n_lags in [(1, 0), (1, 5), (3, 5)]:
-        config_model = configure.Model()
+        config_ar = configure_components.AutoregRession(n_lags=n_lags)
+        config_model = configure.Model(n_forecasts=n_forecasts)
         config_model.set_max_num_lags(n_lags)
         config_missing = configure.MissingDataHandling()
         # config_train = configure.Train()
@@ -88,10 +89,10 @@ def test_timedataset_minimal():
             n_lags=n_lags,
             n_forecasts=n_forecasts,
             config_missing=config_missing,
-            # config_regressors: Optional[ConfigFutureRegressors],
-            # config_lagged_regressors: Optional[ConfigLaggedRegressors],
-            # config_events: Optional[ConfigEvents],
-            # config_seasonality: Optional[ConfigSeasonality],
+            # config_regressors: Optional[configure_components.FutureRegressors],
+            # config_lagged_regressors: Optional[configure_components.LaggedRegressors],
+            # config_events: Optional[configure_components.Events],
+            # config_seasonality: Optional[configure_components.Seasonalities],
             predicting=False,
         )
         local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
@@ -109,19 +110,16 @@ def test_timedataset_minimal():
 
         dataset = time_dataset.TimeDataset(
             df=df,
+            components_stacker=components_stacker,
             predict_mode=False,
-            n_lags=n_lags,
-            n_forecasts=n_forecasts,
-            prediction_frequency=None,
-            predict_steps=1,
+            config_model=config_model,
+            config_missing=config_missing,
+            config_ar=config_ar,
             config_seasonality=None,
             config_events=None,
             config_country_holidays=None,
             config_regressors=None,
             config_lagged_regressors=None,
-            config_missing=config_missing,
-            config_model=config_model,
-            components_stacker=components_stacker,
         )
         input, meta = dataset.__getitem__(0)
         # # inputs50, targets50, meta50 = dataset.__getitem__(50)
@@ -697,13 +695,13 @@ def test_globaltimedataset():
         df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
         components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=m.config_ar.n_lags,
-            n_forecasts=m.n_forecasts,
+            n_forecasts=m.config_model.n_forecasts,
             max_lags=m.config_model.max_lags,
             config_seasonality=m.config_seasonality,
             lagged_regressor_config=m.config_lagged_regressors,
         )
-        _create_dataset(m, df_global, predict_mode=False, components_stacker=components_stacker)
-        _create_dataset(m, df_global, predict_mode=True, components_stacker=components_stacker)
+        m._create_dataset(df_global, predict_mode=False, components_stacker=components_stacker)
+        m._create_dataset(df_global, predict_mode=True, components_stacker=components_stacker)
 
     # lagged_regressors, future_regressors
     df4 = df.copy()
@@ -727,13 +725,13 @@ def test_globaltimedataset():
         df4 = _normalize(df=df4, config_normalization=m.config_normalization)
         components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=m.config_ar.n_lags,
-            n_forecasts=m.n_forecasts,
+            n_forecasts=m.config_model.n_forecasts,
             max_lags=m.config_model.max_lags,
             config_seasonality=m.config_seasonality,
             lagged_regressor_config=m.config_lagged_regressors,
         )
-        _create_dataset(m, df4, predict_mode=False, components_stacker=components_stacker)
-        _create_dataset(m, df4, predict_mode=True, components_stacker=components_stacker)
+        m._create_dataset(df4, predict_mode=False, components_stacker=components_stacker)
+        m._create_dataset(df4, predict_mode=True, components_stacker=components_stacker)
 
 
 def test_dataloader():
@@ -769,7 +767,7 @@ def test_dataloader():
         config_seasonality=None,
         lagged_regressor_config=None,
     )
-    dataset = _create_dataset(m, df_global, predict_mode=False, components_stacker=components_stacker)
+    dataset = m._create_dataset(df_global, predict_mode=False, components_stacker=components_stacker)
     loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
     for _, meta in loader:
         assert set(meta["df_name"]) == set(df_global["ID"].unique())
@@ -872,7 +870,8 @@ def test_make_future():
 def test_too_many_NaN():
     n_lags = 12
     n_forecasts = 1
-    config_model = configure.Model()
+    config_ar = configure_components.AutoregRession(n_lags=n_lags)
+    config_model = configure.Model(n_forecasts=n_forecasts)
     config_model.set_max_num_lags(n_lags)
     config_missing = configure.MissingDataHandling(
         impute_missing=True,
@@ -902,25 +901,22 @@ def test_too_many_NaN():
         components_stacker = utils_time_dataset.ComponentStacker(
             n_lags=n_lags,
             n_forecasts=n_forecasts,
-            max_lags=n_lags,
+            max_lags=config_model.max_lags,
             config_seasonality=None,
             lagged_regressor_config=None,
         )
         time_dataset.TimeDataset(
             df=df,
+            components_stacker=components_stacker,
             predict_mode=False,
-            n_lags=n_lags,
-            n_forecasts=n_forecasts,
-            prediction_frequency=None,
-            predict_steps=1,
+            config_model=config_model,
+            config_missing=config_missing,
+            config_ar=config_ar,
             config_seasonality=None,
             config_events=None,
             config_country_holidays=None,
             config_regressors=None,
             config_lagged_regressors=None,
-            config_missing=config_missing,
-            config_model=config_model,
-            components_stacker=components_stacker,
         )
 
 

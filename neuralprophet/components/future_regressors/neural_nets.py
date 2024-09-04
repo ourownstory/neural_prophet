@@ -21,14 +21,14 @@ class NeuralNetsFutureRegressors(FutureRegressors):
         if self.regressors_dims is not None:
             # Regresors params
             self.regressor_nets = nn.ModuleDict({})
-            self.regressors_layers = config.regressors_layers
+            self.layers = config.layers
             # one net per regressor. to be adapted to combined network
             for regressor in self.regressors_dims.keys():
                 # Nets for both additive and multiplicative regressors
                 regressor_net = nn.ModuleList()
                 # This will be later 1 + static covariates
                 d_inputs = 1
-                for d_hidden_i in self.regressors_layers:
+                for d_hidden_i in self.layers:
                     regressor_net.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
                     d_inputs = d_hidden_i
                 # final layer has input size d_inputs and output size equal to no. of quantiles
@@ -77,7 +77,7 @@ class NeuralNetsFutureRegressors(FutureRegressors):
                 Forecast component of dims (batch, n_forecasts, num_quantiles)
         """
         x = regressor_input
-        for i in range(len(self.regressors_layers) + 1):
+        for i in range(len(self.layers) + 1):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.regressor_nets[name][i](x)
