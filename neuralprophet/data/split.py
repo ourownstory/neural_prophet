@@ -14,7 +14,7 @@ def _maybe_extend_df(
     n_forecasts: int,
     max_lags: int,
     freq: Optional[str],
-    config_regressors: Optional[configure_components.FutureRegressor],
+    config_regressors: Optional[configure_components.FutureRegressors],
     config_events: Optional[configure_components.Events],
 ) -> Tuple[pd.DataFrame, dict]:
     """
