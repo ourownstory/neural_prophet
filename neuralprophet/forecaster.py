@@ -635,8 +635,8 @@ class NeuralProphet:
         self,
         names: Union[str, List[str]],
         n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
-        regularization: Optional[float] = None,
         normalize: Union[bool, str] = "auto",
+        regularization: Optional[float] = None,
     ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and
         predicting.
@@ -691,13 +691,12 @@ class NeuralProphet:
                 config_lagged_regressors=self.config_lagged_regressors,
                 config_regressors=self.config_regressors,
             )
-            if self.config_lagged_regressors.regressors is None:
-                self.config_lagged_regressors.regressors = configure_components.LaggedRegressors()
-            self.config_lagged_regressors.regressors[name] = configure_components.SingleLaggedRegressor(
-                reg_lambda=regularization,
-                normalize=normalize,
-                as_scalar=only_last_value,
+            self.config_lagged_regressors.add(
+                name=name,
                 n_lags=n_lags,
+                as_scalar=only_last_value,
+                normalize=normalize,
+                regularization=regularization,
             )
         self.config_model.set_max_num_lags(
             n_lags=self.config_ar.n_lags, config_lagged_regressors=self.config_lagged_regressors
@@ -767,12 +766,9 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
         )
+        # add to Config
+        self.config_regressors.add(name, mode=mode, normalize=normalize, reg_lambda=regularization)
 
-        if self.config_regressors.regressors is None:
-            self.config_regressors = configure_components.FutureRegressors()
-        self.config_regressors.regressors[name] = configure_components.SingleFutureRegressor(
-            reg_lambda=regularization, normalize=normalize, mode=mode
-        )
         return self
 
     def add_events(

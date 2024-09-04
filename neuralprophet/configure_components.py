@@ -231,10 +231,10 @@ class AutoregRession:
 
 @dataclass
 class SingleLaggedRegressor:
-    reg_lambda: Optional[float]
+    n_lags: int
     as_scalar: bool
     normalize: Union[bool, str]
-    n_lags: int
+    reg_lambda: Optional[float]
 
     def __post_init__(self):
         if self.reg_lambda is not None:
@@ -249,24 +249,36 @@ class LaggedRegressors:
     regressors: OrderedDict[SingleLaggedRegressor] = field(init=False)
 
     def __post_init__(self):
-        self.regressors = OrderedDict()
+        self.regressors = None
+
+    def add(self, name, n_lags, as_scalar, normalize, reg_lambda):
+        if self.regressors is None:
+            self.regressors = OrderedDict()
+        self.regressors[name] = SingleLaggedRegressor(
+            n_lags=n_lags, as_scalar=as_scalar, normalize=normalize, reg_lambda=reg_lambda
+        )
 
 
 @dataclass
 class SingleFutureRegressor:
-    reg_lambda: Optional[float]
-    normalize: Union[str, bool]
     mode: str
+    normalize: Union[str, bool]
+    reg_lambda: Optional[float]
 
 
 @dataclass
 class FutureRegressors:
     model: Optional[str] = "linear"
     layers: Optional[List[int]] = field(default_factory=list)
-    regressors: OrderedDict[SingleFutureRegressor] = field(init=False)  # contains Regressor objects
+    regressors: OrderedDict[SingleFutureRegressor] = field(init=False)
 
     def __post_init__(self):
-        self.regressors = OrderedDict()
+        self.regressors = None
+
+    def add(self, name, mode, normalize, reg_lambda):
+        if self.regressors is None:
+            self.regressors = OrderedDict()
+        self.regressors[name] = SingleFutureRegressor(mode=mode, normalize=normalize, reg_lambda=reg_lambda)
 
 
 @dataclass
