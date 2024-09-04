@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader
 
 from neuralprophet import (
     configure,
+    configure_components,
     df_utils,
     np_types,
     time_dataset,
@@ -514,10 +515,10 @@ class NeuralProphet:
         self.metrics = utils_metrics.get_metrics(collect_metrics)
 
         # AR
-        self.config_ar = configure.AutoregRession(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
+        self.config_ar = configure_components.AutoregRession(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
 
         # Trend
-        self.config_trend = configure.Trend(
+        self.config_trend = configure_components.Trend(
             growth=growth,
             changepoints=changepoints,
             n_changepoints=n_changepoints,
@@ -544,7 +545,7 @@ class NeuralProphet:
         )
 
         # Seasonality
-        self.config_seasonality = configure.ConfigSeasonality(
+        self.config_seasonality = configure_components.Seasonalities(
             mode=seasonality_mode,
             reg_lambda=seasonality_reg,
             yearly_arg=yearly_seasonality,
@@ -559,11 +560,11 @@ class NeuralProphet:
         )
 
         # Events
-        self.config_events: Optional[configure.ConfigEvents] = None
-        self.config_country_holidays: Optional[configure.ConfigCountryHolidays] = None
+        self.config_events: Optional[configure_components.Events] = None
+        self.config_country_holidays: Optional[configure_components.Holidays] = None
 
         # Lagged Regressors
-        self.config_lagged_regressors = configure.ConfigLaggedRegressors(
+        self.config_lagged_regressors = configure_components.LaggedRegressors(
             layers=lagged_reg_layers,
         )
         # Update max_lags
@@ -571,7 +572,7 @@ class NeuralProphet:
             n_lags=self.config_ar.n_lags, config_lagged_regressors=self.config_lagged_regressors
         )
         # Future Regressors
-        self.config_regressors = configure.ConfigFutureRegressors(
+        self.config_regressors = configure_components.FutureRegressors(
             model=future_regressors_model,
             regressors_layers=future_regressors_layers,
         )
@@ -692,7 +693,7 @@ class NeuralProphet:
             )
             if self.config_lagged_regressors.regressors is None:
                 self.config_lagged_regressors.regressors = OrderedDict()
-            self.config_lagged_regressors.regressors[name] = configure.LaggedRegressor(
+            self.config_lagged_regressors.regressors[name] = configure_components.LaggedRegressor(
                 reg_lambda=regularization,
                 normalize=normalize,
                 as_scalar=only_last_value,
@@ -769,7 +770,7 @@ class NeuralProphet:
 
         if self.config_regressors.regressors is None:
             self.config_regressors.regressors = OrderedDict()
-        self.config_regressors.regressors[name] = configure.Regressor(
+        self.config_regressors.regressors[name] = configure_components.Regressor(
             reg_lambda=regularization, normalize=normalize, mode=mode
         )
         return self
@@ -824,7 +825,7 @@ class NeuralProphet:
                 config_lagged_regressors=self.config_lagged_regressors,
                 config_regressors=self.config_regressors,
             )
-            self.config_events[event_name] = configure.Event(
+            self.config_events[event_name] = configure_components.SingleEvent(
                 lower_window=lower_window, upper_window=upper_window, reg_lambda=regularization, mode=mode
             )
         return self
@@ -871,7 +872,7 @@ class NeuralProphet:
                 raise ValueError("regularization must be >= 0")
             if regularization == 0:
                 regularization = None
-        self.config_country_holidays = configure.Holidays(
+        self.config_country_holidays = configure_components.Holidays(
             country=country_name,
             lower_window=lower_window,
             upper_window=upper_window,

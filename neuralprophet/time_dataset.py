@@ -9,7 +9,7 @@ import torch
 from numpy.lib.stride_tricks import sliding_window_view
 from torch.utils.data.dataset import Dataset
 
-from neuralprophet import configure, utils
+from neuralprophet import configure, configure_components, utils
 from neuralprophet.event_utils import get_all_holidays
 
 log = logging.getLogger("NP.time_dataset")
@@ -319,7 +319,7 @@ class TimeDataset(Dataset):
         ----------
             event : str
                 Name of the event
-            config : configure.ConfigEvents
+            config : configure_components.Events
                 User specified events, holidays, and country specific holidays
             feature : pd.Series
                 Feature for the event
@@ -341,8 +341,8 @@ class TimeDataset(Dataset):
     def add_event_features_to_df(
         self,
         df,
-        config_events: Optional[configure.ConfigEvents] = None,
-        config_country_holidays: Optional[configure.ConfigCountryHolidays] = None,
+        config_events: Optional[configure_components.Events] = None,
+        config_country_holidays: Optional[configure_components.Holidays] = None,
     ):
         """
         Construct columns containing the features of each event, added to df.
@@ -350,9 +350,9 @@ class TimeDataset(Dataset):
         ----------
             df : pd.DataFrame
                 Dataframe with all values including the user specified events (provided by user)
-            config_events : configure.ConfigEvents
+            config_events : configure_components.Events
                 User specified events, each with their upper, lower windows (int), regularization
-            config_country_holidays : configure.ConfigCountryHolidays
+            config_country_holidays : configure_components.CountryHolidays
                 Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
         Returns
         -------

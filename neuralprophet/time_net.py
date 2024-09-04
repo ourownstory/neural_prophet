@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torchmetrics
 
-from neuralprophet import configure, np_types
+from neuralprophet import configure, configure_components, np_types
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
 from neuralprophet.utils import (
     check_for_regularization,
@@ -43,15 +43,15 @@ class TimeNet(pl.LightningModule):
     def __init__(
         self,
         config_model: configure.Model,
-        config_seasonality: configure.ConfigSeasonality,
+        config_seasonality: configure_components.Seasonalities,
         config_train: Optional[configure.Train] = None,
-        config_trend: Optional[configure.Trend] = None,
-        config_ar: Optional[configure.AutoregRession] = None,
+        config_trend: Optional[configure_components.Trend] = None,
+        config_ar: Optional[configure_components.AutoregRession] = None,
         config_normalization: Optional[configure.Normalization] = None,
-        config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
-        config_regressors: Optional[configure.ConfigFutureRegressors] = None,
-        config_events: Optional[configure.ConfigEvents] = None,
-        config_holidays: Optional[configure.ConfigCountryHolidays] = None,
+        config_lagged_regressors: Optional[configure_components.LaggedRegressors] = None,
+        config_regressors: Optional[configure_components.FutureRegressors] = None,
+        config_events: Optional[configure_components.Events] = None,
+        config_holidays: Optional[configure_components.Holidays] = None,
         n_forecasts: int = 1,
         n_lags: int = 0,
         ar_layers: Optional[List[int]] = [],
@@ -73,14 +73,14 @@ class TimeNet(pl.LightningModule):
             quantiles : list
                 the set of quantiles estimated
             config_train : configure.Train
-            config_trend : configure.Trend
-            config_seasonality : configure.ConfigSeasonality
-            config_ar : configure.AutoregRession
-            config_lagged_regressors : configure.ConfigLaggedRegressors
+            config_trend : configure_components.Trend
+            config_seasonality : configure_components.Seasonalities
+            config_ar : configure_components.AutoregRession
+            config_lagged_regressors : configure_components.LaggedRegressors
                 Configurations for lagged regressors
-            config_regressors : configure.ConfigFutureRegressors
+            config_regressors : configure_components.FutureRegressors
                 Configs of regressors with mode and index.
-            config_events : configure.ConfigEvents
+            config_events : configure_components.Events
             config_holidays : OrderedDict
             config_normalization: OrderedDict
             n_forecasts : int

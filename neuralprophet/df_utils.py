@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigEvents, ConfigFutureRegressors, ConfigLaggedRegressors, ConfigSeasonality
+    from neuralprophet.configure import ConfigFutureRegressors, ConfigLaggedRegressors, Events, Seasonalities
 
 
 log = logging.getLogger("NP.df_utils")
@@ -117,8 +117,8 @@ def data_params_definition(
     normalize,
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressors: Optional[ConfigFutureRegressors] = None,
-    config_events: Optional[ConfigEvents] = None,
-    config_seasonality: Optional[ConfigSeasonality] = None,
+    config_events: Optional[Events] = None,
+    config_seasonality: Optional[Seasonalities] = None,
     local_run_despite_global: Optional[bool] = None,
 ):
     """
@@ -149,15 +149,15 @@ def data_params_definition(
                 ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                 ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-    config_lagged_regressors : configure.ConfigLaggedRegressors
+    config_lagged_regressors : configure_components.LaggedRegressors
         Configurations for lagged regressors
     normalize : bool
         data normalization
-    config_regressors : configure.ConfigFutureRegressors
+    config_regressors : configure_components.FutureRegressors
         extra regressors (with known future values) with sub_parameters normalize (bool)
-    config_events : configure.ConfigEvents
+    config_events : configure_components.Events
         user specified events configs
-    config_seasonality : configure.ConfigSeasonality
+    config_seasonality : configure_components.Seasonalities
         user specified seasonality configs
 
     Returns
@@ -225,8 +225,8 @@ def init_data_params(
     normalize="auto",
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressors: Optional[ConfigFutureRegressors] = None,
-    config_events: Optional[ConfigEvents] = None,
-    config_seasonality: Optional[ConfigSeasonality] = None,
+    config_events: Optional[Events] = None,
+    config_seasonality: Optional[Seasonalities] = None,
     global_normalization=False,
     global_time_normalization=False,
 ):
@@ -256,13 +256,13 @@ def init_data_params(
                     ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-        config_lagged_regressors : configure.ConfigLaggedRegressors
+        config_lagged_regressors : configure_components.LaggedRegressors
             Configurations for lagged regressors
-        config_regressors : configure.ConfigFutureRegressors
+        config_regressors : configure_components.FutureRegressors
             extra regressors (with known future values)
-        config_events : configure.ConfigEvents
+        config_events : configure_components.Events
             user specified events configs
-        config_seasonality : configure.ConfigSeasonality
+        config_seasonality : configure_components.Seasonalities
             user specified seasonality configs
         global_normalization : bool
 
@@ -922,7 +922,7 @@ def make_future_df(
     last_date,
     periods,
     freq,
-    config_events: ConfigEvents,
+    config_events: Events,
     config_regressors: ConfigFutureRegressors,
     events_df=None,
     regressors_df=None,
@@ -940,11 +940,11 @@ def make_future_df(
         freq : str
             Data step sizes. Frequency of data recording, any valid frequency
             for pd.date_range, such as ``D`` or ``M``
-        config_events : configure.ConfigEvents
+        config_events : configure_components.Events
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``
-        config_regressors : configure.ConfigFutureRegressors
+        config_regressors : configure_components.FutureRegressors
             configuration for user specified regressors,
         regressors_df : pd.DataFrame
             containing column ``ds`` and one column for each of the external regressors
@@ -974,7 +974,7 @@ def make_future_df(
     return future_df
 
 
-def convert_events_to_features(df, config_events: ConfigEvents, events_df):
+def convert_events_to_features(df, config_events: Events, events_df):
     """
     Converts events information into binary features of the df
 
@@ -982,7 +982,7 @@ def convert_events_to_features(df, config_events: ConfigEvents, events_df):
     ----------
         df : pd.DataFrame
             Dataframe with columns ``ds`` datestamps and ``y`` time series values
-        config_events : configure.ConfigEvents
+        config_events : configure_components.Events
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``

@@ -7,10 +7,10 @@ import pandas as pd
 from neuralprophet import df_utils
 from neuralprophet.configure import (
     ConfigCountryHolidays,
-    ConfigEvents,
     ConfigFutureRegressors,
     ConfigLaggedRegressors,
-    ConfigSeasonality,
+    Events,
+    Seasonalities,
 )
 from neuralprophet.np_types import Components
 
@@ -296,9 +296,9 @@ def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: 
 
 def _validate_column_name(
     name: str,
-    config_events: Optional[ConfigEvents],
+    config_events: Optional[Events],
     config_country_holidays: Optional[ConfigCountryHolidays],
-    config_seasonality: Optional[ConfigSeasonality],
+    config_seasonality: Optional[Seasonalities],
     config_lagged_regressors: Optional[ConfigLaggedRegressors],
     config_regressors: Optional[ConfigFutureRegressors],
     events: Optional[bool] = True,
@@ -440,8 +440,8 @@ def _handle_missing_data(
     config_missing,
     config_regressors: Optional[ConfigFutureRegressors] = None,
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
-    config_events: Optional[ConfigEvents] = None,
-    config_seasonality: Optional[ConfigSeasonality] = None,
+    config_events: Optional[Events] = None,
+    config_seasonality: Optional[Seasonalities] = None,
     predicting: bool = False,
 ) -> pd.DataFrame:
     """

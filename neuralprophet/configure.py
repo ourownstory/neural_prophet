@@ -9,8 +9,7 @@ from typing import Callable, Dict, List, Optional, Type, Union
 import numpy as np
 import torch
 
-from neuralprophet import df_utils
-from neuralprophet.configure_components import *
+from neuralprophet import configure_components, df_utils
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
@@ -40,14 +39,14 @@ class Model:
         # 0 is the median quantile index
         self.quantiles.insert(0, 0.5)
 
-    def set_max_num_lags(self, n_lags: int, config_lagged_regressors: Optional[ConfigLaggedRegressors] = None) -> int:
+    def set_max_num_lags(self, n_lags: int, config_lagged_regressors: Optional[LaggedRegressors] = None) -> int:
         """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
         Parameters
         ----------
             n_lags : int
                 number of autoregressive lagged values of series to include as model inputs
-            config_lagged_regressors : configure.ConfigLaggedRegressors
+            config_lagged_regressors : configure_components.LaggedRegressors
                 Configurations for lagged regressors
 
         Returns
@@ -82,10 +81,10 @@ class Normalization:
     def init_data_params(
         self,
         df,
-        config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+        config_lagged_regressors: Optional[configure_components.LaggedRegressors] = None,
         config_regressors=None,
-        config_events: Optional[ConfigEvents] = None,
-        config_seasonality: Optional[ConfigSeasonality] = None,
+        config_events: Optional[configure_components.Events] = None,
+        config_seasonality: Optional[configure_components.Seasonalities] = None,
     ):
         if len(df["ID"].unique()) == 1 and not self.global_normalization:
             log.info("Setting normalization to global as only one dataframe provided for training.")
@@ -137,7 +136,6 @@ class Train:
     batch_size: Optional[int]
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
     optimizer: Union[str, Type[torch.optim.Optimizer]]
-    # quantiles: List[float] = field(default_factory=list)
     optimizer_args: dict = field(default_factory=dict)
     scheduler: Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]] = None
     scheduler_args: dict = field(default_factory=dict)

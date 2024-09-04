@@ -97,7 +97,7 @@ class Trend:
 
 
 @dataclass
-class Season:
+class SingleSeasonality:
     resolution: int
     period: float
     arg: np_types.SeasonalityArgument
@@ -106,7 +106,7 @@ class Season:
 
 
 @dataclass
-class ConfigSeasonality:
+class Seasonalities:
     mode: np_types.SeasonalityMode = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0
@@ -133,7 +133,7 @@ class ConfigSeasonality:
 
         self.periods = OrderedDict(
             {
-                "yearly": Season(
+                "yearly": SingleSeasonality(
                     resolution=6,
                     period=365.25,
                     arg=self.yearly_arg,
@@ -144,7 +144,7 @@ class ConfigSeasonality:
                     ),
                     condition_name=None,
                 ),
-                "weekly": Season(
+                "weekly": SingleSeasonality(
                     resolution=3,
                     period=7,
                     arg=self.weekly_arg,
@@ -155,7 +155,7 @@ class ConfigSeasonality:
                     ),
                     condition_name=None,
                 ),
-                "daily": Season(
+                "daily": SingleSeasonality(
                     resolution=6,
                     period=1,
                     arg=self.daily_arg,
@@ -181,7 +181,7 @@ class ConfigSeasonality:
             self.seasonality_local_reg = False
 
     def append(self, name, period, resolution, arg, condition_name, global_local="auto"):
-        self.periods[name] = Season(
+        self.periods[name] = SingleSeasonality(
             resolution=resolution,
             period=period,
             arg=arg,
@@ -230,7 +230,7 @@ class AutoregRession:
 
 
 @dataclass
-class LaggedRegressor:
+class SingleLaggedRegressor:
     reg_lambda: Optional[float]
     as_scalar: bool
     normalize: Union[bool, str]
@@ -243,24 +243,24 @@ class LaggedRegressor:
 
 
 @dataclass
-class ConfigLaggedRegressors:
+class LaggedRegressors:
     layers: Optional[List[int]] = field(default_factory=list)
     # List of hidden layers for shared NN across LaggedReg. The default value is ``[]``, which initializes no hidden layers.
-    regressors: OrderedDict[LaggedRegressor] = field(init=False)
+    regressors: OrderedDict[SingleLaggedRegressor] = field(init=False)
 
     def __post_init__(self):
         self.regressors = None
 
 
 @dataclass
-class Regressor:
+class SingleFutureRegressor:
     reg_lambda: Optional[float]
     normalize: Union[str, bool]
     mode: str
 
 
 @dataclass
-class ConfigFutureRegressors:
+class FutureRegressors:
     model: str
     regressors_layers: Optional[List[int]]
     regressors: OrderedDict = field(init=False)  # contains Regressor objects
@@ -270,14 +270,15 @@ class ConfigFutureRegressors:
 
 
 @dataclass
-class Event:
+class SinleEvent:
     lower_window: int
     upper_window: int
     reg_lambda: Optional[float]
     mode: str
 
 
-ConfigEvents = OrderedDictType[str, Event]
+# TODO: convert to dataclass
+Events = OrderedDictType[str, SinleEvent]
 
 
 @dataclass
@@ -291,6 +292,3 @@ class Holidays:
 
     def init_holidays(self, df=None):
         self.holiday_names = get_holiday_names(self.country, df)
-
-
-ConfigCountryHolidays = Holidays

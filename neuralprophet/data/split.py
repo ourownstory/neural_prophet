@@ -6,7 +6,7 @@ from typing import Tuple
 import pandas as pd
 
 from neuralprophet import df_utils
-from neuralprophet.configure import ConfigEvents, Regressor
+from neuralprophet.configure import Events, Regressor
 from neuralprophet.data.process import _check_dataframe
 
 log = logging.getLogger("NP.data.splitting")
@@ -18,7 +18,7 @@ def _maybe_extend_df(
     max_lags: int,
     freq: Optional[str],
     config_regressors: Optional[OrderedDictType[str, Regressor]],
-    config_events: Optional[ConfigEvents],
+    config_events: Optional[Events],
 ) -> Tuple[pd.DataFrame, dict]:
     """
     Extend the input DataFrame based on the number of forecasts, maximum lags,
