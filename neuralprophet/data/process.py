@@ -4,7 +4,7 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 
-from neuralprophet import df_utils, time_dataset
+from neuralprophet import df_utils
 from neuralprophet.configure import (
     ConfigCountryHolidays,
     ConfigEvents,
