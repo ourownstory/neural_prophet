@@ -696,7 +696,7 @@ class NeuralProphet:
                 n_lags=n_lags,
                 as_scalar=only_last_value,
                 normalize=normalize,
-                regularization=regularization,
+                reg_lambda=regularization,
             )
         self.config_model.set_max_num_lags(
             n_lags=self.config_ar.n_lags, config_lagged_regressors=self.config_lagged_regressors
