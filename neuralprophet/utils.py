@@ -12,7 +12,7 @@ import pandas as pd
 import torch
 from lightning_fabric.utilities.seed import seed_everything
 
-from neuralprophet import configure_components, utils_torch
+from neuralprophet import utils_torch
 
 if TYPE_CHECKING:
     from neuralprophet import configure_components
