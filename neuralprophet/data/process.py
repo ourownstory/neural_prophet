@@ -282,7 +282,7 @@ def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: 
                 df=df_i,
                 freq=freq,
                 n_lags=model.config_ar.n_lags,
-                n_forecasts=model.n_forecasts,
+                n_forecasts=model.config_model.n_forecasts,
                 config_missing=model.config_missing,
                 config_regressors=model.config_regressors,
                 config_lagged_regressors=model.config_lagged_regressors,
@@ -401,7 +401,7 @@ def _check_dataframe(
         pd.DataFrame
             checked dataframe
     """
-    if len(df) < (model.n_forecasts + model.config_ar.n_lags) and not future:
+    if len(df) < (model.config_model.n_forecasts + model.config_ar.n_lags) and not future:
         raise ValueError(
             "Dataframe has less than n_forecasts + n_lags rows. "
             "Forecasting not possible. Please either use a larger dataset, or adjust the model parameters."

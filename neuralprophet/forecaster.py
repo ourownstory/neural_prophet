@@ -487,7 +487,7 @@ class NeuralProphet:
         )
         self.config_model.setup_quantiles()
 
-        self.n_forecasts = self.config_model.n_forecasts
+        # self.n_forecasts = self.config_model.n_forecasts
 
         # Data Normalization settings
         self.config_normalization = configure.Normalization(

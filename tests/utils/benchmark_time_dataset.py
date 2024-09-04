@@ -78,7 +78,7 @@ def load(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=True, iterations=1
         df=df,
         freq=m.data_freq,
         n_lags=m.config_ar.n_lags,
-        n_forecasts=m.n_forecasts,
+        n_forecasts=m.model_config.n_forecasts,
         config_missing=m.config_missing,
         config_regressors=m.config_regressors,
         config_lagged_regressors=m.config_lagged_regressors,
@@ -175,7 +175,7 @@ def yosemite(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=True):
     # toc = time.perf_counter()
     # print(f"######## Time: {toc - tic:0.4f} for predict")
 
-    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
 
 
 def peyton(nrows=NROWS, epochs=EPOCHS, batch=BATCH_SIZE, season=True):
