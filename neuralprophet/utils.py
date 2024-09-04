@@ -15,7 +15,7 @@ from lightning_fabric.utilities.seed import seed_everything
 from neuralprophet import configure_components, utils_torch
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import Events, Seasonalities
+    from neuralprophet import configure_components
 
 log = logging.getLogger("NP.utils")
 
@@ -217,7 +217,11 @@ def _regularize_weights(weights, reg_lambda):
     return reg_loss
 
 
-def reg_func_events(config_events: Optional[Events], config_country_holidays, model):
+def reg_func_events(
+    config_events: Optional[configure_components.Events],
+    config_country_holidays: Optional[configure_components.Holidays],
+    model,
+):
     """
     Regularization of events coefficients to induce sparcity
 
@@ -350,12 +354,12 @@ def symmetric_total_percentage_error(values, estimates):
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def config_seasonality_to_model_dims(config_seasonality: Seasonalities):
+def config_seasonality_to_model_dims(config_seasonality: configure_components.Seasonalities):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
     Parameters
     ----------
-        config_seasonality : configure_components.Seasonality
+        config_seasonality : configure_components.Seasonalities
             NeuralProphet seasonal model configuration
 
     Returns
@@ -374,7 +378,10 @@ def config_seasonality_to_model_dims(config_seasonality: Seasonalities):
     return seasonal_dims
 
 
-def config_events_to_model_dims(config_events: Optional[Events], config_country_holidays):
+def config_events_to_model_dims(
+    config_events: Optional[configure_components.Events],
+    config_country_holidays: Optional[configure_components.Holidays],
+):
     """
     Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
@@ -545,7 +552,7 @@ def config_regressors_to_model_dims(config_regressors):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, config_seasonality: Seasonalities):
+def set_auto_seasonalities(df, config_seasonality: configure_components.Seasonalities):
     """Set seasonalities that were left on auto or set by user.
 
     Note
