@@ -204,7 +204,7 @@ def test_plot_global_local_parameters(plotting_backend):
         learning_rate=LR,
     )
     m.fit(df_global, freq="D")
-    future = m.make_future_dataframe(df_global, periods=m.model_config.n_forecasts, n_historic_predictions=10)
+    future = m.make_future_dataframe(df_global, periods=m.config_model.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
 
     log.info(f"Plot forecast with many IDs with {plotting_backend} - Raise exceptions")
@@ -611,7 +611,7 @@ def test_plot_uncertainty(plotting_backend):
     )
     m.fit(df, freq="D")
 
-    m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)
     fig4 = m.plot(forecast, plotting_backend=plotting_backend)
@@ -668,9 +668,9 @@ def test_plot_conformal_prediction(plotting_backend):
     m.fit(train_df, freq="D")
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-        future = m.make_future_dataframe(test_df, periods=m.model_config.n_forecasts, n_historic_predictions=10)
+        future = m.make_future_dataframe(test_df, periods=m.config_model.n_forecasts, n_historic_predictions=10)
         forecast = m.conformal_predict(future, calibration_df=cal_df, alpha=alpha, method=method)
-        m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+        m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
         fig0 = m.plot(forecast, plotting_backend=plotting_backend)
         fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
         fig2 = m.plot_parameters(plotting_backend=plotting_backend)
@@ -692,9 +692,9 @@ def test_plot_conformal_prediction(plotting_backend):
     m.fit(train_df, freq="D")
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-        future = m.make_future_dataframe(df, periods=m.model_config.n_forecasts, n_historic_predictions=10)
+        future = m.make_future_dataframe(df, periods=m.config_model.n_forecasts, n_historic_predictions=10)
         forecast = m.conformal_predict(future, calibration_df=cal_df, alpha=alpha, method=method)
-        m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+        m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
         fig0 = m.plot(forecast)
         fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
         fig2 = m.plot_latest_forecast(
@@ -730,7 +730,7 @@ def test_advanced_conformal_prediction_plots():
     m.fit(train_df, freq="D")
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-        future = m.make_future_dataframe(test_df, periods=m.model_config.n_forecasts, n_historic_predictions=10)
+        future = m.make_future_dataframe(test_df, periods=m.config_model.n_forecasts, n_historic_predictions=10)
         forecast = m.conformal_predict(
             future,
             calibration_df=cal_df,
@@ -761,9 +761,9 @@ def test_plot_conformal_prediction_asymmetric(plotting_backend):
     m.fit(train_df, freq="D")
     alpha = (0.03, 0.07)
     method = "cqr"
-    future = m.make_future_dataframe(test_df, periods=m.model_config.n_forecasts, n_historic_predictions=10)
+    future = m.make_future_dataframe(test_df, periods=m.config_model.n_forecasts, n_historic_predictions=10)
     forecast = m.conformal_predict(future, calibration_df=cal_df, alpha=alpha, method=method)
-    m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
     fig0 = m.plot(forecast, plotting_backend=plotting_backend)
     fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
     fig2 = m.plot_parameters(plotting_backend=plotting_backend)
@@ -787,7 +787,7 @@ def test_plot_latest_forecast(plotting_backend):
     forecast = m.predict(future)
     fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
     fig2 = m.plot_latest_forecast(forecast, plotting_backend=plotting_backend)
-    m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
     fig3 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
     fig2 = m.plot_latest_forecast(
         forecast, include_previous_forecasts=10, plot_history_data=True, plotting_backend=plotting_backend

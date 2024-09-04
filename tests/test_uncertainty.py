@@ -116,7 +116,7 @@ def test_uncertainty_estimation_yosemite_temps():
     m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
     m.predict(future)
-    m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
 
 
 def test_uncertainty_estimation_air_travel():

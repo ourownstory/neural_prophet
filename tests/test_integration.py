@@ -60,7 +60,7 @@ def test_train_eval_test():
         df=df,
         freq="D",
         n_lags=m.config_ar.n_lags,
-        n_forecasts=m.model_config.n_forecasts,
+        n_forecasts=m.config_model.n_forecasts,
         config_missing=m.config_missing,
         config_regressors=m.config_regressors,
         config_lagged_regressors=m.config_lagged_regressors,
@@ -206,7 +206,7 @@ def test_no_trend():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    # m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+    # m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
     m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m.predict(df=future)
@@ -303,7 +303,7 @@ def test_ar():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
     m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
@@ -327,7 +327,7 @@ def test_ar_sparse():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
     m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
@@ -353,7 +353,7 @@ def test_ar_deep():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
     m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
@@ -415,7 +415,7 @@ def test_lag_reg_deep():
     df["C"] = df["y"].rolling(30, min_periods=1).mean()
     cols = [col for col in df.columns if col not in ["ds", "y"]]
     m = m.add_lagged_regressor(names=cols)
-    m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
     m.fit(df, freq="D")
     m.predict(df)
     if PLOT:
@@ -551,16 +551,16 @@ def test_model_cv():
             learning_rate=LR,
         )
         folds = m.crossvalidation_split_df(df, freq=freq, k=k, fold_pct=fold_pct, fold_overlap_pct=fold_overlap_pct)
-        total_samples = len(df) - m.config_ar.n_lags + 2 - (2 * m.model_config.n_forecasts)
+        total_samples = len(df) - m.config_ar.n_lags + 2 - (2 * m.config_model.n_forecasts)
         per_fold = int(fold_pct * total_samples)
         not_overlap = per_fold - int(fold_overlap_pct * per_fold)
         assert all(
-            [per_fold == len(val) - m.config_ar.n_lags + 1 - m.model_config.n_forecasts for (train, val) in folds]
+            [per_fold == len(val) - m.config_ar.n_lags + 1 - m.config_model.n_forecasts for (train, val) in folds]
         )
         assert all(
             [
                 total_samples - per_fold - (k - i - 1) * not_overlap
-                == len(train) - m.config_ar.n_lags + 1 - m.model_config.n_forecasts
+                == len(train) - m.config_ar.n_lags + 1 - m.config_model.n_forecasts
                 for i, (train, val) in enumerate(folds)
             ]
         )
@@ -1312,7 +1312,7 @@ def test_get_latest_forecast():
         weekly_seasonality=False,
     )
     m.fit(df_global, freq="D")
-    future = m.make_future_dataframe(df_global, periods=m.model_config.n_forecasts, n_historic_predictions=10)
+    future = m.make_future_dataframe(df_global, periods=m.config_model.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
     log.info("Plot forecast with many IDs - Raise exceptions")
     forecast = m.predict(df_global)
@@ -1554,7 +1554,7 @@ def test_accelerator():
     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     cols = [col for col in df.columns if col not in ["ds", "y"]]
     m = m.add_lagged_regressor(names=cols)
-    m.highlight_nth_step_ahead_of_each_forecast(m.model_config.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.config_model.n_forecasts)
     m.fit(df, freq="D")
     m.predict(df)
 
