@@ -21,14 +21,14 @@ class SharedNeuralNetsFutureRegressors(FutureRegressors):
         if self.regressors_dims is not None:
             # Regresors params
             self.regressor_nets = nn.ModuleDict({})
-            self.regressors_layers = config.regressors_layers
+            self.layers = config.layers
             # Combined network
             for net_i, size_i in Counter([x["mode"] for x in self.regressors_dims.values()]).items():
                 # Nets for both additive and multiplicative regressors
                 regressor_net = nn.ModuleList()
                 # This will be later size_i(1 + static covariates)
                 d_inputs = size_i
-                for d_hidden_i in self.regressors_layers:
+                for d_hidden_i in self.layers:
                     regressor_net.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
                     d_inputs = d_hidden_i
                 # final layer has input size d_inputs and output size equal to  no. of quantiles
@@ -79,7 +79,7 @@ class SharedNeuralNetsFutureRegressors(FutureRegressors):
                 Forecast component of dims (batch, n_forecasts, num_quantiles)
         """
         x = regressor_inputs
-        for i in range(len(self.regressors_layers) + 1):
+        for i in range(len(self.layers) + 1):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.regressor_nets[mode][i](x)
