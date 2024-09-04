@@ -769,7 +769,7 @@ class NeuralProphet:
         )
 
         if self.config_regressors.regressors is None:
-            self.config_regressors.regressors = OrderedDict()
+            self.config_regressors = configure_components.FutureRegressors()
         self.config_regressors.regressors[name] = configure_components.SingleFutureRegressor(
             reg_lambda=regularization, normalize=normalize, mode=mode
         )

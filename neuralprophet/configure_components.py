@@ -249,7 +249,7 @@ class LaggedRegressors:
     regressors: OrderedDict[SingleLaggedRegressor] = field(init=False)
 
     def __post_init__(self):
-        self.regressors = None
+        self.regressors = OrderedDict()
 
 
 @dataclass
@@ -263,10 +263,10 @@ class SingleFutureRegressor:
 class FutureRegressors:
     model: str
     regressors_layers: Optional[List[int]]
-    regressors: OrderedDict = field(init=False)  # contains Regressor objects
+    regressors: OrderedDict[SingleFutureRegressor] = field(init=False)  # contains Regressor objects
 
     def __post_init__(self):
-        self.regressors = None
+        self.regressors = OrderedDict()
 
 
 @dataclass
