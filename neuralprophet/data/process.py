@@ -4,14 +4,7 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 
-from neuralprophet import df_utils
-from neuralprophet.configure import (
-    ConfigCountryHolidays,
-    ConfigFutureRegressors,
-    ConfigLaggedRegressors,
-    Events,
-    Seasonalities,
-)
+from neuralprophet import configure_components, df_utils
 from neuralprophet.np_types import Components
 
 log = logging.getLogger("NP.data.processing")
@@ -27,7 +20,7 @@ def _reshape_raw_predictions_to_forecst_df(
     max_lags: int,
     freq: Optional[str],
     quantiles: List[float],
-    config_lagged_regressors: Optional[ConfigLaggedRegressors],
+    config_lagged_regressors: Optional[configure_components.LaggedRegressors],
 ) -> pd.DataFrame:
     """
     Turns forecast-origin-wise predictions into forecast-target-wise predictions.
@@ -52,7 +45,7 @@ def _reshape_raw_predictions_to_forecst_df(
             Data step sizes. Frequency of data recording.
         quantiles : list[float]
             List of quantiles to include in the forecast
-        config_lagged_regressors : ConfigLaggedRegressors
+        config_lagged_regressors : configure_components.LaggedRegressors
             Configuration for lagged regressors
 
     Returns
@@ -296,11 +289,11 @@ def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: 
 
 def _validate_column_name(
     name: str,
-    config_events: Optional[Events],
-    config_country_holidays: Optional[ConfigCountryHolidays],
-    config_seasonality: Optional[Seasonalities],
-    config_lagged_regressors: Optional[ConfigLaggedRegressors],
-    config_regressors: Optional[ConfigFutureRegressors],
+    config_events: Optional[configure_components.Events],
+    config_country_holidays: Optional[configure_components.Holidays],
+    config_seasonality: Optional[configure_components.Seasonalities],
+    config_lagged_regressors: Optional[configure_components.LaggedRegressors],
+    config_regressors: Optional[configure_components.FutureRegressors],
     events: Optional[bool] = True,
     seasons: Optional[bool] = True,
     regressors: Optional[bool] = True,
@@ -312,15 +305,15 @@ def _validate_column_name(
     ----------
         name : str
             name of seasonality, event or regressor
-        config_events : Optional[ConfigEvents]
+        config_events : Optional[configure_components.Events]
             Configuration options for adding events to the model.
-        config_country_holidays : Optional[ConfigCountryHolidays]
+        config_country_holidays : Optional[configure_components.Holidays]
             Configuration options for adding country holidays to the model.
-        config_seasonality : Optional[ConfigSeasonality]
+        config_seasonality : Optional[configure_components.Seasonalities]
             Configuration options for adding seasonal components to the model.
-        config_lagged_regressors : Optional[ConfigLaggedRegressors]
+        config_lagged_regressors : Optional[configure_components.LaggedRegressors]
             Configuration options for adding lagged external regressors to the model.
-        config_regressors : Optional[ConfigFutureRegressors]
+        config_regressors : Optional[configure_components.FutureRegressors]
             Configuration options for adding future regressors to the model.
         events : bool
             check if name already used for event
@@ -438,10 +431,10 @@ def _handle_missing_data(
     n_lags: int,
     n_forecasts: int,
     config_missing,
-    config_regressors: Optional[ConfigFutureRegressors] = None,
-    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
-    config_events: Optional[Events] = None,
-    config_seasonality: Optional[Seasonalities] = None,
+    config_regressors: Optional[configure_components.FutureRegressors] = None,
+    config_lagged_regressors: Optional[configure_components.LaggedRegressors] = None,
+    config_events: Optional[configure_components.Events] = None,
+    config_seasonality: Optional[configure_components.Seasonalities] = None,
     predicting: bool = False,
 ) -> pd.DataFrame:
     """
@@ -464,13 +457,13 @@ def _handle_missing_data(
         Number of steps ahead of prediction time step to forecast.
     config_missing :
         Configuration options for handling missing data.
-    config_regressors : Optional[ConfigFutureRegressors]
+    config_regressors : Optional[configure_components.FutureRegressors]
         Configuration options for adding future regressors to the model.
-    config_lagged_regressors : Optional[ConfigLaggedRegressors]
+    config_lagged_regressors : Optional[configure_components.LaggedRegressors]
         Configuration options for adding lagged external regressors to the model.
-    config_events : Optional[ConfigEvents]
+    config_events : Optional[configure_components.Events]
         Configuration options for adding events to the model.
-    config_seasonality : Optional[ConfigSeasonality]
+    config_seasonality : Optional[configure_components.Seasonalities]
         Configuration options for adding seasonal components to the model.
     predicting : bool, default False
         If True, allows missing values in the 'y' column for the forecast period, or missing completely.

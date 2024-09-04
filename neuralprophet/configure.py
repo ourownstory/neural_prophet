@@ -68,9 +68,6 @@ class Model:
             self.max_lags = n_lags
 
 
-ConfigModel = Model
-
-
 @dataclass
 class Normalization:
     normalize: str

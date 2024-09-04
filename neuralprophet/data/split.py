@@ -34,9 +34,9 @@ def _maybe_extend_df(
         Number of steps ahead of prediction time step to forecast.
     freq : str
         Frequency of the time series data.
-    config_regressors : OrderedDict[str, Regressor]
+    config_regressors : configure_components.FutureRegressors
         Configuration of regressors.
-    config_events : ConfigEvents
+    config_events : configure_components.Events
         Configuration of events.
 
     Returns

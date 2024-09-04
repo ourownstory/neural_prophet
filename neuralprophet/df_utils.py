@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigFutureRegressors, ConfigLaggedRegressors, Events, Seasonalities
+    from neuralprophet import configure_components
 
 
 log = logging.getLogger("NP.df_utils")
@@ -115,10 +115,10 @@ def merge_dataframes(df: pd.DataFrame) -> pd.DataFrame:
 def data_params_definition(
     df,
     normalize,
-    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
-    config_regressors: Optional[ConfigFutureRegressors] = None,
-    config_events: Optional[Events] = None,
-    config_seasonality: Optional[Seasonalities] = None,
+    config_lagged_regressors: Optional[configure_components.LaggedRegressors] = None,
+    config_regressors: Optional[configure_components.FutureRegressors] = None,
+    config_events: Optional[configure_components.Events] = None,
+    config_seasonality: Optional[configure_components.Seasonalities] = None,
     local_run_despite_global: Optional[bool] = None,
 ):
     """
@@ -223,10 +223,10 @@ def data_params_definition(
 def init_data_params(
     df,
     normalize="auto",
-    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
-    config_regressors: Optional[ConfigFutureRegressors] = None,
-    config_events: Optional[Events] = None,
-    config_seasonality: Optional[Seasonalities] = None,
+    config_lagged_regressors: Optional[configure_components.LaggedRegressors] = None,
+    config_regressors: Optional[configure_components.FutureRegressors] = None,
+    config_events: Optional[configure_components.Events] = None,
+    config_seasonality: Optional[configure_components.Seasonalities] = None,
     global_normalization=False,
     global_time_normalization=False,
 ):
@@ -922,8 +922,8 @@ def make_future_df(
     last_date,
     periods,
     freq,
-    config_events: Events,
-    config_regressors: ConfigFutureRegressors,
+    config_events: configure_components.Events,
+    config_regressors: configure_components.FutureRegressors,
     events_df=None,
     regressors_df=None,
 ):
@@ -974,7 +974,7 @@ def make_future_df(
     return future_df
 
 
-def convert_events_to_features(df, config_events: Events, events_df):
+def convert_events_to_features(df, config_events: configure_components.Events, events_df):
     """
     Converts events information into binary features of the df
 

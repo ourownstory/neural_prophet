@@ -89,10 +89,10 @@ def test_timedataset_minimal():
             n_lags=n_lags,
             n_forecasts=n_forecasts,
             config_missing=config_missing,
-            # config_regressors: Optional[ConfigFutureRegressors],
-            # config_lagged_regressors: Optional[ConfigLaggedRegressors],
-            # config_events: Optional[ConfigEvents],
-            # config_seasonality: Optional[ConfigSeasonality],
+            # config_regressors: Optional[configure_components.FutureRegressors],
+            # config_lagged_regressors: Optional[configure_components.LaggedRegressors],
+            # config_events: Optional[configure_components.Events],
+            # config_seasonality: Optional[configure_components.Seasonalities],
             predicting=False,
         )
         local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
