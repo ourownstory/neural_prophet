@@ -9,7 +9,7 @@ import torch
 from numpy.lib.stride_tricks import sliding_window_view
 from torch.utils.data.dataset import Dataset
 
-from neuralprophet import configure, configure_components, utils
+from neuralprophet import configure_components, utils
 from neuralprophet.event_utils import get_all_holidays
 
 log = logging.getLogger("NP.time_dataset")

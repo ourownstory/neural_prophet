@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from torch.utils.data import DataLoader
 
-from neuralprophet import NeuralProphet, configure, df_utils, time_dataset, utils_time_dataset
+from neuralprophet import NeuralProphet, configure, configure_components, df_utils, time_dataset, utils_time_dataset
 from neuralprophet.data.process import _handle_missing_data
 from neuralprophet.data.transform import _normalize
 

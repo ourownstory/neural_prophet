@@ -15,7 +15,7 @@ from lightning_fabric.utilities.seed import seed_everything
 from neuralprophet import configure_components, utils_torch
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigLaggedRegressors, Events, Seasonalities
+    from neuralprophet.configure import Events, Seasonalities
 
 log = logging.getLogger("NP.utils")
 

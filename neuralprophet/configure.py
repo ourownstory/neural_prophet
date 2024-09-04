@@ -39,7 +39,9 @@ class Model:
         # 0 is the median quantile index
         self.quantiles.insert(0, 0.5)
 
-    def set_max_num_lags(self, n_lags: int, config_lagged_regressors: Optional[LaggedRegressors] = None) -> int:
+    def set_max_num_lags(
+        self, n_lags: int, config_lagged_regressors: Optional[configure_components.LaggedRegressors] = None
+    ) -> int:
         """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
         Parameters
