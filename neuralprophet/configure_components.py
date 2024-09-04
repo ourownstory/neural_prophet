@@ -270,7 +270,7 @@ class FutureRegressors:
 
 
 @dataclass
-class SinleEvent:
+class SingleEvent:
     lower_window: int
     upper_window: int
     reg_lambda: Optional[float]
@@ -278,7 +278,7 @@ class SinleEvent:
 
 
 # TODO: convert to dataclass
-Events = OrderedDictType[str, SinleEvent]
+Events = OrderedDictType[str, SingleEvent]
 
 
 @dataclass
