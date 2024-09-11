@@ -329,15 +329,19 @@ class TimeNet(pl.LightningModule):
             if isinstance(layer, nn.Linear):
                 return layer.weight
 
-    def set_components_stacker(self, components_stacker, mode):
-        if mode == "train":
-            self.components_stacker["train"] = components_stacker
-        if mode == "val":
-            self.components_stacker["val"] = components_stacker
-        if mode == "test":
-            self.components_stacker["test"] = components_stacker
-        if mode == "predict":
-            self.components_stacker["predict"] = components_stacker
+    def set_components_stacker(self, stacker, mode):
+        """Set the components stacker for the given mode.
+        Parameters
+        ----------
+        stacker : ComponentStacker
+            The components stacker to be set.
+        mode : str
+            The mode for which the components stacker is to be set
+            options: ["train", "val", "test", "predict"]
+        """
+        modes = ["train", "val", "test", "predict"]
+        assert mode in modes, f"mode must be one of {modes}"
+        self.components_stacker[mode] = stacker
 
     def get_covar_weights(self, covar_input=None) -> torch.Tensor:
         """
