@@ -333,7 +333,7 @@ class TimeNet(pl.LightningModule):
         """Set the components stacker for the given mode.
         Parameters
         ----------
-        stacker : ComponentStacker
+        components_stacker : ComponentStacker
             The components stacker to be set.
         mode : str
             The mode for which the components stacker is to be set

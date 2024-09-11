@@ -1275,9 +1275,9 @@ class NeuralProphet:
         if not self.fitted:
             self.model = self._init_model()
 
-        self.model.set_components_stacker(components_stacker=train_components_stacker, mode="train")
+        self.model.set_components_stacker(stacker=train_components_stacker, mode="train")
         if validation_enabled:
-            self.model.set_components_stacker(components_stacker=val_components_stacker, mode="val")
+            self.model.set_components_stacker(stacker=val_components_stacker, mode="val")
 
         # Find suitable learning rate if not set
         if self.config_train.learning_rate is None:
