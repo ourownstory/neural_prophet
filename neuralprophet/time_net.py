@@ -144,17 +144,21 @@ class TimeNet(pl.LightningModule):
         self.config_model = config_model
         self.config_model.n_forecasts = n_forecasts
         # refactor components stacker to be a dict of stackers for train, val, test, predict
-        # self.components_stacker = {
-        #     "train": train_components_stacker,
-        #     "val": val_components_stacker,
-        #     "test": test_components_stacker,
-        #     "predict": predict_components_stacker,
-        # }
+        self.components_stacker = {
+            "train": None,
+            "val": None,
+            "test": None,
+            "predict": None,
+        }
 
-        self.train_components_stacker = train_components_stacker
-        self.val_components_stacker = val_components_stacker
-        self.test_components_stacker = test_components_stacker
-        self.predict_components_stacker = predict_components_stacker
+        # self.train_components_stacker = train_components_stacker
+        # self.val_components_stacker = val_components_stacker
+        # self.test_components_stacker = test_components_stacker
+        # self.predict_components_stacker = predict_components_stacker
+        # self.components_stacker["train"] = None
+        # self.components_stacker["val"] = None
+        # self.components_stacker["test"] = None
+        # self.components_stacker["predict"] = None
 
         # Lightning Config
         self.config_train = config_train
@@ -327,13 +331,13 @@ class TimeNet(pl.LightningModule):
 
     def set_components_stacker(self, components_stacker, mode):
         if mode == "train":
-            self.train_components_stacker = components_stacker
+            self.components_stacker["train"] = components_stacker
         if mode == "val":
-            self.val_components_stacker = components_stacker
+            self.components_stacker["val"] = components_stacker
         if mode == "test":
-            self.test_components_stacker = components_stacker
+            self.components_stacker["test"] = components_stacker
         if mode == "predict":
-            self.predict_components_stacker = components_stacker
+            self.components_stacker["predict"] = components_stacker
 
     def get_covar_weights(self, covar_input=None) -> torch.Tensor:
         """
@@ -781,15 +785,15 @@ class TimeNet(pl.LightningModule):
 
         epoch_float = self.trainer.current_epoch + batch_idx / float(self.train_steps_per_epoch)
         self.train_progress = epoch_float / float(self.config_train.epochs)
-        targets = self.train_components_stacker.unstack_component("targets", batch_tensor=inputs_tensor)
-        time = self.train_components_stacker.unstack_component("time", batch_tensor=inputs_tensor)
+        targets = self.components_stacker["train"].unstack_component("targets", batch_tensor=inputs_tensor)
+        time = self.components_stacker["train"].unstack_component("time", batch_tensor=inputs_tensor)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs_tensor, self.train_components_stacker, meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, self.components_stacker["train"], meta_name_tensor)
         # Store predictions in self for later network visualization
         self.train_epoch_prediction = predicted
         # Calculate loss
@@ -826,15 +830,15 @@ class TimeNet(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         inputs_tensor, meta = batch
-        targets = self.val_components_stacker.unstack_component("targets", batch_tensor=inputs_tensor)
-        time = self.val_components_stacker.unstack_component("time", batch_tensor=inputs_tensor)
+        targets = self.components_stacker["val"].unstack_component("targets", batch_tensor=inputs_tensor)
+        time = self.components_stacker["val"].unstack_component("time", batch_tensor=inputs_tensor)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs_tensor, self.val_components_stacker, meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, self.components_stacker["val"], meta_name_tensor)
         # Calculate loss
         loss, reg_loss = self.loss_func(time, predicted, targets)
         # Metrics
@@ -848,15 +852,15 @@ class TimeNet(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         inputs_tensor, meta = batch
-        targets = self.test_components_stacker.unstack_component("targets", batch_tensor=inputs_tensor)
-        time = self.test_components_stacker.unstack_component("time", batch_tensor=inputs_tensor)
+        targets = self.components_stacker["test"].unstack_component("targets", batch_tensor=inputs_tensor)
+        time = self.components_stacker["test"].unstack_component("time", batch_tensor=inputs_tensor)
         # Global-local
         if self.meta_used_in_model:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs_tensor, self.test_components_stacker, meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, self.components_stacker["test"], meta_name_tensor)
         # Calculate loss
         loss, reg_loss = self.loss_func(time, predicted, targets)
         # Metrics
@@ -880,7 +884,7 @@ class TimeNet(pl.LightningModule):
         # Run forward calculation
         prediction, components = self.forward(
             inputs_tensor,
-            self.predict_components_stacker,
+            self.components_stacker["predict"],
             meta_name_tensor,
             self.compute_components_flag,
             predict_mode=True,
