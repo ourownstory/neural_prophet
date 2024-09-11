@@ -62,10 +62,10 @@ class TimeNet(pl.LightningModule):
         num_seasonalities_modelled: int = 1,
         num_seasonalities_modelled_dict: dict = None,
         meta_used_in_model: bool = False,
-        train_components_stacker: Optional[ComponentStacker] = None,
-        val_components_stacker: Optional[ComponentStacker] = None,
-        test_components_stacker: Optional[ComponentStacker] = None,
-        predict_components_stacker: Optional[ComponentStacker] = None,
+        # train_components_stacker: Optional[ComponentStacker] = None,
+        # val_components_stacker: Optional[ComponentStacker] = None,
+        # test_components_stacker: Optional[ComponentStacker] = None,
+        # predict_components_stacker: Optional[ComponentStacker] = None,
     ):
         """
         Parameters
@@ -143,6 +143,14 @@ class TimeNet(pl.LightningModule):
         # General
         self.config_model = config_model
         self.config_model.n_forecasts = n_forecasts
+        # refactor components stacker to be a dict of stackers for train, val, test, predict
+        # self.components_stacker = {
+        #     "train": train_components_stacker,
+        #     "val": val_components_stacker,
+        #     "test": test_components_stacker,
+        #     "predict": predict_components_stacker,
+        # }
+
         self.train_components_stacker = train_components_stacker
         self.val_components_stacker = val_components_stacker
         self.test_components_stacker = test_components_stacker
