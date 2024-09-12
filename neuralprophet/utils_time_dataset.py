@@ -84,6 +84,7 @@ class ComponentStacker:
             current_idx: the current index in the stack of features.
         """
         assert component_name in self.stack_func, f"Unknown component name: {component_name}"
+        # this is currently not working for seasonalities
         return self.stack_func[component_name](
             df_tensors=df_tensors, feature_list=feature_list, current_idx=current_idx, **kwargs
         )
@@ -315,11 +316,10 @@ class ComponentStacker:
             return current_idx + len(multiplicative_regressors_names)
         return current_idx
 
-    def stack_seasonalities(self, df_tensors, feature_list, current_idx, config_seasonality):
+    def stack_seasonalities(self, feature_list, current_idx, config_seasonality, seasonalities):
         """
         Stack the seasonality features.
         """
-        seasonalities = df_tensors["seasonalities"]
         if config_seasonality and config_seasonality.periods:
             for seasonality_name, features in seasonalities.items():
                 seasonal_tensor = features

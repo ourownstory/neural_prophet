@@ -147,10 +147,7 @@ class TimeDataset(Dataset):
 
         if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
             current_idx = self.components_stacker.stack_seasonalities(
-                self.df_tensors,
-                feature_list,
-                current_idx,
-                self.config_seasonality,
+                feature_list, current_idx, self.config_seasonality, self.seasonalities
             )
 
         # Concatenate all features into one big tensor
@@ -158,7 +155,7 @@ class TimeDataset(Dataset):
 
     def calculate_seasonalities(self):
         """Computes Fourier series components with the specified frequency and order."""
-        seasonalities = OrderedDict({})
+        self.seasonalities = OrderedDict({})
         dates = self.df_tensors["ds"]
         t = (dates - torch.tensor(datetime(1900, 1, 1).timestamp())).float() / (3600 * 24.0)
 
@@ -194,8 +191,7 @@ class TimeDataset(Dataset):
                 if period.condition_name is not None:
                     condition_values = self.df_tensors[period.condition_name].unsqueeze(1)
                     features *= condition_values
-                seasonalities[name] = features
-        self.df_tensors["seasonalities"] = seasonalities
+                self.seasonalities[name] = features
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
