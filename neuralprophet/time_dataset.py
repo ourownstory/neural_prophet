@@ -135,45 +135,13 @@ class TimeDataset(Dataset):
             component_args["seasonalities"] = {"config": self.config_seasonality, "seasonalities": self.seasonalities}
 
         for component_name, args in component_args.items():
-            current_idx = self.components_stacker.stack(
+            feature_list, current_idx = self.components_stacker.stack(
                 component_name=component_name,
                 df_tensors=self.df_tensors,
                 feature_list=feature_list,
                 current_idx=current_idx,
                 **args,
             )
-
-        # # Call individual stacking functions
-        # current_idx = self.components_stacker.stack_time(self.df_tensors, feature_list, current_idx)
-        # current_idx = self.components_stacker.stack_targets(self.df_tensors, feature_list, current_idx)
-
-        # current_idx = self.components_stacker.stack(
-        #     component_name="lags",
-        #     df_tensors=self.df_tensors,
-        #     feature_list=feature_list,
-        #     current_idx=current_idx,
-        #     n_lags=self.config_ar.n_lags,
-        # )
-        # current_idx = self.components_stacker.stack_lagged_regressors(
-        #     self.df_tensors, feature_list, current_idx, self.config_lagged_regressors
-        # )
-        # current_idx = self.components_stacker.stack_additive_events(
-        #     self.df_tensors, feature_list, current_idx, self.additive_event_and_holiday_names
-        # )
-        # current_idx = self.components_stacker.stack_multiplicative_events(
-        #     self.df_tensors, feature_list, current_idx, self.multiplicative_event_and_holiday_names
-        # )
-        # current_idx = self.components_stacker.stack_additive_regressors(
-        #     self.df_tensors, feature_list, current_idx, self.additive_regressors_names
-        # )
-        # current_idx = self.components_stacker.stack_multiplicative_regressors(
-        #     self.df_tensors, feature_list, current_idx, self.multiplicative_regressors_names
-        # )
-
-        # if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-        #     current_idx = self.components_stacker.stack_seasonalities(
-        #         None, feature_list, current_idx, self.config_seasonality, self.seasonalities
-        #     )
 
         # Concatenate all features into one big tensor
         self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension

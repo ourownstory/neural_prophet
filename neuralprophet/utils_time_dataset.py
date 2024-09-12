@@ -200,7 +200,7 @@ class ComponentStacker:
         time_tensor = df_tensors["t"].unsqueeze(-1)  # Shape: [T, 1]
         feature_list.append(time_tensor)
         self.feature_indices["time"] = (current_idx, current_idx)
-        return current_idx + 1
+        return feature_list, current_idx + 1
 
     def stack_lags(self, df_tensors, feature_list, current_idx, n_lags):
         """
@@ -210,8 +210,8 @@ class ComponentStacker:
             lags_tensor = df_tensors["y_scaled"].unsqueeze(-1)
             feature_list.append(lags_tensor)
             self.feature_indices["lags"] = (current_idx, current_idx)
-            return current_idx + 1
-        return current_idx
+            current_idx = current_idx + 1
+        return feature_list, current_idx
 
     def stack_targets(self, df_tensors, feature_list, current_idx):
         """
@@ -221,8 +221,8 @@ class ComponentStacker:
             targets_tensor = df_tensors["y_scaled"].unsqueeze(-1)
             feature_list.append(targets_tensor)
             self.feature_indices["targets"] = (current_idx, current_idx)
-            return current_idx + 1
-        return current_idx
+            current_idx = current_idx + 1
+        return feature_list, current_idx
 
     def stack_lagged_regressors(self, df_tensors, feature_list, current_idx, config):
         """
@@ -238,8 +238,8 @@ class ComponentStacker:
                     current_idx + i,
                     current_idx + i + 1,
                 )
-            return current_idx + num_features
-        return current_idx
+            current_idx = current_idx + num_features
+        return feature_list, current_idx
 
     def stack_additive_events(self, df_tensors, feature_list, current_idx, names):
         """
@@ -255,8 +255,8 @@ class ComponentStacker:
                 current_idx,
                 current_idx + additive_events_tensor.size(1) - 1,
             )
-            return current_idx + additive_events_tensor.size(1)
-        return current_idx
+            current_idx = current_idx + additive_events_tensor.size(1)
+        return feature_list, current_idx
 
     def stack_multiplicative_events(self, df_tensors, feature_list, current_idx, names):
         """
@@ -269,8 +269,8 @@ class ComponentStacker:
                 current_idx,
                 current_idx + multiplicative_events_tensor.size(1) - 1,
             )
-            return current_idx + multiplicative_events_tensor.size(1)
-        return current_idx
+            current_idx = current_idx + multiplicative_events_tensor.size(1)
+        return feature_list, current_idx
 
     def stack_additive_regressors(self, df_tensors, feature_list, current_idx, names):
         """
@@ -283,8 +283,8 @@ class ComponentStacker:
                 current_idx,
                 current_idx + additive_regressors_tensor.size(1) - 1,
             )
-            return current_idx + additive_regressors_tensor.size(1)
-        return current_idx
+            current_idx = current_idx + additive_regressors_tensor.size(1)
+        return feature_list, current_idx
 
     def stack_multiplicative_regressors(self, df_tensors, feature_list, current_idx, names):
         """
@@ -299,8 +299,8 @@ class ComponentStacker:
                 current_idx,
                 current_idx + len(names) - 1,
             )
-            return current_idx + len(names)
-        return current_idx
+            current_idx = current_idx + len(names)
+        return feature_list, current_idx
 
     def stack_seasonalities(self, df_tensors, feature_list, current_idx, config, seasonalities):
         """
@@ -316,4 +316,4 @@ class ComponentStacker:
                     current_idx + seasonal_tensor.size(1),
                 )
                 current_idx += seasonal_tensor.size(1)
-        return current_idx
+        return feature_list, current_idx
