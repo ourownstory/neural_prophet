@@ -104,6 +104,7 @@ class TimeDataset(Dataset):
         self.df["ds"] = self.df["ds"].apply(lambda x: x.timestamp())  # Convert to Unix timestamp in seconds
         self.df_tensors["ds"] = torch.tensor(self.df["ds"].values, dtype=torch.int64)
 
+        self.seasonalities = None
         if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
             self.calculate_seasonalities()
 
@@ -121,6 +122,9 @@ class TimeDataset(Dataset):
         feature_list = []
         current_idx = 0
 
+        # Add seasonalities to df_tensors, this needs to be done after create_sample2index_map, before stacking.
+        self.df_tensors["seasonalities"] = self.seasonalities
+
         component_args: dict = {
             "time": {},
             "targets": {},
@@ -130,10 +134,8 @@ class TimeDataset(Dataset):
             "multiplicative_events": {"names": self.multiplicative_event_and_holiday_names},
             "additive_regressors": {"names": self.additive_regressors_names},
             "multiplicative_regressors": {"names": self.multiplicative_regressors_names},
+            "seasonalities": {"config": self.config_seasonality},
         }
-        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-            component_args["seasonalities"] = {"config": self.config_seasonality, "seasonalities": self.seasonalities}
-
         for component_name, args in component_args.items():
             feature_list, current_idx = self.components_stacker.stack(
                 component_name=component_name,

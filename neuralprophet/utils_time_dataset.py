@@ -302,13 +302,13 @@ class ComponentStacker:
             current_idx = current_idx + len(names)
         return feature_list, current_idx
 
-    def stack_seasonalities(self, df_tensors, feature_list, current_idx, config, seasonalities):
+    def stack_seasonalities(self, df_tensors, feature_list, current_idx, config):
         """
         Stack the seasonality features.
         """
-        # TODO conform to other stack functions, using df_tensors
+        # if config is not None and hasattr(config, "periods"):
         if config and config.periods:
-            for seasonality_name, features in seasonalities.items():
+            for seasonality_name, features in df_tensors["seasonalities"].items():
                 seasonal_tensor = features
                 feature_list.append(seasonal_tensor)
                 self.feature_indices[f"seasonality_{seasonality_name}"] = (
