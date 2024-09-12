@@ -30,6 +30,9 @@ class ComponentStacker:
         self.feature_indices = feature_indices
         self.config_seasonality = config_seasonality
         self.lagged_regressor_config = lagged_regressor_config
+        self.unstack_component_func = {
+            "targets": self.unstack_targets,
+        }
 
     def unstack_component(self, component_name, batch_tensor):
         """
