@@ -1,37 +1,62 @@
 from collections import OrderedDict
+from dataclasses import dataclass, field
+from typing import Optional
 
 import torch
 
+from neuralprophet.configure_components import LaggedRegressors, Seasonalities
 
+
+@dataclass
 class ComponentStacker:
-    def __init__(
-        self,
-        n_lags,
-        n_forecasts,
-        max_lags,
-        feature_indices={},
-        config_seasonality=None,
-        lagged_regressor_config=None,
-    ):
-        """
-        Initializes the ComponentStacker with the necessary parameters.
+    """
+    ComponentStacker is a utility class that helps in stacking and unstacking the different components of the time series data.
+    Args:
+        n_lags (int): Number of lags used in the model.
+        n_forecasts (int): Number of forecasts to be made.
+        max_lags (int): Maximum number of lags used in the model.
+        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
+        config_seasonality (object, optional): Configuration object that defines the seasonality periods.
+        lagged_regressor_config (dict, optional): Configuration dictionary that defines the lagged regressors and their properties.
+    """
 
-        Args:
-            n_lags (int): Number of lags used in the model.
-            n_forecasts (int): Number of forecasts to be made.
-            max_lags (int): Maximum number of lags used in the model.
-            feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
-            config_seasonality (object, optional): Configuration object that defines the seasonality periods.
-            lagged_regressor_config (dict, optional): Configuration dictionary that defines the lagged regressors and their properties.
-        """
-        self.n_lags = n_lags
-        self.n_forecasts = n_forecasts
-        self.max_lags = max_lags
-        self.feature_indices = feature_indices
-        self.config_seasonality = config_seasonality
-        self.lagged_regressor_config = lagged_regressor_config
+    n_lags: int
+    n_forecasts: int
+    max_lags: int
+    feature_indices: dict = field(default_factory=dict)
+    config_seasonality: Optional[Seasonalities] = None
+    lagged_regressor_config: Optional[LaggedRegressors] = None
+    stack_func: dict = field(init=False)
+    unstack_func: dict = field(init=False)
 
-    def unstack_component(self, component_name, batch_tensor):
+    def __post_init__(self):
+        """
+        Initializes mappings to comonent stacking and unstacking functions.
+        """
+        self.stack_func = {
+            "targets": self.stack_targets,
+            "time": self.stack_time,
+            "seasonalities": self.stack_seasonalities,
+            "lagged_regressors": self.stack_lagged_regressors,
+            "lags": self.stack_lags,
+            "additive_events": self.stack_additive_events,
+            "multiplicative_events": self.stack_multiplicative_events,
+            "additive_regressors": self.stack_additive_regressors,
+            "multiplicative_regressors": self.stack_multiplicative_regressors,
+        }
+        self.unstack_func = {
+            "targets": self.unstack_targets,
+            "time": self.unstack_time,
+            "seasonalities": self.unstack_seasonalities,
+            "lagged_regressors": self.unstack_lagged_regressors,
+            "lags": self.unstack_lags,
+            "additive_events": self.unstack_additive_events,
+            "multiplicative_events": self.unstack_multiplicative_events,
+            "additive_regressors": self.unstack_additive_regressors,
+            "multiplicative_regressors": self.unstack_multiplicative_regressors,
+        }
+
+    def unstack(self, component_name, batch_tensor):
         """
         Routes the unstackion process to the appropriate function based on the component name.
 
@@ -39,28 +64,53 @@ class ComponentStacker:
             component_name (str): The name of the component to unstack.
 
         Returns:
-            Various: The output of the specific unstackion function.
+            Various: The output of the specific unstacking function.
         """
-        if component_name == "targets":
-            return self.unstack_targets(batch_tensor)
-        elif component_name == "time":
-            return self.unstack_time(batch_tensor)
-        elif component_name == "seasonalities":
-            return self.unstack_seasonalities(batch_tensor)
-        elif component_name == "lagged_regressors":
-            return self.unstack_lagged_regressors(batch_tensor)
-        elif component_name == "lags":
-            return self.unstack_lags(batch_tensor)
-        elif component_name == "additive_events":
-            return self.unstack_additive_events(batch_tensor)
-        elif component_name == "multiplicative_events":
-            return self.unstack_multiplicative_events(batch_tensor)
-        elif component_name == "additive_regressors":
-            return self.unstack_additive_regressors(batch_tensor)
-        elif component_name == "multiplicative_regressors":
-            return self.unstack_multiplicative_regressors(batch_tensor)
-        else:
-            raise ValueError(f"Unknown component name: {component_name}")
+        assert component_name in self.unstack_func, f"Unknown component name: {component_name}"
+        return self.unstack_func[component_name](batch_tensor)
+
+    def stack(self, component_name, df_tensors, feature_list, current_idx, **kwargs):
+        """
+        Routes the unstackion process to the appropriate function based on the component name.
+
+        Args:
+            component_name (str): The name of the component to stack.
+            df_tensors
+            feature_list
+            current_idx
+            kwargs for specific component, mostly component configuration
+
+        Returns:
+            current_idx: the current index in the stack of features.
+        """
+        assert component_name in self.stack_func, f"Unknown component name: {component_name}"
+        return self.stack_func[component_name](
+            df_tensors=df_tensors, feature_list=feature_list, current_idx=current_idx, **kwargs
+        )
+
+    def stack_all_features(self, df_tensors, component_args):
+        """
+        Stack all features into one large tensor by calling individual stacking methods.
+        Concatenation along dimension second dimension (dim=1).
+
+        Args:
+            df_tensors: Dictionary containing the tensors for different features.
+            component_args: Dictionary containing the configuration of different components.
+        """
+        feature_list = []
+        current_idx = 0
+
+        for component_name, args in component_args.items():
+            feature_list, current_idx = self.stack(
+                component_name=component_name,
+                df_tensors=df_tensors,
+                feature_list=feature_list,
+                current_idx=current_idx,
+                **args,
+            )
+
+        # Concatenate all features into one big tensor
+        return torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
 
     def unstack_targets(self, batch_tensor):
         targets_start_idx, targets_end_idx = self.feature_indices["targets"]
@@ -166,16 +216,16 @@ class ComponentStacker:
             regressors_start_idx, regressors_end_idx = self.feature_indices["multiplicative_regressors"]
             return batch_tensor[:, regressors_start_idx : regressors_end_idx + 1].unsqueeze(1)
 
-    def stack_trend_component(self, df_tensors, feature_list, current_idx):
+    def stack_time(self, df_tensors, feature_list, current_idx):
         """
         Stack the trend (time) feature.
         """
         time_tensor = df_tensors["t"].unsqueeze(-1)  # Shape: [T, 1]
         feature_list.append(time_tensor)
         self.feature_indices["time"] = (current_idx, current_idx)
-        return current_idx + 1
+        return feature_list, current_idx + 1
 
-    def stack_lags_component(self, df_tensors, feature_list, current_idx, n_lags):
+    def stack_lags(self, df_tensors, feature_list, current_idx, n_lags):
         """
         Stack the lags feature.
         """
@@ -183,10 +233,10 @@ class ComponentStacker:
             lags_tensor = df_tensors["y_scaled"].unsqueeze(-1)
             feature_list.append(lags_tensor)
             self.feature_indices["lags"] = (current_idx, current_idx)
-            return current_idx + 1
-        return current_idx
+            current_idx = current_idx + 1
+        return feature_list, current_idx
 
-    def stack_targets_component(self, df_tensors, feature_list, current_idx):
+    def stack_targets(self, df_tensors, feature_list, current_idx):
         """
         Stack the targets feature.
         """
@@ -194,41 +244,33 @@ class ComponentStacker:
             targets_tensor = df_tensors["y_scaled"].unsqueeze(-1)
             feature_list.append(targets_tensor)
             self.feature_indices["targets"] = (current_idx, current_idx)
-            return current_idx + 1
-        return current_idx
+            current_idx = current_idx + 1
+        return feature_list, current_idx
 
-    def stack_lagged_regerssors_component(self, df_tensors, feature_list, current_idx, config_lagged_regressors):
+    def stack_lagged_regressors(self, df_tensors, feature_list, current_idx, config):
         """
         Stack the lagged regressor features.
         """
-        if config_lagged_regressors is not None and config_lagged_regressors.regressors is not None:
-            lagged_regressor_tensors = [
-                df_tensors[name].unsqueeze(-1) for name in config_lagged_regressors.regressors.keys()
-            ]
+        if config is not None and config.regressors is not None:
+            lagged_regressor_tensors = [df_tensors[name].unsqueeze(-1) for name in config.regressors.keys()]
             stacked_lagged_regressor_tensor = torch.cat(lagged_regressor_tensors, dim=-1)
             feature_list.append(stacked_lagged_regressor_tensor)
             num_features = stacked_lagged_regressor_tensor.size(-1)
-            for i, name in enumerate(config_lagged_regressors.regressors.keys()):
+            for i, name in enumerate(config.regressors.keys()):
                 self.feature_indices[f"lagged_regressor_{name}"] = (
                     current_idx + i,
                     current_idx + i + 1,
                 )
-            return current_idx + num_features
-        return current_idx
+            current_idx = current_idx + num_features
+        return feature_list, current_idx
 
-    def stack_additive_events_component(
-        self,
-        df_tensors,
-        feature_list,
-        current_idx,
-        additive_event_and_holiday_names,
-    ):
+    def stack_additive_events(self, df_tensors, feature_list, current_idx, names):
         """
         Stack the additive event and holiday features.
         """
-        if additive_event_and_holiday_names:
+        if names:
             additive_events_tensor = torch.cat(
-                [df_tensors[name].unsqueeze(-1) for name in additive_event_and_holiday_names],
+                [df_tensors[name].unsqueeze(-1) for name in names],
                 dim=1,
             )
             feature_list.append(additive_events_tensor)
@@ -236,67 +278,60 @@ class ComponentStacker:
                 current_idx,
                 current_idx + additive_events_tensor.size(1) - 1,
             )
-            return current_idx + additive_events_tensor.size(1)
-        return current_idx
+            current_idx = current_idx + additive_events_tensor.size(1)
+        return feature_list, current_idx
 
-    def stack_multiplicative_events_component(
-        self, df_tensors, feature_list, current_idx, multiplicative_event_and_holiday_names
-    ):
+    def stack_multiplicative_events(self, df_tensors, feature_list, current_idx, names):
         """
         Stack the multiplicative event and holiday features.
         """
-        if multiplicative_event_and_holiday_names:
-            multiplicative_events_tensor = torch.cat(
-                [df_tensors[name].unsqueeze(-1) for name in multiplicative_event_and_holiday_names], dim=1
-            )
+        if names:
+            multiplicative_events_tensor = torch.cat([df_tensors[name].unsqueeze(-1) for name in names], dim=1)
             feature_list.append(multiplicative_events_tensor)
             self.feature_indices["multiplicative_events"] = (
                 current_idx,
                 current_idx + multiplicative_events_tensor.size(1) - 1,
             )
-            return current_idx + multiplicative_events_tensor.size(1)
-        return current_idx
+            current_idx = current_idx + multiplicative_events_tensor.size(1)
+        return feature_list, current_idx
 
-    def stack_additive_regressors_component(self, df_tensors, feature_list, current_idx, additive_regressors_names):
+    def stack_additive_regressors(self, df_tensors, feature_list, current_idx, names):
         """
         Stack the additive regressor features.
         """
-        if additive_regressors_names:
-            additive_regressors_tensor = torch.cat(
-                [df_tensors[name].unsqueeze(-1) for name in additive_regressors_names], dim=1
-            )
+        if names:
+            additive_regressors_tensor = torch.cat([df_tensors[name].unsqueeze(-1) for name in names], dim=1)
             feature_list.append(additive_regressors_tensor)
             self.feature_indices["additive_regressors"] = (
                 current_idx,
                 current_idx + additive_regressors_tensor.size(1) - 1,
             )
-            return current_idx + additive_regressors_tensor.size(1)
-        return current_idx
+            current_idx = current_idx + additive_regressors_tensor.size(1)
+        return feature_list, current_idx
 
-    def stack_multiplicative_regressors_component(
-        self, df_tensors, feature_list, current_idx, multiplicative_regressors_names
-    ):
+    def stack_multiplicative_regressors(self, df_tensors, feature_list, current_idx, names):
         """
         Stack the multiplicative regressor features.
         """
-        if multiplicative_regressors_names:
+        if names:
             multiplicative_regressors_tensor = torch.cat(
-                [df_tensors[name].unsqueeze(-1) for name in multiplicative_regressors_names], dim=1
+                [df_tensors[name].unsqueeze(-1) for name in names], dim=1
             )  # Shape: [batch_size, num_multiplicative_regressors, 1]
             feature_list.append(multiplicative_regressors_tensor)
             self.feature_indices["multiplicative_regressors"] = (
                 current_idx,
-                current_idx + len(multiplicative_regressors_names) - 1,
+                current_idx + len(names) - 1,
             )
-            return current_idx + len(multiplicative_regressors_names)
-        return current_idx
+            current_idx = current_idx + len(names)
+        return feature_list, current_idx
 
-    def stack_seasonalities_component(self, feature_list, current_idx, config_seasonality, seasonalities):
+    def stack_seasonalities(self, df_tensors, feature_list, current_idx, config):
         """
         Stack the seasonality features.
         """
-        if config_seasonality and config_seasonality.periods:
-            for seasonality_name, features in seasonalities.items():
+        # if config is not None and hasattr(config, "periods"):
+        if config and config.periods:
+            for seasonality_name, features in df_tensors["seasonalities"].items():
                 seasonal_tensor = features
                 feature_list.append(seasonal_tensor)
                 self.feature_indices[f"seasonality_{seasonality_name}"] = (
@@ -304,4 +339,4 @@ class ComponentStacker:
                     current_idx + seasonal_tensor.size(1),
                 )
                 current_idx += seasonal_tensor.size(1)
-        return current_idx
+        return feature_list, current_idx

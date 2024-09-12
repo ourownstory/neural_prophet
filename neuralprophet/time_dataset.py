@@ -104,54 +104,36 @@ class TimeDataset(Dataset):
         self.df["ds"] = self.df["ds"].apply(lambda x: x.timestamp())  # Convert to Unix timestamp in seconds
         self.df_tensors["ds"] = torch.tensor(self.df["ds"].values, dtype=torch.int64)
 
+        self.seasonalities = None
         if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
             self.calculate_seasonalities()
 
         # Construct index map
         self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.df_tensors)
 
+        # Stack all features into one large tensor
         self.components_stacker = components_stacker
-
-        self.stack_all_features()
+        self.all_features = self.stack_all_features()
 
     def stack_all_features(self):
         """
         Stack all features into one large tensor by calling individual stacking methods.
         """
-        feature_list = []
+        # Add seasonalities to df_tensors, this needs to be done after create_sample2index_map, before stacking.
+        self.df_tensors["seasonalities"] = self.seasonalities
+        component_args: dict = {
+            "time": {},
+            "targets": {},
+            "lags": {"n_lags": self.config_ar.n_lags},
+            "lagged_regressors": {"config": self.config_lagged_regressors},
+            "additive_events": {"names": self.additive_event_and_holiday_names},
+            "multiplicative_events": {"names": self.multiplicative_event_and_holiday_names},
+            "additive_regressors": {"names": self.additive_regressors_names},
+            "multiplicative_regressors": {"names": self.multiplicative_regressors_names},
+            "seasonalities": {"config": self.config_seasonality},
+        }
 
-        current_idx = 0
-
-        # Call individual stacking functions
-        current_idx = self.components_stacker.stack_trend_component(self.df_tensors, feature_list, current_idx)
-        current_idx = self.components_stacker.stack_targets_component(self.df_tensors, feature_list, current_idx)
-
-        current_idx = self.components_stacker.stack_lags_component(
-            self.df_tensors, feature_list, current_idx, self.config_ar.n_lags
-        )
-        current_idx = self.components_stacker.stack_lagged_regerssors_component(
-            self.df_tensors, feature_list, current_idx, self.config_lagged_regressors
-        )
-        current_idx = self.components_stacker.stack_additive_events_component(
-            self.df_tensors, feature_list, current_idx, self.additive_event_and_holiday_names
-        )
-        current_idx = self.components_stacker.stack_multiplicative_events_component(
-            self.df_tensors, feature_list, current_idx, self.multiplicative_event_and_holiday_names
-        )
-        current_idx = self.components_stacker.stack_additive_regressors_component(
-            self.df_tensors, feature_list, current_idx, self.additive_regressors_names
-        )
-        current_idx = self.components_stacker.stack_multiplicative_regressors_component(
-            self.df_tensors, feature_list, current_idx, self.multiplicative_regressors_names
-        )
-
-        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-            current_idx = self.components_stacker.stack_seasonalities_component(
-                feature_list, current_idx, self.config_seasonality, self.seasonalities
-            )
-
-        # Concatenate all features into one big tensor
-        self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
+        return self.components_stacker.stack_all_features(self.df_tensors, component_args)
 
     def calculate_seasonalities(self):
         """Computes Fourier series components with the specified frequency and order."""
