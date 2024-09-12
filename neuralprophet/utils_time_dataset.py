@@ -1,35 +1,36 @@
 from collections import OrderedDict
+from dataclasses import dataclass, default_factory, field
+from typing import Dict, List, Optional, Union
 
 import torch
 
+from neuralprophet.configure_components import LaggedRegressors, Seasonality
 
+
+@dataclass
 class ComponentStacker:
-    def __init__(
-        self,
-        n_lags,
-        n_forecasts,
-        max_lags,
-        feature_indices={},
-        config_seasonality=None,
-        lagged_regressor_config=None,
-    ):
-        """
-        Initializes the ComponentStacker with the necessary parameters.
+    """
+    ComponentStacker is a utility class that helps in stacking and unstacking the different components of the time series data.
+    Args:
+        n_lags (int): Number of lags used in the model.
+        n_forecasts (int): Number of forecasts to be made.
+        max_lags (int): Maximum number of lags used in the model.
+        feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
+        config_seasonality (object, optional): Configuration object that defines the seasonality periods.
+        lagged_regressor_config (dict, optional): Configuration dictionary that defines the lagged regressors and their properties.
+    """
 
-        Args:
-            n_lags (int): Number of lags used in the model.
-            n_forecasts (int): Number of forecasts to be made.
-            max_lags (int): Maximum number of lags used in the model.
-            feature_indices (dict): A dictionary containing the start and end indices of different features in the tensor.
-            config_seasonality (object, optional): Configuration object that defines the seasonality periods.
-            lagged_regressor_config (dict, optional): Configuration dictionary that defines the lagged regressors and their properties.
+    n_lags: int
+    n_forecasts: int
+    max_lags: int
+    feature_indices: dict = field(default_factory=dict)
+    config_seasonality: Optional[Seasonality] = None
+    lagged_regressor_config: Optional[LaggedRegressors] = None
+
+    def __post_init__(self):
         """
-        self.n_lags = n_lags
-        self.n_forecasts = n_forecasts
-        self.max_lags = max_lags
-        self.feature_indices = feature_indices
-        self.config_seasonality = config_seasonality
-        self.lagged_regressor_config = lagged_regressor_config
+        Initializes mappings to comonent stacking and unstacking functions.
+        """
         self.unstack_component_func = {
             "targets": self.unstack_targets,
             "time": self.unstack_time,
