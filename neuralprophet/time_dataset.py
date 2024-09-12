@@ -126,8 +126,12 @@ class TimeDataset(Dataset):
         current_idx = self.components_stacker.stack_time(self.df_tensors, feature_list, current_idx)
         current_idx = self.components_stacker.stack_targets(self.df_tensors, feature_list, current_idx)
 
-        current_idx = self.components_stacker.stack_lags(
-            self.df_tensors, feature_list, current_idx, self.config_ar.n_lags
+        current_idx = self.components_stacker.stack(
+            component_name="lags",
+            df_tensors=self.df_tensors,
+            feature_list=feature_list,
+            current_idx=current_idx,
+            n_lags=self.config_ar.n_lags,
         )
         current_idx = self.components_stacker.stack_lagged_regressors(
             self.df_tensors, feature_list, current_idx, self.config_lagged_regressors
