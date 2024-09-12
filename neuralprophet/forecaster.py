@@ -3002,7 +3002,7 @@ class NeuralProphet:
         # Pass the include_components flag to the model
         if include_components:
             self.model.set_compute_components(include_components)
-            # self.model.set_covar_weights(self.model.get_covar_weights())
+            self.model.set_covar_weights(self.model.get_covar_weights())
         # Compute the predictions and components (if requested)
         result = self.trainer.predict(self.model, loader)
         # unstack the prediction and components
