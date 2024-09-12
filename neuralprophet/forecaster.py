@@ -44,7 +44,6 @@ from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly, select_plotting_backend
 from neuralprophet.uncertainty import Conformal
-from neuralprophet.utils_time_dataset import ComponentStacker
 
 log = logging.getLogger("NP.forecaster")
 
