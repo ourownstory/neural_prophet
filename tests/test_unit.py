@@ -317,6 +317,7 @@ def test_split_impute():
 
 def test_cv():
     def check_folds(df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct):
+        df, _, _, _ = df_utils.check_multiple_series_id(df)
         folds = df_utils.crossvalidation_split_df(
             df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct
         )
@@ -338,8 +339,9 @@ def test_cv():
         assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
 
     len_df = 100
+    df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
     check_folds(
-        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        df=df,
         n_lags=0,
         n_forecasts=1,
         valid_fold_num=3,
@@ -347,8 +349,9 @@ def test_cv():
         fold_overlap_pct=0.0,
     )
     len_df = 1000
+    df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
     check_folds(
-        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        df=df,
         n_lags=50,
         n_forecasts=10,
         valid_fold_num=10,
