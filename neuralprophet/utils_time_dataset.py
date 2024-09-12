@@ -56,7 +56,7 @@ class ComponentStacker:
             "multiplicative_regressors": self.unstack_multiplicative_regressors,
         }
 
-    def unstack_component(self, component_name, batch_tensor):
+    def unstack(self, component_name, batch_tensor):
         """
         Routes the unstackion process to the appropriate function based on the component name.
 
@@ -69,7 +69,7 @@ class ComponentStacker:
         assert component_name in self.unstack_func, f"Unknown component name: {component_name}"
         return self.unstack_func[component_name](batch_tensor)
 
-    def stack_component(self, component_name, df_tensors, feature_list, current_idx, kwargs):
+    def stack(self, component_name, df_tensors, feature_list, current_idx, kwargs):
         """
         Routes the unstackion process to the appropriate function based on the component name.
 
@@ -316,10 +316,11 @@ class ComponentStacker:
             return current_idx + len(multiplicative_regressors_names)
         return current_idx
 
-    def stack_seasonalities(self, feature_list, current_idx, config_seasonality, seasonalities):
+    def stack_seasonalities(self, feature_list, current_idx, config_seasonality, seasonalities, df_tensors=None):
         """
         Stack the seasonality features.
         """
+        # TODO conform to other stack functions, using df_tensors
         if config_seasonality and config_seasonality.periods:
             for seasonality_name, features in seasonalities.items():
                 seasonal_tensor = features

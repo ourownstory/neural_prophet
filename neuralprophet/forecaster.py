@@ -2168,12 +2168,12 @@ class NeuralProphet:
                     meta_name_tensor = None
                 elif self.model.config_seasonality.global_local in ["local", "glocal"]:
                     meta = OrderedDict()
-                    time_input = feature_unstackor.unstack_component("time", inputs_tensor)
+                    time_input = feature_unstackor.unstack("time", inputs_tensor)
                     meta["df_name"] = [df_name for _ in range(time_input.shape[0])]
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
                 else:
                     meta_name_tensor = None
-                seasonalities_input = feature_unstackor.unstack_component("seasonalities", inputs_tensor)
+                seasonalities_input = feature_unstackor.unstack("seasonalities", inputs_tensor)
                 for name in self.config_seasonality.periods:
                     features = seasonalities_input[name]
                     quantile_index = self.config_model.quantiles.index(quantile)
