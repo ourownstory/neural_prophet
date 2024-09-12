@@ -130,8 +130,10 @@ class TimeDataset(Dataset):
             "multiplicative_events": {"names": self.multiplicative_event_and_holiday_names},
             "additive_regressors": {"names": self.additive_regressors_names},
             "multiplicative_regressors": {"names": self.multiplicative_regressors_names},
-            "seasonalities": {"config": self.config_seasonality, "seasonalities": self.seasonalities},
         }
+        if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
+            component_args["seasonalities"] = {"config": self.config_seasonality, "seasonalities": self.seasonalities}
+
         for component_name, args in component_args.items():
             current_idx = self.components_stacker.stack(
                 component_name=component_name,
@@ -170,7 +172,7 @@ class TimeDataset(Dataset):
 
         # if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
         #     current_idx = self.components_stacker.stack_seasonalities(
-        #         feature_list, current_idx, self.config_seasonality, self.seasonalities
+        #         None, feature_list, current_idx, self.config_seasonality, self.seasonalities
         #     )
 
         # Concatenate all features into one big tensor
