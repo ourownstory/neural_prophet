@@ -24,7 +24,8 @@ def _normalize(df: pd.DataFrame, config_normalization: Normalization) -> pd.Data
     -------
         df: pd.DataFrame, normalized
     """
-    df, _, _, _ = df_utils.check_multiple_series_id(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = df_utils.check_multiple_series_id(df)
     df_norm = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
         data_params = config_normalization.get_data_params(df_name)

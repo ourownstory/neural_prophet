@@ -81,6 +81,7 @@ def test_timedataset_minimal():
         # config_train = configure.Train()
         df, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
         # create a tabularized dataset from time series
+        df = df.copy(deep=True)
         df, _, _, _ = df_utils.check_multiple_series_id(df)
         df, _, _ = df_utils.check_dataframe(df)
         df = _handle_missing_data(
