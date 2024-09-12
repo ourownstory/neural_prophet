@@ -129,7 +129,7 @@ class TimeDataset(Dataset):
         current_idx = self.components_stacker.stack_lags(
             self.df_tensors, feature_list, current_idx, self.config_ar.n_lags
         )
-        current_idx = self.components_stacker.stack_lagged_regerssors(
+        current_idx = self.components_stacker.stack_lagged_regressors(
             self.df_tensors, feature_list, current_idx, self.config_lagged_regressors
         )
         current_idx = self.components_stacker.stack_additive_events(

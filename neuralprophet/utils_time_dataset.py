@@ -204,7 +204,7 @@ class ComponentStacker:
             return current_idx + 1
         return current_idx
 
-    def stack_lagged_regerssors(self, df_tensors, feature_list, current_idx, config_lagged_regressors):
+    def stack_lagged_regressors(self, df_tensors, feature_list, current_idx, config_lagged_regressors):
         """
         Stack the lagged regressor features.
         """
