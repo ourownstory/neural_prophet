@@ -2137,7 +2137,7 @@ class NeuralProphet:
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         df = _normalize(df=df, config_normalization=self.config_normalization)
         for df_name, df_i in df.groupby("ID"):
-            feature_unstackor = ComponentStacker(
+            feature_unstackor = utils_time_dataset.ComponentStacker(
                 n_lags=0,
                 max_lags=0,
                 n_forecasts=1,
