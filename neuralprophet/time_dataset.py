@@ -119,8 +119,29 @@ class TimeDataset(Dataset):
         Stack all features into one large tensor by calling individual stacking methods.
         """
         feature_list = []
-
         current_idx = 0
+
+        components_args: dict = {
+            "time": {},
+            "targets": {},
+            "lags": {"n_lags": self.config_ar.n_lags},
+            "lagged_regressors": {"config": self.config_lagged_regressors},
+            "additive_events": {"additive_event_and_holiday_names": self.additive_event_and_holiday_names},
+            "multiplicative_events": {
+                "multiplicative_event_and_holiday_names": self.multiplicative_event_and_holiday_names
+            },
+            "additive_regressors": {"additive_regressors_names": self.additive_regressors_names},
+            "multiplicative_regressors": {"multiplicative_regressors_names": self.multiplicative_regressors_names},
+            "seasonalities": {"config": self.config_seasonality, "seasonalities": self.seasonalities},
+        }
+        for component, args in components_args.items():
+            current_idx = self.components_stacker.stack(
+                component_name=component,
+                df_tensors=self.df_tensors,
+                feature_list=feature_list,
+                current_idx=current_idx,
+                **args,
+            )
 
         # Call individual stacking functions
         current_idx = self.components_stacker.stack_time(self.df_tensors, feature_list, current_idx)

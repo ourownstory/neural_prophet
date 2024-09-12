@@ -224,18 +224,16 @@ class ComponentStacker:
             return current_idx + 1
         return current_idx
 
-    def stack_lagged_regressors(self, df_tensors, feature_list, current_idx, config_lagged_regressors):
+    def stack_lagged_regressors(self, df_tensors, feature_list, current_idx, config):
         """
         Stack the lagged regressor features.
         """
-        if config_lagged_regressors is not None and config_lagged_regressors.regressors is not None:
-            lagged_regressor_tensors = [
-                df_tensors[name].unsqueeze(-1) for name in config_lagged_regressors.regressors.keys()
-            ]
+        if config is not None and config.regressors is not None:
+            lagged_regressor_tensors = [df_tensors[name].unsqueeze(-1) for name in config.regressors.keys()]
             stacked_lagged_regressor_tensor = torch.cat(lagged_regressor_tensors, dim=-1)
             feature_list.append(stacked_lagged_regressor_tensor)
             num_features = stacked_lagged_regressor_tensor.size(-1)
-            for i, name in enumerate(config_lagged_regressors.regressors.keys()):
+            for i, name in enumerate(config.regressors.keys()):
                 self.feature_indices[f"lagged_regressor_{name}"] = (
                     current_idx + i,
                     current_idx + i + 1,
@@ -316,12 +314,12 @@ class ComponentStacker:
             return current_idx + len(multiplicative_regressors_names)
         return current_idx
 
-    def stack_seasonalities(self, feature_list, current_idx, config_seasonality, seasonalities, df_tensors=None):
+    def stack_seasonalities(self, df_tensors, feature_list, current_idx, config, seasonalities):
         """
         Stack the seasonality features.
         """
         # TODO conform to other stack functions, using df_tensors
-        if config_seasonality and config_seasonality.periods:
+        if config and config.periods:
             for seasonality_name, features in seasonalities.items():
                 seasonal_tensor = features
                 feature_list.append(seasonal_tensor)
