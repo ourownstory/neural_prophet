@@ -1,10 +1,10 @@
 from collections import OrderedDict
-from dataclasses import dataclass, default_factory, field
-from typing import Dict, List, Optional, Union
+from dataclasses import dataclass, field
+from typing import Optional
 
 import torch
 
-from neuralprophet.configure_components import LaggedRegressors, Seasonality
+from neuralprophet.configure_components import LaggedRegressors, Seasonalities
 
 
 @dataclass
@@ -24,14 +24,27 @@ class ComponentStacker:
     n_forecasts: int
     max_lags: int
     feature_indices: dict = field(default_factory=dict)
-    config_seasonality: Optional[Seasonality] = None
+    config_seasonality: Optional[Seasonalities] = None
     lagged_regressor_config: Optional[LaggedRegressors] = None
+    stack_func: dict = field(init=False)
+    unstack_func: dict = field(init=False)
 
     def __post_init__(self):
         """
         Initializes mappings to comonent stacking and unstacking functions.
         """
-        self.unstack_component_func = {
+        self.stack_func = {
+            "targets": self.stack_targets,
+            "time": self.stack_time,
+            "seasonalities": self.stack_seasonalities,
+            "lagged_regressors": self.stack_lagged_regressors,
+            "lags": self.stack_lags,
+            "additive_events": self.stack_additive_events,
+            "multiplicative_events": self.stack_multiplicative_events,
+            "additive_regressors": self.stack_additive_regressors,
+            "multiplicative_regressors": self.stack_multiplicative_regressors,
+        }
+        self.unstack_func = {
             "targets": self.unstack_targets,
             "time": self.unstack_time,
             "seasonalities": self.unstack_seasonalities,
@@ -53,8 +66,8 @@ class ComponentStacker:
         Returns:
             Various: The output of the specific unstackion function.
         """
-        assert component_name in self.unstack_component_func, f"Unknown component name: {component_name}"
-        return self.unstack_component_func[component_name](batch_tensor)
+        assert component_name in self.unstack_func, f"Unknown component name: {component_name}"
+        return self.unstack_func[component_name](batch_tensor)
 
     def unstack_targets(self, batch_tensor):
         targets_start_idx, targets_end_idx = self.feature_indices["targets"]
@@ -180,7 +193,7 @@ class ComponentStacker:
             return current_idx + 1
         return current_idx
 
-    def stack_targets_component(self, df_tensors, feature_list, current_idx):
+    def stack_targets(self, df_tensors, feature_list, current_idx):
         """
         Stack the targets feature.
         """
@@ -191,7 +204,7 @@ class ComponentStacker:
             return current_idx + 1
         return current_idx
 
-    def stack_lagged_regerssors_component(self, df_tensors, feature_list, current_idx, config_lagged_regressors):
+    def stack_lagged_regerssors(self, df_tensors, feature_list, current_idx, config_lagged_regressors):
         """
         Stack the lagged regressor features.
         """
@@ -210,7 +223,7 @@ class ComponentStacker:
             return current_idx + num_features
         return current_idx
 
-    def stack_additive_events_component(
+    def stack_additive_events(
         self,
         df_tensors,
         feature_list,
@@ -233,7 +246,7 @@ class ComponentStacker:
             return current_idx + additive_events_tensor.size(1)
         return current_idx
 
-    def stack_multiplicative_events_component(
+    def stack_multiplicative_events(
         self, df_tensors, feature_list, current_idx, multiplicative_event_and_holiday_names
     ):
         """
@@ -251,7 +264,7 @@ class ComponentStacker:
             return current_idx + multiplicative_events_tensor.size(1)
         return current_idx
 
-    def stack_additive_regressors_component(self, df_tensors, feature_list, current_idx, additive_regressors_names):
+    def stack_additive_regressors(self, df_tensors, feature_list, current_idx, additive_regressors_names):
         """
         Stack the additive regressor features.
         """
@@ -267,9 +280,7 @@ class ComponentStacker:
             return current_idx + additive_regressors_tensor.size(1)
         return current_idx
 
-    def stack_multiplicative_regressors_component(
-        self, df_tensors, feature_list, current_idx, multiplicative_regressors_names
-    ):
+    def stack_multiplicative_regressors(self, df_tensors, feature_list, current_idx, multiplicative_regressors_names):
         """
         Stack the multiplicative regressor features.
         """
@@ -285,7 +296,7 @@ class ComponentStacker:
             return current_idx + len(multiplicative_regressors_names)
         return current_idx
 
-    def stack_seasonalities_component(self, feature_list, current_idx, config_seasonality, seasonalities):
+    def stack_seasonalities(self, feature_list, current_idx, config_seasonality, seasonalities):
         """
         Stack the seasonality features.
         """
