@@ -69,7 +69,7 @@ class ComponentStacker:
         assert component_name in self.unstack_func, f"Unknown component name: {component_name}"
         return self.unstack_func[component_name](batch_tensor)
 
-    def stack(self, component_name, df_tensors, feature_list, current_idx, kwargs):
+    def stack(self, component_name, df_tensors, feature_list, current_idx, **kwargs):
         """
         Routes the unstackion process to the appropriate function based on the component name.
 
