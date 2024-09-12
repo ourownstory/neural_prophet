@@ -123,30 +123,30 @@ class TimeDataset(Dataset):
         current_idx = 0
 
         # Call individual stacking functions
-        current_idx = self.components_stacker.stack_trend_component(self.df_tensors, feature_list, current_idx)
-        current_idx = self.components_stacker.stack_targets_component(self.df_tensors, feature_list, current_idx)
+        current_idx = self.components_stacker.stack_trend(self.df_tensors, feature_list, current_idx)
+        current_idx = self.components_stacker.stack_targets(self.df_tensors, feature_list, current_idx)
 
-        current_idx = self.components_stacker.stack_lags_component(
+        current_idx = self.components_stacker.stack_lags(
             self.df_tensors, feature_list, current_idx, self.config_ar.n_lags
         )
-        current_idx = self.components_stacker.stack_lagged_regerssors_component(
+        current_idx = self.components_stacker.stack_lagged_regerssors(
             self.df_tensors, feature_list, current_idx, self.config_lagged_regressors
         )
-        current_idx = self.components_stacker.stack_additive_events_component(
+        current_idx = self.components_stacker.stack_additive_events(
             self.df_tensors, feature_list, current_idx, self.additive_event_and_holiday_names
         )
-        current_idx = self.components_stacker.stack_multiplicative_events_component(
+        current_idx = self.components_stacker.stack_multiplicative_events(
             self.df_tensors, feature_list, current_idx, self.multiplicative_event_and_holiday_names
         )
-        current_idx = self.components_stacker.stack_additive_regressors_component(
+        current_idx = self.components_stacker.stack_additive_regressors(
             self.df_tensors, feature_list, current_idx, self.additive_regressors_names
         )
-        current_idx = self.components_stacker.stack_multiplicative_regressors_component(
+        current_idx = self.components_stacker.stack_multiplicative_regressors(
             self.df_tensors, feature_list, current_idx, self.multiplicative_regressors_names
         )
 
         if self.config_seasonality is not None and hasattr(self.config_seasonality, "periods"):
-            current_idx = self.components_stacker.stack_seasonalities_component(
+            current_idx = self.components_stacker.stack_seasonalities(
                 feature_list, current_idx, self.config_seasonality, self.seasonalities
             )
 
