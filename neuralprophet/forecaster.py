@@ -1188,6 +1188,7 @@ class NeuralProphet:
         if not self.fitted:
             if self.config_trend.changepoints is not None:
                 df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
+                df_aux["ID"] = "__df__"
                 df_aux = _normalize(df=df_aux, config_normalization=self.config_normalization)
                 self.config_trend.changepoints = df_aux["t"].values
 
@@ -1466,10 +1467,10 @@ class NeuralProphet:
             pd.DataFrame
                 evaluation metrics
         """
-        df = df.copy(deep=True)
-        df, _, _, _ = df_utils.check_multiple_series_id(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
+        df = df.copy(deep=True)
+        df, _, _, _ = df_utils.check_multiple_series_id(df)
         df = _check_dataframe(self, df, check_y=True, exogenous=True)
         freq = df_utils.infer_frequency(df, n_lags=self.config_model.max_lags, freq=self.data_freq)
         df = _handle_missing_data(

@@ -79,10 +79,11 @@ def test_timedataset_minimal():
         config_model.set_max_num_lags(n_lags)
         config_missing = configure.MissingDataHandling()
         # config_train = configure.Train()
+        df_in, _, _, _ = df_utils.check_multiple_series_id(df_in)
         df, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
         # create a tabularized dataset from time series
-        df = df.copy(deep=True)
-        df, _, _, _ = df_utils.check_multiple_series_id(df)
+        # df = df.copy(deep=True)
+        # df, _, _, _ = df_utils.check_multiple_series_id(df)
         df, _, _ = df_utils.check_dataframe(df)
         df = _handle_missing_data(
             df,
@@ -136,10 +137,7 @@ def test_timedataset_minimal():
 def test_normalize():
     length = 100
     days = pd.date_range(start="2017-01-01", periods=length)
-    y = np.ones(length)
-    y[1] = 0
-    y[2] = 2
-    y[3] = 3.3
+    y = np.arange(length)
     df = pd.DataFrame({"ds": days, "y": y})
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -157,10 +155,27 @@ def test_normalize():
     m.config_normalization.unknown_data_normalization = True
     _normalize(df=df, config_normalization=m.config_normalization)
     m.config_normalization.unknown_data_normalization = False
+
     # using config for utils
     df = df.drop("ID", axis=1)
     df_utils.normalize(df, m.config_normalization.global_data_params)
     df_utils.normalize(df, m.config_normalization.local_data_params["__df__"])
+
+
+def test_normalize_utils():
+    length = 100
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.arange(length)
+    df = pd.DataFrame({"ds": days, "y": y})
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        normalize="soft",
+    )
+    df, _, _, _ = df_utils.check_multiple_series_id(df)
+
+    # m.config_normalization.unknown_data_normalization = True
 
     # with utils
     local_data_params, global_data_params = df_utils.init_data_params(
@@ -172,8 +187,10 @@ def test_normalize():
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
     )
-    df_utils.normalize(df, global_data_params)
-    df_utils.normalize(df, local_data_params["__df__"])
+    log.error(local_data_params)
+    log.error(global_data_params)
+    df_utils.normalize(df.copy(deep=True), global_data_params)
+    df_utils.normalize(df.copy(deep=True), local_data_params["__df__"])
 
 
 def test_add_lagged_regressors():
@@ -252,6 +269,7 @@ def test_split_impute():
             n_lags=n_lags,
             n_forecasts=n_forecasts,
         )
+        df, _, _, id_list = df_utils.check_multiple_series_id(df)
         df_in, _, _ = df_utils.check_dataframe(df_in, check_y=False)
         df_in = _handle_missing_data(
             df=df_in,
@@ -893,6 +911,7 @@ def test_too_many_NaN():
         limit_linear=config_missing.impute_linear,
         rolling=config_missing.impute_rolling,
     )
+    df, _, _, id_list = df_utils.check_multiple_series_id(df)
     df, _, _ = df_utils.check_dataframe(df)
     local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
     df = df.drop("ID", axis=1)

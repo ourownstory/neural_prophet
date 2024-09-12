@@ -380,6 +380,8 @@ def normalize(df, data_params):
     """
     df = df.copy(deep=True)
     for name in df.columns:
+        if name == "ID":
+            continue
         if name not in data_params.keys():
             raise ValueError(f"Unexpected column {name} in data")
         new_name = name
