@@ -64,10 +64,29 @@ class ComponentStacker:
             component_name (str): The name of the component to unstack.
 
         Returns:
-            Various: The output of the specific unstackion function.
+            Various: The output of the specific unstacking function.
         """
         assert component_name in self.unstack_func, f"Unknown component name: {component_name}"
         return self.unstack_func[component_name](batch_tensor)
+
+    def stack_component(self, component_name, df_tensors, feature_list, current_idx, kwargs):
+        """
+        Routes the unstackion process to the appropriate function based on the component name.
+
+        Args:
+            component_name (str): The name of the component to stack.
+            df_tensors
+            feature_list
+            current_idx
+            kwargs for specific component, mostly component configuration
+
+        Returns:
+            current_idx: the current index in the stack of features.
+        """
+        assert component_name in self.stack_func, f"Unknown component name: {component_name}"
+        return self.stack_func[component_name](
+            df_tensors=df_tensors, feature_list=feature_list, current_idx=current_idx, **kwargs
+        )
 
     def unstack_targets(self, batch_tensor):
         targets_start_idx, targets_end_idx = self.feature_indices["targets"]
@@ -182,7 +201,7 @@ class ComponentStacker:
         self.feature_indices["time"] = (current_idx, current_idx)
         return current_idx + 1
 
-    def stack_lags_component(self, df_tensors, feature_list, current_idx, n_lags):
+    def stack_lags(self, df_tensors, feature_list, current_idx, n_lags):
         """
         Stack the lags feature.
         """
@@ -296,10 +315,11 @@ class ComponentStacker:
             return current_idx + len(multiplicative_regressors_names)
         return current_idx
 
-    def stack_seasonalities(self, feature_list, current_idx, config_seasonality, seasonalities):
+    def stack_seasonalities(self, df_tensors, feature_list, current_idx, config_seasonality):
         """
         Stack the seasonality features.
         """
+        seasonalities = df_tensors["seasonalities"]
         if config_seasonality and config_seasonality.periods:
             for seasonality_name, features in seasonalities.items():
                 seasonal_tensor = features
