@@ -615,7 +615,7 @@ class NeuralProphet:
         -------
             TimeDataset
         """
-        df, _, _, _ = df_utils.check_multiple_series_id(df)
+        # df, _, _, _ = df_utils.check_multiple_series_id(df)
         return time_dataset.GlobalTimeDataset(
             df,
             predict_mode=predict_mode,
@@ -1071,7 +1071,7 @@ class NeuralProphet:
             )
 
         # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
-        df = df.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        df = df.copy(deep=True)
         df, _, _, self.id_list = df_utils.check_multiple_series_id(df)
         df = _check_dataframe(self, df, check_y=True, exogenous=True)
 
@@ -1229,9 +1229,7 @@ class NeuralProphet:
         # Set up  DataLoaders: Validation
         validation_enabled = validation_df is not None and isinstance(validation_df, pd.DataFrame)
         if validation_enabled:
-            df_val = validation_df.copy(
-                deep=True
-            )  # Create a copy of the dataframe to avoid modifying the original dataframe
+            df_val = validation_df.copy(deep=True)
             df_val, _, _, _ = df_utils.check_multiple_series_id(df_val)
             df_val = _check_dataframe(self, df_val, check_y=False, exogenous=False)
             df_val = _handle_missing_data(
@@ -1246,9 +1244,7 @@ class NeuralProphet:
                 config_seasonality=self.config_seasonality,
                 predicting=False,
             )
-            # df_val = validation_df.copy(
-            #     deep=True
-            # )  # Create a copy of the dataframe to avoid modifying the original dataframe
+            # df_val = df_val.copy(deep=True)
             # df_val, _, _, _ = df_utils.check_multiple_series_id(df_val)
             df_val = _normalize(df=df_val, config_normalization=self.config_normalization)
             val_components_stacker = utils_time_dataset.ComponentStacker(
@@ -1405,7 +1401,7 @@ class NeuralProphet:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
             raise ValueError("Model has not been fitted. Predictions will be random.")
-        df = df.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
         # to get all forecasteable values with df given, maybe extend into future:
         df, periods_added = _maybe_extend_df(
@@ -1470,7 +1466,7 @@ class NeuralProphet:
             pd.DataFrame
                 evaluation metrics
         """
-        df = df.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        df = df.copy(deep=True)
         df, _, _, _ = df_utils.check_multiple_series_id(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
@@ -1624,7 +1620,7 @@ class NeuralProphet:
             1	2022-12-13	8.02	data2
             2	2022-12-13	8.30	data3
         """
-        df = df.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.config_model.max_lags, freq=freq)
@@ -1814,7 +1810,7 @@ class NeuralProphet:
             1	2022-12-10	8.25	data2
             2	2022-12-10	7.55	data3
         """
-        df = df.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.config_model.max_lags, freq=freq)
@@ -1879,7 +1875,7 @@ class NeuralProphet:
             tuple of k tuples [(folds_val, folds_test), …]
                 elements same as :meth:`crossvalidation_split_df` returns
         """
-        df = df.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        df = df.copy(deep=True)
         df, _, _, _ = df_utils.check_multiple_series_id(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.config_model.max_lags, freq=freq)
@@ -1926,7 +1922,7 @@ class NeuralProphet:
                 "The events configs should be added to the NeuralProphet object (add_events fn)"
                 "before creating the data with events features"
             )
-        df = df.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
         df = _check_dataframe(self, df, check_y=True, exogenous=False)
         df_dict_events = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
@@ -2003,7 +1999,7 @@ class NeuralProphet:
             >>> forecast = m.predict(df=future)
 
         """
-        df = df.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
         events_dict = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
         regressors_dict = df_utils.create_dict_for_events_or_regressors(df, regressors_df, "regressors")
@@ -2086,7 +2082,7 @@ class NeuralProphet:
         """
         if quantile is not None and not (0 < quantile < 1):
             raise ValueError("The quantile specified need to be a float in-between (0,1)")
-        df = df.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         df = _normalize(df=df, config_normalization=self.config_normalization)
@@ -2143,7 +2139,7 @@ class NeuralProphet:
         self.config_ar.n_lags = 0
         self.config_model.n_forecasts = 1
 
-        df = df.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         df = _normalize(df=df, config_normalization=self.config_normalization)
@@ -2312,7 +2308,7 @@ class NeuralProphet:
                 ----
                 None (default): plot self.highlight_forecast_step_n by default
         """
-        fcst = fcst.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        fcst = fcst.copy(deep=True)
         fcst, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
@@ -2428,7 +2424,7 @@ class NeuralProphet:
         """
         if self.config_model.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        fcst = fcst.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        fcst = fcst.copy(deep=True)
         fcst, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
@@ -2505,7 +2501,7 @@ class NeuralProphet:
         """
         if self.config_model.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        fcst = fcst.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        fcst = fcst.copy(deep=True)
         fcst, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
@@ -2642,7 +2638,7 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet components
         """
-        fcst = fcst.copy(deep=True)  # Create a copy of the dataframe to avoid modifying the original dataframe
+        fcst = fcst.copy(deep=True)
         fcst, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():

@@ -282,7 +282,8 @@ def init_data_params(
             ShiftScale entries containing ``shift`` and ``scale`` parameters for each column
     """
     # Compute Global data params
-    df, _, _, _ = check_multiple_series_id(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
         df_merged, normalize, config_lagged_regressors, config_regressors, config_events, config_seasonality
@@ -425,7 +426,8 @@ def check_dataframe(
         pd.DataFrame or dict
             checked dataframe
     """
-    df, _, _, _ = check_multiple_series_id(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     if df.groupby("ID").size().min() < 1:
         raise ValueError("Dataframe has no rows.")
     if "ds" not in df:
@@ -639,7 +641,9 @@ def _crossvalidation_with_time_threshold(df, n_lags, n_forecasts, k, fold_pct, f
     min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
     assert min_train >= samples_fold
     folds = []
-    df_fold, _, _, _ = check_multiple_series_id(df)
+    df_fold = df
+    # df_fold = df.copy(deep=True)
+    # df_fold, _, _, _ = check_multiple_series_id(df_fold)
     for i in range(k, 0, -1):
         threshold_time_stamp = find_time_threshold(df_fold, n_lags, n_forecasts, samples_fold, inputs_overbleed=True)
         df_train, df_val = split_considering_timestamp(
@@ -701,7 +705,8 @@ def crossvalidation_split_df(
 
             validation data
     """
-    df, _, _, _ = check_multiple_series_id(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     folds = []
     if len(df["ID"].unique()) == 1:
         for df_name, df_i in df.groupby("ID"):
@@ -761,7 +766,8 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
         tuple of k tuples [(folds_val, folds_test), …]
             elements same as :meth:`crossvalidation_split_df` returns
     """
-    df, _, _, _ = check_multiple_series_id(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     if len(df["ID"].unique()) > 1:
         raise NotImplementedError("double_crossvalidation_split_df not implemented for df with many time series")
     fold_pct_test = float(test_pct) / k
@@ -882,7 +888,8 @@ def split_df(
         pd.DataFrame, dict
             validation data
     """
-    df, _, _, _ = check_multiple_series_id(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     df_train = pd.DataFrame()
     df_val = pd.DataFrame()
     if local_split:
@@ -1364,7 +1371,8 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
             Valid frequency tag according to major frequency.
 
     """
-    df, _, _, _ = check_multiple_series_id(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     freq_df = list()
     for df_name, df_i in df.groupby("ID"):
         freq_df.append(_infer_frequency(df_i, freq, min_freq_percentage))
@@ -1407,7 +1415,7 @@ def create_dict_for_events_or_regressors(
     if other_df is None:
         # if other_df is None, create dictionary with None for each ID
         return {df_name: None for df_name in df_names}
-
+    other_df = other_df.copy(deep=True)
     other_df, received_ID_col, _, _ = check_multiple_series_id(other_df)
     # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
     if not received_ID_col:

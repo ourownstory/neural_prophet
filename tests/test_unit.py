@@ -146,6 +146,7 @@ def test_normalize():
         learning_rate=LR,
         normalize="soft",
     )
+    df = df.copy(deep=True)
     df, _, _, _ = df_utils.check_multiple_series_id(df)
     # with config
 
