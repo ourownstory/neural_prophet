@@ -123,7 +123,7 @@ class TimeDataset(Dataset):
         current_idx = 0
 
         # Call individual stacking functions
-        current_idx = self.components_stacker.stack_trend(self.df_tensors, feature_list, current_idx)
+        current_idx = self.components_stacker.stack_time(self.df_tensors, feature_list, current_idx)
         current_idx = self.components_stacker.stack_targets(self.df_tensors, feature_list, current_idx)
 
         current_idx = self.components_stacker.stack_lags(

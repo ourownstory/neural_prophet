@@ -173,7 +173,7 @@ class ComponentStacker:
             regressors_start_idx, regressors_end_idx = self.feature_indices["multiplicative_regressors"]
             return batch_tensor[:, regressors_start_idx : regressors_end_idx + 1].unsqueeze(1)
 
-    def stack_trend_component(self, df_tensors, feature_list, current_idx):
+    def stack_time(self, df_tensors, feature_list, current_idx):
         """
         Stack the trend (time) feature.
         """
