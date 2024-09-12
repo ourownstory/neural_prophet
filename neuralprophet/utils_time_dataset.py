@@ -32,6 +32,14 @@ class ComponentStacker:
         self.lagged_regressor_config = lagged_regressor_config
         self.unstack_component_func = {
             "targets": self.unstack_targets,
+            "time": self.unstack_time,
+            "seasonalities": self.unstack_seasonalities,
+            "lagged_regressors": self.unstack_lagged_regressors,
+            "lags": self.unstack_lags,
+            "additive_events": self.unstack_additive_events,
+            "multiplicative_events": self.unstack_multiplicative_events,
+            "additive_regressors": self.unstack_additive_regressors,
+            "multiplicative_regressors": self.unstack_multiplicative_regressors,
         }
 
     def unstack_component(self, component_name, batch_tensor):
@@ -44,26 +52,8 @@ class ComponentStacker:
         Returns:
             Various: The output of the specific unstackion function.
         """
-        if component_name == "targets":
-            return self.unstack_targets(batch_tensor)
-        elif component_name == "time":
-            return self.unstack_time(batch_tensor)
-        elif component_name == "seasonalities":
-            return self.unstack_seasonalities(batch_tensor)
-        elif component_name == "lagged_regressors":
-            return self.unstack_lagged_regressors(batch_tensor)
-        elif component_name == "lags":
-            return self.unstack_lags(batch_tensor)
-        elif component_name == "additive_events":
-            return self.unstack_additive_events(batch_tensor)
-        elif component_name == "multiplicative_events":
-            return self.unstack_multiplicative_events(batch_tensor)
-        elif component_name == "additive_regressors":
-            return self.unstack_additive_regressors(batch_tensor)
-        elif component_name == "multiplicative_regressors":
-            return self.unstack_multiplicative_regressors(batch_tensor)
-        else:
-            raise ValueError(f"Unknown component name: {component_name}")
+        assert component_name in self.unstack_component_func, f"Unknown component name: {component_name}"
+        return self.unstack_component_func[component_name](batch_tensor)
 
     def unstack_targets(self, batch_tensor):
         targets_start_idx, targets_end_idx = self.feature_indices["targets"]
