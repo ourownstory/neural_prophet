@@ -45,10 +45,10 @@ class TimeDataset(Dataset):
 
         # Context Notes
         # Currently done to df before it arrives here:
-        # -> fit calls prep_or_copy_df, _check_dataframe, and _handle_missing_data, passes to _train
-        # -> _train calls prep_or_copy_df, then passes to init_train_loader, which returns the train_loader
-        # -> init_train_loader calls prep_or_copy_df, _normalize, _create_dataset (returns TimeDataset), returns dataset wrapped in DataLoader
-        # ->_create_dataset calls prep_or_copy_df, then returns GlobalTimeDataset
+        # -> fit calls copy, check_multiple_series_id, _check_dataframe, and _handle_missing_data, passes to _train
+        # -> _train calls check_multiple_series_id, then passes to init_train_loader, which returns the train_loader
+        # -> init_train_loader calls check_multiple_series_id, _normalize, _create_dataset (returns TimeDataset), returns dataset wrapped in DataLoader
+        # ->_create_dataset calls check_multiple_series_id, then returns GlobalTimeDataset
         # Future TODO: integrate some of these preprocessing steps happening outside?
 
         self.df = df.reset_index(drop=True)  # Needed for index based operations in __getitem__

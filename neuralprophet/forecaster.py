@@ -1246,7 +1246,10 @@ class NeuralProphet:
                 config_seasonality=self.config_seasonality,
                 predicting=False,
             )
-            # df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+            # df_val = validation_df.copy(
+            #     deep=True
+            # )  # Create a copy of the dataframe to avoid modifying the original dataframe
+            # df_val, _, _, _ = df_utils.check_multiple_series_id(df_val)
             df_val = _normalize(df=df_val, config_normalization=self.config_normalization)
             val_components_stacker = utils_time_dataset.ComponentStacker(
                 n_lags=self.config_ar.n_lags,
