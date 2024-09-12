@@ -55,17 +55,12 @@ class TimeNet(pl.LightningModule):
         n_forecasts: int = 1,
         n_lags: int = 0,
         ar_layers: Optional[List[int]] = [],
-        compute_components_flag: bool = False,
         metrics: Optional[np_types.CollectMetricsMode] = {},
         id_list: List[str] = ["__df__"],
         num_trends_modelled: int = 1,
         num_seasonalities_modelled: int = 1,
         num_seasonalities_modelled_dict: dict = None,
         meta_used_in_model: bool = False,
-        # train_components_stacker: Optional[ComponentStacker] = None,
-        # val_components_stacker: Optional[ComponentStacker] = None,
-        # test_components_stacker: Optional[ComponentStacker] = None,
-        # predict_components_stacker: Optional[ComponentStacker] = None,
     ):
         """
         Parameters
@@ -98,8 +93,6 @@ class TimeNet(pl.LightningModule):
                 ----
                 The default value is ``[]``, which initializes no hidden layers.
 
-            compute_components_flag : bool
-                Flag whether to compute the components of the model or not.
             metrics : dict
                 Dictionary of torchmetrics to be used during training and for evaluation.
             id_list : list
@@ -143,27 +136,18 @@ class TimeNet(pl.LightningModule):
         # General
         self.config_model = config_model
         self.config_model.n_forecasts = n_forecasts
-        # refactor components stacker to be a dict of stackers for train, val, test, predict
+
+        # Components stackers to unpack the input tensor
         self.components_stacker = {
             "train": None,
             "val": None,
             "test": None,
             "predict": None,
         }
-
-        # self.train_components_stacker = train_components_stacker
-        # self.val_components_stacker = val_components_stacker
-        # self.test_components_stacker = test_components_stacker
-        # self.predict_components_stacker = predict_components_stacker
-        # self.components_stacker["train"] = None
-        # self.components_stacker["val"] = None
-        # self.components_stacker["test"] = None
-        # self.components_stacker["predict"] = None
-
         # Lightning Config
         self.config_train = config_train
         self.config_normalization = config_normalization
-        self.compute_components_flag = compute_components_flag
+        self.include_components = False  # flag to indicate if we are in include_components mode, set in prodiction mode by set_compute_components
         self.config_model = config_model
 
         # Manual optimization: we are responsible for calling .backward(), .step(), .zero_grad().
@@ -538,8 +522,6 @@ class TimeNet(pl.LightningModule):
         input_tensor: torch.Tensor,
         mode: str,
         meta: Dict = None,
-        compute_components_flag: bool = False,
-        predict_mode: bool = False,
     ) -> torch.Tensor:
         """This method defines the model forward pass.
         Parameters
@@ -548,12 +530,10 @@ class TimeNet(pl.LightningModule):
                 Input tensor of dims (batch, n_lags + n_forecasts, n_features)
             mode : str operation mode ["train", "val", "test", "predict"]
             meta : dict Static features of the time series
-            compute_components_flag : bool Whether to return the individual components of the model
-            predict_mode : bool Whether the model is in prediction mode
         Returns
         -------
             torch.Tensor Forecast tensor of dims (batch, n_forecasts, n_quantiles)
-            dict of components of the model if compute_components_flag is True,
+            dict of components of the model if self.include_components is True,
                 each of dims (batch, n_forecasts, n_quantiles)
 
         """
@@ -673,10 +653,12 @@ class TimeNet(pl.LightningModule):
         prediction = predictions_nonstationary + additive_components
 
         # Correct crossing quantiles
-        prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
+        prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(
+            diffs=prediction, predict_mode=mode != "train"
+        )
 
         # Compute components if required
-        if compute_components_flag:
+        if self.include_components:
             components = self.compute_components(
                 time_input,
                 seasonalities_input,
@@ -783,8 +765,12 @@ class TimeNet(pl.LightningModule):
                     )
         return components
 
-    def set_compute_components(self, compute_components_flag):
-        self.compute_components_flag = compute_components_flag
+    def set_compute_components(self, include_components):
+        self.prev_include_components = self.include_components
+        self.include_components = include_components
+
+    def reset_compute_components(self):
+        self.include_components = self.prev_include_components
 
     def loss_func(self, time, predicted, targets):
         loss = None
@@ -814,7 +800,7 @@ class TimeNet(pl.LightningModule):
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs_tensor, self.components_stacker["train"], meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, mode="train", meta=meta_name_tensor)
         # Store predictions in self for later network visualization
         self.train_epoch_prediction = predicted
         # Calculate loss
@@ -859,7 +845,7 @@ class TimeNet(pl.LightningModule):
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs_tensor, self.components_stacker["val"], meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, mode="val", meta=meta_name_tensor)
         # Calculate loss
         loss, reg_loss = self.loss_func(time, predicted, targets)
         # Metrics
@@ -881,7 +867,7 @@ class TimeNet(pl.LightningModule):
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted, _ = self.forward(inputs_tensor, self.components_stacker["test"], meta_name_tensor)
+        predicted, _ = self.forward(inputs_tensor, mode="test", meta=meta_name_tensor)
         # Calculate loss
         loss, reg_loss = self.loss_func(time, predicted, targets)
         # Metrics
@@ -905,10 +891,8 @@ class TimeNet(pl.LightningModule):
         # Run forward calculation
         prediction, components = self.forward(
             inputs_tensor,
-            self.components_stacker["predict"],
-            meta_name_tensor,
-            self.compute_components_flag,
-            predict_mode=True,
+            mode="predict",
+            meta=meta_name_tensor,
         )
         return prediction, components
 
