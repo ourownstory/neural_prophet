@@ -1209,7 +1209,6 @@ class NeuralProphet:
             max_lags=self.config_model.max_lags,
             config_seasonality=self.config_seasonality,
             lagged_regressor_config=self.config_lagged_regressors,
-            feature_indices={},
         )
         dataset = self._create_dataset(df, predict_mode=False, components_stacker=train_components_stacker)
         # Determine the max_number of epochs
@@ -1252,7 +1251,6 @@ class NeuralProphet:
                 n_forecasts=self.config_model.n_forecasts,
                 config_seasonality=self.config_seasonality,
                 lagged_regressor_config=self.config_lagged_regressors,
-                feature_indices={},
             )
             dataset_val = self._create_dataset(df_val, predict_mode=False, components_stacker=val_components_stacker)
             loader_val = DataLoader(dataset_val, batch_size=min(1024, len(dataset_val)), shuffle=False, drop_last=False)
@@ -1490,7 +1488,6 @@ class NeuralProphet:
             max_lags=self.config_model.max_lags,
             config_seasonality=self.config_seasonality,
             lagged_regressor_config=self.config_lagged_regressors,
-            feature_indices={},
         )
         dataset = self._create_dataset(df, predict_mode=False, components_stacker=components_stacker)
         self.model.set_components_stacker(components_stacker, mode="test")
@@ -2988,7 +2985,6 @@ class NeuralProphet:
             max_lags=self.config_model.max_lags,
             config_seasonality=self.config_seasonality,
             lagged_regressor_config=self.config_lagged_regressors,
-            feature_indices={},
         )
         dataset = self._create_dataset(df, predict_mode=True, components_stacker=components_stacker)
         self.model.set_components_stacker(components_stacker, mode="predict")

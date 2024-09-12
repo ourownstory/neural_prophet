@@ -111,20 +111,16 @@ class TimeDataset(Dataset):
         # Construct index map
         self.sample2index_map, self.length = self.create_sample2index_map(self.df, self.df_tensors)
 
+        # Stack all features into one large tensor
         self.components_stacker = components_stacker
-
-        self.stack_all_features()
+        self.all_features = self.stack_all_features()
 
     def stack_all_features(self):
         """
         Stack all features into one large tensor by calling individual stacking methods.
         """
-        feature_list = []
-        current_idx = 0
-
         # Add seasonalities to df_tensors, this needs to be done after create_sample2index_map, before stacking.
         self.df_tensors["seasonalities"] = self.seasonalities
-
         component_args: dict = {
             "time": {},
             "targets": {},
@@ -136,17 +132,8 @@ class TimeDataset(Dataset):
             "multiplicative_regressors": {"names": self.multiplicative_regressors_names},
             "seasonalities": {"config": self.config_seasonality},
         }
-        for component_name, args in component_args.items():
-            feature_list, current_idx = self.components_stacker.stack(
-                component_name=component_name,
-                df_tensors=self.df_tensors,
-                feature_list=feature_list,
-                current_idx=current_idx,
-                **args,
-            )
 
-        # Concatenate all features into one big tensor
-        self.all_features = torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
+        return self.components_stacker.stack_all_features(self.df_tensors, component_args)
 
     def calculate_seasonalities(self):
         """Computes Fourier series components with the specified frequency and order."""

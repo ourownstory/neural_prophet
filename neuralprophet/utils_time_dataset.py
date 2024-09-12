@@ -84,10 +84,33 @@ class ComponentStacker:
             current_idx: the current index in the stack of features.
         """
         assert component_name in self.stack_func, f"Unknown component name: {component_name}"
-        # this is currently not working for seasonalities
         return self.stack_func[component_name](
             df_tensors=df_tensors, feature_list=feature_list, current_idx=current_idx, **kwargs
         )
+
+    def stack_all_features(self, df_tensors, component_args):
+        """
+        Stack all features into one large tensor by calling individual stacking methods.
+        Concatenation along dimension second dimension (dim=1).
+
+        Args:
+            df_tensors: Dictionary containing the tensors for different features.
+            component_args: Dictionary containing the configuration of different components.
+        """
+        feature_list = []
+        current_idx = 0
+
+        for component_name, args in component_args.items():
+            feature_list, current_idx = self.stack(
+                component_name=component_name,
+                df_tensors=df_tensors,
+                feature_list=feature_list,
+                current_idx=current_idx,
+                **args,
+            )
+
+        # Concatenate all features into one big tensor
+        return torch.cat(feature_list, dim=1)  # Concatenating along the second dimension
 
     def unstack_targets(self, batch_tensor):
         targets_start_idx, targets_end_idx = self.feature_indices["targets"]
