@@ -373,7 +373,6 @@ def normalize(df, data_params):
         pd.DataFrame
             normalized dataframes
     """
-    # df = df.copy(deep=True)
     for name in df.columns:
         if name == "ID":
             continue
@@ -423,8 +422,7 @@ def check_dataframe(
         pd.DataFrame or dict
             checked dataframe
     """
-    # df = df.copy(deep=True)
-    # df, _, _, _ = check_multiple_series_id(df)
+    # TODO: move call to check_multiple_series_id here
     if df.groupby("ID").size().min() < 1:
         raise ValueError("Dataframe has no rows.")
     if "ds" not in df:
@@ -638,25 +636,22 @@ def _crossvalidation_with_time_threshold(df, n_lags, n_forecasts, k, fold_pct, f
     min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
     assert min_train >= samples_fold
     folds = []
-    df_fold = df
-    # df_fold = df.copy(deep=True)
-    # df_fold, _, _, _ = check_multiple_series_id(df_fold)
     for i in range(k, 0, -1):
-        threshold_time_stamp = find_time_threshold(df_fold, n_lags, n_forecasts, samples_fold, inputs_overbleed=True)
+        threshold_time_stamp = find_time_threshold(df, n_lags, n_forecasts, samples_fold, inputs_overbleed=True)
         df_train, df_val = split_considering_timestamp(
-            df_fold, n_lags, n_forecasts, inputs_overbleed=True, threshold_time_stamp=threshold_time_stamp
+            df, n_lags, n_forecasts, inputs_overbleed=True, threshold_time_stamp=threshold_time_stamp
         )
         folds.append((df_train, df_val))
         split_idx = len(df_merged) - samples_fold + samples_overlap
         df_merged = df_merged[:split_idx].reset_index(drop=True)
         threshold_time_stamp = df_merged["ds"].iloc[-1]
         df_fold_aux = pd.DataFrame()
-        for df_name, df_i in df_fold.groupby("ID"):
+        for df_name, df_i in df.groupby("ID"):
             df_aux = (
                 df_i.copy(deep=True).iloc[: len(df_i[df_i["ds"] < threshold_time_stamp]) + 1].reset_index(drop=True)
             )
             df_fold_aux = pd.concat((df_fold_aux, df_aux), ignore_index=True)
-        df_fold = df_fold_aux.copy(deep=True)
+        df = df_fold_aux.copy(deep=True)
     folds = folds[::-1]
     return folds
 
@@ -702,7 +697,6 @@ def crossvalidation_split_df(
 
             validation data
     """
-    # df = df.copy(deep=True)
     df, _, _, _ = check_multiple_series_id(df)
     folds = []
     if len(df["ID"].unique()) == 1:
@@ -763,8 +757,6 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
         tuple of k tuples [(folds_val, folds_test), …]
             elements same as :meth:`crossvalidation_split_df` returns
     """
-    # df = df.copy(deep=True)
-    # df, _, _, _ = check_multiple_series_id(df)
     if len(df["ID"].unique()) > 1:
         raise NotImplementedError("double_crossvalidation_split_df not implemented for df with many time series")
     fold_pct_test = float(test_pct) / k
@@ -885,8 +877,6 @@ def split_df(
         pd.DataFrame, dict
             validation data
     """
-    # df = df.copy(deep=True)
-    # df, _, _, _ = check_multiple_series_id(df)
     df_train = pd.DataFrame()
     df_val = pd.DataFrame()
     if local_split:
@@ -1368,8 +1358,6 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
             Valid frequency tag according to major frequency.
 
     """
-    # df = df.copy(deep=True)
-    # df, _, _, _ = check_multiple_series_id(df)
     freq_df = list()
     for df_name, df_i in df.groupby("ID"):
         freq_df.append(_infer_frequency(df_i, freq, min_freq_percentage))
