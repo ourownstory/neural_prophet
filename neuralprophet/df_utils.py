@@ -77,12 +77,12 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
         pd.Dataframe
             original input format
     """
-    new_df = df.copy(deep=True)
+    # df = df.copy(deep=True)
     if not received_ID_col and received_single_time_series:
-        assert len(new_df["ID"].unique()) == 1
-        new_df.drop("ID", axis=1, inplace=True)
+        assert len(df["ID"].unique()) == 1
+        df.drop("ID", axis=1, inplace=True)
         log.info("Returning df with no ID column")
-    return new_df
+    return df
 
 
 def merge_dataframes(df: pd.DataFrame) -> pd.DataFrame:
