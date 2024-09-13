@@ -399,8 +399,6 @@ def _check_dataframe(
             "Dataframe has less than n_forecasts + n_lags rows. "
             "Forecasting not possible. Please either use a larger dataset, or adjust the model parameters."
         )
-    # df = df.copy(deep=True)
-    # df, _, _, _ = df_utils.check_multiple_series_id(df)
     df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
         df=df,
         check_y=check_y,
@@ -475,9 +473,6 @@ def _handle_missing_data(
         The pre-processed DataFrame, including imputed missing data, if applicable.
 
     """
-    # df = df.copy(deep=True)
-    # df, _, _, _ = df_utils.check_multiple_series_id(df)
-
     if n_lags == 0 and not predicting:
         # drop rows with NaNs in y and count them
         df_na_dropped = df.dropna(subset=["y"])

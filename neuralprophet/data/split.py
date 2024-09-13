@@ -174,13 +174,12 @@ def _make_future_dataframe(
         log.warning(
             "Not extending df into future as no periods specified. You can skip this and predict directly instead."
         )
-    df = df.copy(deep=True)
     _ = df_utils.infer_frequency(df, n_lags=max_lags, freq=freq)
     last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
     if events_df is not None:
-        events_df = events_df.copy(deep=True).reset_index(drop=True)
+        events_df = events_df.reset_index(drop=True)
     if regressors_df is not None:
-        regressors_df = regressors_df.copy(deep=True).reset_index(drop=True)
+        regressors_df = regressors_df.reset_index(drop=True)
     if periods is None:
         periods = 1 if max_lags == 0 else n_forecasts
     else:
