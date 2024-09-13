@@ -158,8 +158,8 @@ def test_normalize():
 
     # using config for utils
     df = df.drop("ID", axis=1)
-    df_utils.normalize(df, m.config_normalization.global_data_params)
-    df_utils.normalize(df, m.config_normalization.local_data_params["__df__"])
+    _ = df_utils.normalize(df.copy(deep=True), m.config_normalization.global_data_params)
+    _ = df_utils.normalize(df.copy(deep=True), m.config_normalization.local_data_params["__df__"])
 
 
 def test_normalize_utils():
