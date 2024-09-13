@@ -708,7 +708,7 @@ def crossvalidation_split_df(
             validation data
     """
     # df = df.copy(deep=True)
-    # df, _, _, _ = check_multiple_series_id(df)
+    df, _, _, _ = check_multiple_series_id(df)
     folds = []
     if len(df["ID"].unique()) == 1:
         for df_name, df_i in df.groupby("ID"):
