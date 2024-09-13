@@ -2332,7 +2332,7 @@ class NeuralProphet:
                         plotted."
                 )
             else:
-                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                fcst = fcst[fcst["ID"] == df_name]
                 log.info(f"Plotting data from ID {df_name}")
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
@@ -2448,7 +2448,7 @@ class NeuralProphet:
                     "forecasted. "
                 )
             else:
-                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                fcst = fcst[fcst["ID"] == df_name]
                 log.info(f"Getting data from ID {df_name}")
         if include_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.config_model.n_forecasts + self.config_model.max_lags) :]
@@ -2525,7 +2525,7 @@ class NeuralProphet:
                     "Please, especify ID to be plotted."
                 )
             else:
-                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                fcst = fcst[fcst["ID"] == df_name]
                 log.info(f"Plotting data from ID {df_name}")
         if len(self.config_model.quantiles) > 1:
             log.warning(
@@ -2662,7 +2662,7 @@ class NeuralProphet:
                     "Please, especify ID to be plotted."
                 )
             else:
-                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                fcst = fcst[fcst["ID"] == df_name]
                 log.info(f"Plotting data from ID {df_name}")
         else:
             if df_name is None:
