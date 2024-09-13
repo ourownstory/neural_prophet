@@ -722,7 +722,7 @@ def crossvalidation_split_df(
             start_date, end_date = find_valid_time_interval_for_cv(df)
             for df_name, df_i in df.groupby("ID"):
                 mask = (df_i["ds"] >= start_date) & (df_i["ds"] <= end_date)
-                df_i = df_i[mask].copy(deep=True)
+                df_i = df_i[mask]
                 folds_dict[df_name] = _crossvalidation_split_df(
                     df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct
                 )
