@@ -102,7 +102,7 @@ def merge_dataframes(df: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("Can not join other than pd.DataFrames")
     if "ID" not in df.columns:
         raise ValueError("df does not contain 'ID' column")
-    df_merged = df.copy(deep=True).drop("ID", axis=1)
+    df_merged = df.drop("ID", axis=1)
     df_merged = df_merged.sort_values("ds")
     df_merged = df_merged.drop_duplicates(subset=["ds"])
     df_merged = df_merged.reset_index(drop=True)
@@ -635,7 +635,7 @@ def _crossvalidation_with_time_threshold(df, n_lags, n_forecasts, k, fold_pct, f
 
             validation data
     """
-    df_merged = merge_dataframes(df)
+    df_merged = merge_dataframes(df.copy(deep=True))
     total_samples = len(df_merged) - n_lags + 2 - (2 * n_forecasts)
     samples_fold = max(1, int(fold_pct * total_samples))
     samples_overlap = int(fold_overlap_pct * samples_fold)
@@ -800,7 +800,7 @@ def find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
         str
             time stamp threshold defines the boundary for the train and validation sets split.
     """
-    df_merged = merge_dataframes(df)
+    df_merged = merge_dataframes(df.copy(deep=True))
     n_samples = len(df_merged) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
     if 0.0 < valid_p < 1.0:

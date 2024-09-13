@@ -1195,7 +1195,7 @@ class NeuralProphet:
         # Configure auto-seasoanlities and country-holidays
         if not self.fitted:
             # Temporarily merge df
-            df_merged = df_utils.merge_dataframes(df)
+            df_merged = df_utils.merge_dataframes(df.copy(deep=True))
             self.config_seasonality = utils.set_auto_seasonalities(
                 df_merged, config_seasonality=self.config_seasonality
             )
