@@ -542,7 +542,8 @@ def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap
     min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
     assert min_train >= samples_fold
     folds = []
-    df_fold = df.copy(deep=True)
+    # df_fold = df.copy(deep=True)
+    df_fold = df
     for i in range(k, 0, -1):
         df_train, df_val = split_df(df_fold, n_lags, n_forecasts, valid_p=samples_fold, inputs_overbleed=True)
         folds.append((df_train, df_val))
