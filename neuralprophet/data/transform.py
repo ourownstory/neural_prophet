@@ -24,13 +24,11 @@ def _normalize(df: pd.DataFrame, config_normalization: Normalization) -> pd.Data
     -------
         df: pd.DataFrame, normalized
     """
-    # df = df.copy(deep=True)
-    # df, _, _, _ = df_utils.check_multiple_series_id(df)
     df_norm = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
         data_params = config_normalization.get_data_params(df_name)
         df_i.drop("ID", axis=1, inplace=True)
-        df_aux = df_utils.normalize(df_i, data_params).copy(deep=True)
+        df_aux = df_utils.normalize(df_i, data_params)
         df_aux["ID"] = df_name
         df_norm = pd.concat((df_norm, df_aux), ignore_index=True)
     return df_norm

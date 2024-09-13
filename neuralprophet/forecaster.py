@@ -1195,7 +1195,7 @@ class NeuralProphet:
         # Configure auto-seasoanlities and country-holidays
         if not self.fitted:
             # Temporarily merge df
-            df_merged = df_utils.merge_dataframes(df)
+            df_merged = df_utils.merge_dataframes(df.copy(deep=True))
             self.config_seasonality = utils.set_auto_seasonalities(
                 df_merged, config_seasonality=self.config_seasonality
             )
@@ -1245,8 +1245,6 @@ class NeuralProphet:
                 config_seasonality=self.config_seasonality,
                 predicting=False,
             )
-            # df_val = df_val.copy(deep=True)
-            # df_val, _, _, _ = df_utils.check_multiple_series_id(df_val)
             df_val = _normalize(df=df_val, config_normalization=self.config_normalization)
             val_components_stacker = utils_time_dataset.ComponentStacker(
                 n_lags=self.config_ar.n_lags,
@@ -1926,7 +1924,11 @@ class NeuralProphet:
         df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
         df = _check_dataframe(self, df, check_y=True, exogenous=False)
-        df_dict_events = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
+        events_df = events_df.copy(deep=True)
+        events_df, events_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(events_df)
+        df_dict_events = df_utils.create_dict_for_events_or_regressors(
+            df, events_df, "events", events_df_received_ID_col
+        )
         df_created = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             for name in df_dict_events[df_name]["event"].unique():
@@ -2002,16 +2004,27 @@ class NeuralProphet:
         """
         df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
-        events_dict = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
-        regressors_dict = df_utils.create_dict_for_events_or_regressors(df, regressors_df, "regressors")
+
+        if events_df is not None:
+            events_df = events_df.copy(deep=True)
+            events_df, events_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(events_df)
+            events_dict = df_utils.create_dict_for_events_or_regressors(
+                df, events_df, "events", events_df_received_ID_col
+            )
+        if regressors_df is not None:
+            regressors_df = regressors_df.copy(deep=True)
+            regressors_df, regressors_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(regressors_df)
+            regressors_dict = df_utils.create_dict_for_events_or_regressors(
+                df, regressors_df, "regressors", regressors_df_received_ID_col
+            )
 
         df_future_dataframe = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             df_aux = _make_future_dataframe(
                 model=self,
                 df=df_i,
-                events_df=events_dict[df_name],
-                regressors_df=regressors_dict[df_name],
+                events_df=events_dict[df_name] if events_df is not None else None,
+                regressors_df=regressors_dict[df_name] if regressors_df is not None else None,
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
                 n_forecasts=self.config_model.n_forecasts,
@@ -2319,7 +2332,7 @@ class NeuralProphet:
                         plotted."
                 )
             else:
-                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                fcst = fcst[fcst["ID"] == df_name]
                 log.info(f"Plotting data from ID {df_name}")
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
@@ -2435,7 +2448,7 @@ class NeuralProphet:
                     "forecasted. "
                 )
             else:
-                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                fcst = fcst[fcst["ID"] == df_name]
                 log.info(f"Getting data from ID {df_name}")
         if include_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.config_model.n_forecasts + self.config_model.max_lags) :]
@@ -2512,7 +2525,7 @@ class NeuralProphet:
                     "Please, especify ID to be plotted."
                 )
             else:
-                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                fcst = fcst[fcst["ID"] == df_name]
                 log.info(f"Plotting data from ID {df_name}")
         if len(self.config_model.quantiles) > 1:
             log.warning(
@@ -2649,7 +2662,7 @@ class NeuralProphet:
                     "Please, especify ID to be plotted."
                 )
             else:
-                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                fcst = fcst[fcst["ID"] == df_name]
                 log.info(f"Plotting data from ID {df_name}")
         else:
             if df_name is None:

@@ -65,7 +65,7 @@ def _maybe_extend_df(
             future_df["ID"] = df_name
             df_i = pd.concat([df_i, future_df])
             df_i.reset_index(drop=True, inplace=True)
-        extended_df = pd.concat((extended_df, df_i.copy(deep=True)), ignore_index=True)
+        extended_df = pd.concat((extended_df, df_i), ignore_index=True)
     return extended_df, periods_add
 
 
@@ -126,8 +126,8 @@ def _get_maybe_extend_periods(
 def _make_future_dataframe(
     model,
     df: pd.DataFrame,
-    events_df: pd.DataFrame,
-    regressors_df: pd.DataFrame,
+    events_df: Optional[pd.DataFrame],
+    regressors_df: Optional[pd.DataFrame],
     periods: Optional[int],
     n_historic_predictions: int,
     n_forecasts: int,
@@ -174,13 +174,12 @@ def _make_future_dataframe(
         log.warning(
             "Not extending df into future as no periods specified. You can skip this and predict directly instead."
         )
-    df = df.copy(deep=True)
     _ = df_utils.infer_frequency(df, n_lags=max_lags, freq=freq)
     last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
     if events_df is not None:
-        events_df = events_df.copy(deep=True).reset_index(drop=True)
+        events_df = events_df.reset_index(drop=True)
     if regressors_df is not None:
-        regressors_df = regressors_df.copy(deep=True).reset_index(drop=True)
+        regressors_df = regressors_df.reset_index(drop=True)
     if periods is None:
         periods = 1 if max_lags == 0 else n_forecasts
     else:
