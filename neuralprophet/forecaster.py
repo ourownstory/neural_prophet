@@ -2005,23 +2005,26 @@ class NeuralProphet:
         df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
 
-        events_df = events_df.copy(deep=True)
-        events_df, events_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(events_df)
-        events_dict = df_utils.create_dict_for_events_or_regressors(df, events_df, "events", events_df_received_ID_col)
-
-        regressors_df = regressors_df.copy(deep=True)
-        regressors_df, regressors_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(events_df)
-        regressors_dict = df_utils.create_dict_for_events_or_regressors(
-            df, regressors_df, "regressors", regressors_df_received_ID_col
-        )
+        if events_df is not None:
+            events_df = events_df.copy(deep=True)
+            events_df, events_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(events_df)
+            events_dict = df_utils.create_dict_for_events_or_regressors(
+                df, events_df, "events", events_df_received_ID_col
+            )
+        if regressors_df is not None:
+            regressors_df = regressors_df.copy(deep=True)
+            regressors_df, regressors_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(events_df)
+            regressors_dict = df_utils.create_dict_for_events_or_regressors(
+                df, regressors_df, "regressors", regressors_df_received_ID_col
+            )
 
         df_future_dataframe = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             df_aux = _make_future_dataframe(
                 model=self,
                 df=df_i,
-                events_df=events_dict[df_name],
-                regressors_df=regressors_dict[df_name],
+                events_df=events_dict[df_name] if events_df is not None else None,
+                regressors_df=regressors_dict[df_name] if regressors_df is not None else None,
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
                 n_forecasts=self.config_model.n_forecasts,
