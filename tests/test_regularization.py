@@ -57,6 +57,7 @@ def test_reg_func_abs():
 def test_regularization_holidays():
     log.info("testing: regularization of holidays")
     df = generate_holiday_dataset(y_holidays_override=Y_HOLIDAYS_OVERRIDE)
+    df, _, _, _ = df_utils.check_multiple_series_id(df)
     df, _, _ = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
@@ -92,6 +93,7 @@ def test_regularization_holidays():
 def test_regularization_events():
     log.info("testing: regularization of events")
     df, events = generate_event_dataset(y_events_override=Y_EVENTS_OVERRIDE)
+    df, _, _, id_list = df_utils.check_multiple_series_id(df)
     df, _, _ = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
@@ -147,6 +149,7 @@ def test_regularization_lagged_regressor():
     """
     log.info("testing: regularization lagged regressors")
     df, lagged_regressors = generate_lagged_regressor_dataset(periods=100)
+    df, _, _, id_list = df_utils.check_multiple_series_id(df)
     df, _, _ = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(

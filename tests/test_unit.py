@@ -79,9 +79,11 @@ def test_timedataset_minimal():
         config_model.set_max_num_lags(n_lags)
         config_missing = configure.MissingDataHandling()
         # config_train = configure.Train()
+        df_in, _, _, _ = df_utils.check_multiple_series_id(df_in)
         df, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
         # create a tabularized dataset from time series
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        # df = df.copy(deep=True)
+        # df, _, _, _ = df_utils.check_multiple_series_id(df)
         df, _, _ = df_utils.check_dataframe(df)
         df = _handle_missing_data(
             df,
@@ -135,10 +137,7 @@ def test_timedataset_minimal():
 def test_normalize():
     length = 100
     days = pd.date_range(start="2017-01-01", periods=length)
-    y = np.ones(length)
-    y[1] = 0
-    y[2] = 2
-    y[3] = 3.3
+    y = np.arange(length)
     df = pd.DataFrame({"ds": days, "y": y})
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -146,7 +145,8 @@ def test_normalize():
         learning_rate=LR,
         normalize="soft",
     )
-    df, _, _, _ = df_utils.prep_or_copy_df(df)
+    df = df.copy(deep=True)
+    df, _, _, _ = df_utils.check_multiple_series_id(df)
     # with config
 
     m.config_normalization.init_data_params(df, m.config_lagged_regressors, m.config_regressors, m.config_events)
@@ -155,10 +155,27 @@ def test_normalize():
     m.config_normalization.unknown_data_normalization = True
     _normalize(df=df, config_normalization=m.config_normalization)
     m.config_normalization.unknown_data_normalization = False
+
     # using config for utils
     df = df.drop("ID", axis=1)
     df_utils.normalize(df, m.config_normalization.global_data_params)
     df_utils.normalize(df, m.config_normalization.local_data_params["__df__"])
+
+
+def test_normalize_utils():
+    length = 100
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.arange(length)
+    df = pd.DataFrame({"ds": days, "y": y})
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        normalize="soft",
+    )
+    df, _, _, _ = df_utils.check_multiple_series_id(df)
+
+    # m.config_normalization.unknown_data_normalization = True
 
     # with utils
     local_data_params, global_data_params = df_utils.init_data_params(
@@ -170,8 +187,10 @@ def test_normalize():
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
     )
-    df_utils.normalize(df, global_data_params)
-    df_utils.normalize(df, local_data_params["__df__"])
+    log.error(local_data_params)
+    log.error(global_data_params)
+    df_utils.normalize(df.copy(deep=True), global_data_params)
+    df_utils.normalize(df.copy(deep=True), local_data_params["__df__"])
 
 
 def test_add_lagged_regressors():
@@ -250,6 +269,7 @@ def test_split_impute():
             n_lags=n_lags,
             n_forecasts=n_forecasts,
         )
+        df_in, _, _, _ = df_utils.check_multiple_series_id(df_in)
         df_in, _, _ = df_utils.check_dataframe(df_in, check_y=False)
         df_in = _handle_missing_data(
             df=df_in,
@@ -297,6 +317,7 @@ def test_split_impute():
 
 def test_cv():
     def check_folds(df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct):
+        df, _, _, _ = df_utils.check_multiple_series_id(df)
         folds = df_utils.crossvalidation_split_df(
             df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct
         )
@@ -318,8 +339,9 @@ def test_cv():
         assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
 
     len_df = 100
+    df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
     check_folds(
-        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        df=df,
         n_lags=0,
         n_forecasts=1,
         valid_fold_num=3,
@@ -327,8 +349,9 @@ def test_cv():
         fold_overlap_pct=0.0,
     )
     len_df = 1000
+    df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
     check_folds(
-        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        df=df,
         n_lags=50,
         n_forecasts=10,
         valid_fold_num=10,
@@ -342,6 +365,7 @@ def test_cv_for_global_model():
         df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct, global_model_cv_type="local"
     ):
         "Does not work with global_model_cv_type == global-time or global_model_cv_type is None"
+        df, _, _, _ = df_utils.check_multiple_series_id(df)
         folds = df_utils.crossvalidation_split_df(
             df,
             n_lags,
@@ -502,8 +526,9 @@ def test_reg_delay():
 
 def test_double_crossvalidation():
     len_df = 100
+    df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df), "ID": "__df__"})
     folds_val, folds_test = df_utils.double_crossvalidation_split_df(
-        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        df=df,
         n_lags=0,
         n_forecasts=1,
         k=3,
@@ -531,8 +556,10 @@ def test_double_crossvalidation():
         learning_rate=LR,
         n_lags=2,
     )
+    len_df = 100
+    df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df), "ID": "__df__"})
     folds_val, folds_test = m.double_crossvalidation_split_df(
-        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        df=df,
         k=3,
         valid_pct=0.3,
         test_pct=0.15,
@@ -554,7 +581,10 @@ def test_double_crossvalidation():
 
     # Raise not implemented error as double_crossvalidation is not compatible with many time series
     with pytest.raises(NotImplementedError):
-        df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
+        len_df = 100
+        df = pd.DataFrame(
+            {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df), "ID": "__df__"}
+        )
         df1 = df.copy(deep=True)
         df1["ID"] = "df1"
         df2 = df.copy(deep=True)
@@ -891,6 +921,7 @@ def test_too_many_NaN():
         limit_linear=config_missing.impute_linear,
         rolling=config_missing.impute_rolling,
     )
+    df, _, _, id_list = df_utils.check_multiple_series_id(df)
     df, _, _ = df_utils.check_dataframe(df)
     local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
     df = df.drop("ID", axis=1)

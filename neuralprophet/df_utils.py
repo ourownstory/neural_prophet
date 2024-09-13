@@ -22,7 +22,7 @@ class ShiftScale:
     scale: float = 1.0
 
 
-def prep_or_copy_df(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[str]]:
+def check_multiple_series_id(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[str]]:
     """Copy df if it contains the ID column. Creates ID column with '__df__' if it is a df with a single time series.
     Parameters
     ----------
@@ -42,26 +42,23 @@ def prep_or_copy_df(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[st
     if not isinstance(df, pd.DataFrame):
         raise ValueError("Provided DataFrame (df) must be of pd.DataFrame type.")
 
-    # Create a copy of the dataframe
-    df_copy = df.copy(deep=True)
-
-    df_has_id_column = "ID" in df_copy.columns
+    df_has_id_column = "ID" in df.columns
 
     # If there is no ID column, then add one with a single value
     if not df_has_id_column:
         log.debug("Provided DataFrame (df) contains a single time series.")
-        df_copy["ID"] = "__df__"
-        return df_copy, df_has_id_column, True, ["__df__"]
+        df["ID"] = "__df__"
+        return df, df_has_id_column, True, ["__df__"]
 
     # Create a list of unique ID values
-    unique_id_values = list(df_copy["ID"].unique())
+    unique_id_values = list(df["ID"].unique())
     # Check if there is only one unique ID value
     df_has_single_time_series = len(unique_id_values) == 1
+    num_time_series_id = len(unique_id_values)
 
-    single_or_multiple_message = "a single" if df_has_single_time_series else "multiple"
-    log.debug(f"Provided DataFrame (df) has an ID column and contains {single_or_multiple_message} time series.")
+    log.debug(f"Provided DataFrame (df) has an ID column and contains {num_time_series_id} time series.")
 
-    return df_copy, df_has_id_column, df_has_single_time_series, unique_id_values
+    return df, df_has_id_column, df_has_single_time_series, unique_id_values
 
 
 def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True):
@@ -285,7 +282,8 @@ def init_data_params(
             ShiftScale entries containing ``shift`` and ``scale`` parameters for each column
     """
     # Compute Global data params
-    df, _, _, _ = prep_or_copy_df(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
         df_merged, normalize, config_lagged_regressors, config_regressors, config_events, config_seasonality
@@ -382,6 +380,8 @@ def normalize(df, data_params):
     """
     df = df.copy(deep=True)
     for name in df.columns:
+        if name == "ID":
+            continue
         if name not in data_params.keys():
             raise ValueError(f"Unexpected column {name} in data")
         new_name = name
@@ -428,7 +428,8 @@ def check_dataframe(
         pd.DataFrame or dict
             checked dataframe
     """
-    df, _, _, _ = prep_or_copy_df(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     if df.groupby("ID").size().min() < 1:
         raise ValueError("Dataframe has no rows.")
     if "ds" not in df:
@@ -642,7 +643,9 @@ def _crossvalidation_with_time_threshold(df, n_lags, n_forecasts, k, fold_pct, f
     min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
     assert min_train >= samples_fold
     folds = []
-    df_fold, _, _, _ = prep_or_copy_df(df)
+    df_fold = df
+    # df_fold = df.copy(deep=True)
+    # df_fold, _, _, _ = check_multiple_series_id(df_fold)
     for i in range(k, 0, -1):
         threshold_time_stamp = find_time_threshold(df_fold, n_lags, n_forecasts, samples_fold, inputs_overbleed=True)
         df_train, df_val = split_considering_timestamp(
@@ -704,7 +707,8 @@ def crossvalidation_split_df(
 
             validation data
     """
-    df, _, _, _ = prep_or_copy_df(df)
+    # df = df.copy(deep=True)
+    df, _, _, _ = check_multiple_series_id(df)
     folds = []
     if len(df["ID"].unique()) == 1:
         for df_name, df_i in df.groupby("ID"):
@@ -764,7 +768,8 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
         tuple of k tuples [(folds_val, folds_test), …]
             elements same as :meth:`crossvalidation_split_df` returns
     """
-    df, _, _, _ = prep_or_copy_df(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     if len(df["ID"].unique()) > 1:
         raise NotImplementedError("double_crossvalidation_split_df not implemented for df with many time series")
     fold_pct_test = float(test_pct) / k
@@ -885,7 +890,8 @@ def split_df(
         pd.DataFrame, dict
             validation data
     """
-    df, _, _, _ = prep_or_copy_df(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     df_train = pd.DataFrame()
     df_val = pd.DataFrame()
     if local_split:
@@ -1367,7 +1373,8 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
             Valid frequency tag according to major frequency.
 
     """
-    df, _, _, _ = prep_or_copy_df(df)
+    # df = df.copy(deep=True)
+    # df, _, _, _ = check_multiple_series_id(df)
     freq_df = list()
     for df_name, df_i in df.groupby("ID"):
         freq_df.append(_infer_frequency(df_i, freq, min_freq_percentage))
@@ -1410,8 +1417,8 @@ def create_dict_for_events_or_regressors(
     if other_df is None:
         # if other_df is None, create dictionary with None for each ID
         return {df_name: None for df_name in df_names}
-
-    other_df, received_ID_col, _, _ = prep_or_copy_df(other_df)
+    other_df = other_df.copy(deep=True)
+    other_df, received_ID_col, _, _ = check_multiple_series_id(other_df)
     # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
     if not received_ID_col:
         other_df = other_df.drop("ID", axis=1)
