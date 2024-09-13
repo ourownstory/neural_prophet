@@ -126,8 +126,8 @@ def _get_maybe_extend_periods(
 def _make_future_dataframe(
     model,
     df: pd.DataFrame,
-    events_df: pd.DataFrame,
-    regressors_df: pd.DataFrame,
+    events_df: Optional[pd.DataFrame],
+    regressors_df: Optional[pd.DataFrame],
     periods: Optional[int],
     n_historic_predictions: int,
     n_forecasts: int,

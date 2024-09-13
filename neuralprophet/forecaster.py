@@ -2013,7 +2013,7 @@ class NeuralProphet:
             )
         if regressors_df is not None:
             regressors_df = regressors_df.copy(deep=True)
-            regressors_df, regressors_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(events_df)
+            regressors_df, regressors_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(regressors_df)
             regressors_dict = df_utils.create_dict_for_events_or_regressors(
                 df, regressors_df, "regressors", regressors_df_received_ID_col
             )
