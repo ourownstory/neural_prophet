@@ -647,11 +647,9 @@ def _crossvalidation_with_time_threshold(df, n_lags, n_forecasts, k, fold_pct, f
         threshold_time_stamp = df_merged["ds"].iloc[-1]
         df_fold_aux = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            df_aux = (
-                df_i.copy(deep=True).iloc[: len(df_i[df_i["ds"] < threshold_time_stamp]) + 1].reset_index(drop=True)
-            )
+            df_aux = df_i.iloc[: len(df_i[df_i["ds"] < threshold_time_stamp]) + 1].reset_index(drop=True)
             df_fold_aux = pd.concat((df_fold_aux, df_aux), ignore_index=True)
-        df = df_fold_aux.copy(deep=True)
+        df = df_fold_aux
     folds = folds[::-1]
     return folds
 
@@ -829,11 +827,11 @@ def split_considering_timestamp(df, n_lags, n_forecasts, inputs_overbleed, thres
     df_val = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
         if df[df["ID"] == df_name]["ds"].max() < threshold_time_stamp:
-            df_train = pd.concat((df_train, df_i.copy(deep=True)), ignore_index=True)
+            df_train = pd.concat((df_train, df_i), ignore_index=True)
         elif df[df["ID"] == df_name]["ds"].min() > threshold_time_stamp:
-            df_val = pd.concat((df_val, df_i.copy(deep=True)), ignore_index=True)
+            df_val = pd.concat((df_val, df_i), ignore_index=True)
         else:
-            df_aux = df_i.copy(deep=True)
+            df_aux = df_i
             n_train = len(df_aux[df_aux["ds"] < threshold_time_stamp])
             split_idx_train = n_train + n_lags + n_forecasts - 1
             split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
