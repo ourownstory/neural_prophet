@@ -378,7 +378,7 @@ def normalize(df, data_params):
         pd.DataFrame
             normalized dataframes
     """
-    df = df.copy(deep=True)
+    # df = df.copy(deep=True)
     for name in df.columns:
         if name == "ID":
             continue
