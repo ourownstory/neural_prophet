@@ -269,7 +269,7 @@ def test_split_impute():
             n_lags=n_lags,
             n_forecasts=n_forecasts,
         )
-        df, _, _, id_list = df_utils.check_multiple_series_id(df)
+        df_in, _, _, _ = df_utils.check_multiple_series_id(df_in)
         df_in, _, _ = df_utils.check_dataframe(df_in, check_y=False)
         df_in = _handle_missing_data(
             df=df_in,
@@ -365,6 +365,7 @@ def test_cv_for_global_model():
         df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct, global_model_cv_type="local"
     ):
         "Does not work with global_model_cv_type == global-time or global_model_cv_type is None"
+        df, _, _, _ = df_utils.check_multiple_series_id(df)
         folds = df_utils.crossvalidation_split_df(
             df,
             n_lags,
@@ -525,8 +526,9 @@ def test_reg_delay():
 
 def test_double_crossvalidation():
     len_df = 100
+    df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df), "ID": "__df__"})
     folds_val, folds_test = df_utils.double_crossvalidation_split_df(
-        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        df=df,
         n_lags=0,
         n_forecasts=1,
         k=3,
@@ -554,8 +556,10 @@ def test_double_crossvalidation():
         learning_rate=LR,
         n_lags=2,
     )
+    len_df = 100
+    df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df), "ID": "__df__"})
     folds_val, folds_test = m.double_crossvalidation_split_df(
-        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        df=df,
         k=3,
         valid_pct=0.3,
         test_pct=0.15,
@@ -577,7 +581,10 @@ def test_double_crossvalidation():
 
     # Raise not implemented error as double_crossvalidation is not compatible with many time series
     with pytest.raises(NotImplementedError):
-        df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
+        len_df = 100
+        df = pd.DataFrame(
+            {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df), "ID": "__df__"}
+        )
         df1 = df.copy(deep=True)
         df1["ID"] = "df1"
         df2 = df.copy(deep=True)
