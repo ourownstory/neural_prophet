@@ -251,7 +251,6 @@ def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: 
     # Receives df with ID column
     df_prepared = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
-        df_i = df_i.copy(deep=True)
         _ = df_utils.infer_frequency(df_i, n_lags=max_lags, freq=freq)
         # check if received pre-processed df
         if "y_scaled" in df_i.columns or "t" in df_i.columns:
@@ -283,7 +282,7 @@ def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: 
                 config_seasonality=model.config_seasonality,
                 predicting=True,
             )
-        df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
+        df_prepared = pd.concat((df_prepared, df_i.reset_index(drop=True)), ignore_index=True)
     return df_prepared
 
 
