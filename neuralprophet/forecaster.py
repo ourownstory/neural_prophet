@@ -1924,7 +1924,11 @@ class NeuralProphet:
         df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
         df = _check_dataframe(self, df, check_y=True, exogenous=False)
-        df_dict_events = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
+        events_df = events_df.copy(deep=True)
+        events_df, events_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(events_df)
+        df_dict_events = df_utils.create_dict_for_events_or_regressors(
+            df, events_df, "events", events_df_received_ID_col
+        )
         df_created = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             for name in df_dict_events[df_name]["event"].unique():
@@ -2000,8 +2004,16 @@ class NeuralProphet:
         """
         df = df.copy(deep=True)
         df, received_ID_col, received_single_time_series, _ = df_utils.check_multiple_series_id(df)
-        events_dict = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
-        regressors_dict = df_utils.create_dict_for_events_or_regressors(df, regressors_df, "regressors")
+
+        events_df = events_df.copy(deep=True)
+        events_df, events_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(events_df)
+        events_dict = df_utils.create_dict_for_events_or_regressors(df, events_df, "events", events_df_received_ID_col)
+
+        regressors_df = regressors_df.copy(deep=True)
+        regressors_df, regressors_df_received_ID_col, _, _ = df_utils.check_multiple_series_id(events_df)
+        regressors_dict = df_utils.create_dict_for_events_or_regressors(
+            df, regressors_df, "regressors", regressors_df_received_ID_col
+        )
 
         df_future_dataframe = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):

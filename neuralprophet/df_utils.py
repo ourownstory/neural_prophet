@@ -1379,6 +1379,7 @@ def create_dict_for_events_or_regressors(
     df: pd.DataFrame,
     other_df: Optional[pd.DataFrame],
     other_df_name: str,
+    received_ID_col: bool,
 ) -> dict:  # Not sure about the naming of this function
     """Create a dict for events or regressors according to input df.
 
@@ -1400,12 +1401,10 @@ def create_dict_for_events_or_regressors(
     if other_df is None:
         # if other_df is None, create dictionary with None for each ID
         return {df_name: None for df_name in df_names}
-    other_df = other_df.copy(deep=True)
-    other_df, received_ID_col, _, _ = check_multiple_series_id(other_df)
     # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
     if not received_ID_col:
         other_df = other_df.drop("ID", axis=1)
-        return {df_name: other_df.copy(deep=True) for df_name in df_names}
+        return {df_name: other_df for df_name in df_names}
 
     # else, other_df does contain ID, create dict with respective IDs
     df_unique_names, other_df_unique_names = list(df["ID"].unique()), list(other_df["ID"].unique())
@@ -1421,7 +1420,7 @@ def create_dict_for_events_or_regressors(
     df_other_dict = {}
     for df_name in df_unique_names:
         if df_name in other_df_unique_names:
-            df_aux = other_df[other_df["ID"] == df_name].reset_index(drop=True).copy(deep=True)
+            df_aux = other_df[other_df["ID"] == df_name].reset_index(drop=True)
             df_aux.drop("ID", axis=1, inplace=True)
         else:
             df_aux = None
