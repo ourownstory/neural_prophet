@@ -77,7 +77,6 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
         pd.Dataframe
             original input format
     """
-    # df = df.copy(deep=True)
     if not received_ID_col and received_single_time_series:
         assert len(df["ID"].unique()) == 1
         df.drop("ID", axis=1, inplace=True)
@@ -282,9 +281,10 @@ def init_data_params(
             ShiftScale entries containing ``shift`` and ``scale`` parameters for each column
     """
     # Compute Global data params
-    # df = df.copy(deep=True)
     # df, _, _, _ = check_multiple_series_id(df)
-    df_merged = df.copy(deep=True).drop("ID", axis=1)
+    df_merged = df.copy(deep=True)
+    # if "ID" in df_merged.columns:
+    #     df_merged.drop("ID", axis=1, inplace=True)
     global_data_params = data_params_definition(
         df_merged, normalize, config_lagged_regressors, config_regressors, config_events, config_seasonality
     )
@@ -296,7 +296,7 @@ def init_data_params(
     local_data_params = OrderedDict()
     local_run_despite_global = True if global_normalization else None
     for df_name, df_i in df.groupby("ID"):
-        df_i.drop("ID", axis=1, inplace=True)
+        # df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
             df=df_i,
             normalize=normalize,
@@ -542,7 +542,6 @@ def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap
     min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
     assert min_train >= samples_fold
     folds = []
-    # df_fold = df.copy(deep=True)
     df_fold = df
     for i in range(k, 0, -1):
         df_train, df_val = split_df(df_fold, n_lags, n_forecasts, valid_p=samples_fold, inputs_overbleed=True)
