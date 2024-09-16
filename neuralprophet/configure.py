@@ -70,6 +70,33 @@ class Model:
 
 @dataclass
 class Normalization:
+    """
+    A class used to handle normalization parameters for datasets.
+
+    Attributes
+    ----------
+    normalize : str
+        The type of normalization to apply.
+    global_normalization : bool
+        Flag indicating whether to apply global normalization.
+    global_time_normalization : bool
+        Flag indicating whether to apply global time normalization.
+    unknown_data_normalization : bool
+        Flag indicating whether to apply normalization to unknown data.
+    local_data_params : dict
+        Dictionary containing local data parameters, where the key is the name of the dataset and the value is another dictionary with variable names.
+    global_data_params : dict
+        Dictionary containing global data parameters, where the key is the name of the variable.
+
+    Methods
+    -------
+    init_data_params(df, config_lagged_regressors=None, config_regressors=None, config_events=None, config_seasonality=None)
+        Initializes the data parameters for normalization based on the provided dataframe and configuration components.
+
+    get_data_params(df_name)
+        Retrieves the data parameters for a given dataset name, handling both local and global normalization scenarios.
+    """
+
     normalize: str
     global_normalization: bool
     global_time_normalization: bool
