@@ -17,6 +17,26 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
+    """
+    General configuration settings of the forecasting model.
+
+    Attributes
+    n_forecasts : int
+        Number of forecasts to be made.
+    quantiles : Optional[List[float]]
+        List of quantiles for prediction intervals. Default is None.
+    prediction_frequency : Optional[Dict[str]]
+        Frequency of predictions. Default is None.
+    max_lags : Optional[int]
+        Maximum number of lags used in the model. This is set during model configuration.
+
+    Methods
+    setup_quantiles()
+        Configures the quantiles for prediction intervals.
+    set_max_num_lags(n_lags, config_lagged_regressors)
+        Determines the maximum number of lags between autoregression lags and covariate lags.
+    """
+
     n_forecasts: int
     quantiles: Optional[List[float]] = None
     prediction_frequency: Optional[Dict[str]] = None
@@ -71,7 +91,7 @@ class Model:
 @dataclass
 class Normalization:
     """
-    A class used to handle normalization parameters for datasets.
+    Cofiguration settings for normalization of data.
 
     Attributes
     ----------
@@ -112,6 +132,23 @@ class Normalization:
         config_events: Optional[configure_components.Events] = None,
         config_seasonality: Optional[configure_components.Seasonalities] = None,
     ):
+        """
+        Compute parameters for data normalization.
+
+        This method sets up the local and global data parameters required for the normalization of the data.
+        based on the provided dataframe and configuration options. If only one dataframe
+        is provided and global normalization is not set, it will enable global normalization.
+
+        Args:
+            df (pd.DataFrame): The input dataframe containing the data.
+            config_lagged_regressors (Optional[configure_components.LaggedRegressors]): Configuration for lagged regressors.
+            config_regressors (Optional): Configuration for additional regressors.
+            config_events (Optional[configure_components.Events]): Configuration for events.
+            config_seasonality (Optional[configure_components.Seasonalities]): Configuration for seasonalities.
+
+        Returns:
+            None
+        """
         if len(df["ID"].unique()) == 1 and not self.global_normalization:
             log.info("Setting normalization to global as only one dataframe provided for training.")
             self.global_normalization = True
@@ -127,17 +164,37 @@ class Normalization:
         )
 
     def get_data_params(self, df_name):
+        """
+        Retrieve the data normalization parameters for a given dataset name.
+
+        Parameters:
+        -----------
+        df_name : str
+            The name of the dataset for which to retrieve the data parameters.
+
+        Returns:
+        --------
+        dict
+            The data parameters associated with the given dataset name.
+
+        Raises:
+        -------
+        ValueError
+            If the dataset name is not found in the local data parameters and
+            `unknown_data_normalization` is False.
+
+        """
         if self.global_normalization:
             data_params = self.global_data_params
         else:
             if df_name in self.local_data_params.keys() and df_name != "__df__":
-                log.debug(f"Dataset name {df_name!r} found in training data_params")
+                # log.debug(f"Dataset name {df_name!r} found in training data_params")
                 data_params = self.local_data_params[df_name]
             elif self.unknown_data_normalization:
-                log.debug(
-                    f"Dataset name {df_name!r} is not present in valid data_params but unknown_data_normalization is \
-                        True. Using global_data_params"
-                )
+                # log.debug(
+                #     f"Dataset name {df_name!r} is not present in valid data_params but unknown_data_normalization is \
+                #         True. Using global_data_params"
+                # )
                 data_params = self.global_data_params
             else:
                 raise ValueError(
@@ -149,6 +206,16 @@ class Normalization:
 
 @dataclass
 class MissingDataHandling:
+    """
+    Configuration for handling missing data in the dataset.
+
+    Attributes:
+        impute_missing (bool): Flag to indicate if missing data should be imputed. Default is True.
+        impute_linear (int): Number of missing data points to impute using linear interpolation. Default is 10.
+        impute_rolling (int): Number of missing data points to impute using rolling average. Default is 10.
+        drop_missing (bool): Flag to indicate if rows with missing data should be dropped. Default is False.
+    """
+
     impute_missing: bool = True
     impute_linear: int = 10
     impute_rolling: int = 10
@@ -157,6 +224,48 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
+    """
+    Settings for model training.
+    This class encapsulates the configuration parameters and methods for training the model including PyTorch Lightning arguments.
+
+    Attributes
+    ----------
+    learning_rate : Optional[float]
+        Learning rate for the optimizer.
+    epochs : Optional[int]
+        Number of epochs for training.
+    batch_size : Optional[int]
+        Batch size for training.
+    loss_func : Union[str, torch.nn.modules.loss._Loss, Callable]
+        Loss function for training.
+    optimizer : Union[str, Type[torch.optim.Optimizer]]
+        Optimizer for training.
+    optimizer_args : dict
+        Arguments for the optimizer.
+    scheduler : Optional[Union[str, Type[torch.optim.lr_scheduler.LRScheduler]]]
+        Learning rate scheduler.
+    scheduler_args : dict
+        Arguments for the scheduler.
+    early_stopping : Optional[bool]
+        Whether to use early stopping.
+    newer_samples_weight : float
+        Weight for newer samples.
+    newer_samples_start : float
+        Start point for newer samples.
+    reg_delay_pct : float
+        Regularization delay percentage.
+    reg_lambda_trend : Optional[float]
+        Regularization lambda trend.
+    trend_reg_threshold : Optional[Union[bool, float]]
+        Trend regularization threshold.
+    n_data : int
+        Number of data points in the dataset.
+    loss_func_name : str
+        Name of the loss function.
+    pl_trainer_config : dict
+        Configuration for PyTorch Lightning trainer.
+    """
+
     learning_rate: Optional[float]
     epochs: Optional[int]
     batch_size: Optional[int]
@@ -186,6 +295,15 @@ class Train:
         # self.set_scheduler()
 
     def set_loss_func(self, quantiles: List[float]):
+        """
+        Set the loss function based on the provided quantiles.
+        If quantiles are provided, the loss function is wrapped in a PinballLoss.
+
+        Parameters
+        ----------
+        quantiles : List[float]
+            List of quantiles for the loss function.
+        """
         if isinstance(self.loss_func, str):
             if self.loss_func.lower() in ["smoothl1", "smoothl1loss", "huber"]:
                 # keeping 'huber' for backwards compatiblility, though not identical
@@ -216,6 +334,28 @@ class Train:
         min_epoch: int = 20,
         max_epoch: int = 500,
     ):
+        """
+        Automatically sets the batch size and number of epochs based on the size of the dataset.
+
+        Parameters
+        ----------
+        n_data : int
+            The number of data points in the dataset. Must be greater than or equal to 1.
+        min_batch : int, optional
+            The minimum batch size. Default is 8.
+        max_batch : int, optional
+            The maximum batch size. Default is 2048.
+        min_epoch : int, optional
+            The minimum number of epochs. Default is 20.
+        max_epoch : int, optional
+            The maximum number of epochs. Default is 500.
+
+        Notes
+        -----
+        - If `self.batch_size` is not set, it will be automatically determined based on the size of the dataset.
+        - If `self.epochs` is not set, it will be automatically determined to ensure a minimum of 1000 steps and a maximum of 100,000 steps.
+        - The `lambda_delay` attribute is also set based on the regularization delay percentage and the number of epochs.
+        """
         assert n_data >= 1
         self.n_data = n_data
         if self.batch_size is None:
@@ -233,16 +373,17 @@ class Train:
 
     def set_optimizer(self):
         """
-        Set the optimizer and optimizer args. If optimizer is a string, then it will be converted to the corresponding
-        torch optimizer. The optimizer is not initialized yet as this is done in configure_optimizers in TimeNet.
+        Set the optimizer and optimizer args from stored values in self.
 
-        Parameters
-            ----------
-                optimizer_name : int
-                    Object provided to NeuralProphet as optimizer.
-                optimizer_args : dict
-                    Arguments for the optimizer.
+        If optimizer is a string, then it will be converted to the corresponding torch optimizer class.
+        The optimizer is not initialized yet as this is done in configure_optimizers in TimeNet.
 
+        Notes
+        -----
+        - `self.optimizer_name` : int
+            Object provided to NeuralProphet as optimizer.
+        - `self.optimizer_args` : dict
+            Arguments for the optimizer.
         """
         if isinstance(self.optimizer, str):
             if self.optimizer.lower() == "adamw":
@@ -265,6 +406,10 @@ class Train:
         """
         Set the scheduler and scheduler arg depending on the user selection.
         The scheduler is not initialized yet as this is done in configure_optimizers in TimeNet.
+
+        Notes
+        -----
+        - If no scheduler is specified, falls back to ExponentialLR scheduler.
         """
 
         if self.scheduler is None:
@@ -316,6 +461,23 @@ class Train:
             ), "Scheduler must be a subclass of torch.optim.lr_scheduler.LRScheduler"
 
     def get_reg_delay_weight(self, progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
+        """
+        Get the regularization delay weight based on current position in training progress.
+
+        Parameters
+        ----------
+        progress : float
+            Current progress of the training.
+        reg_start_pct : float, optional
+            Percentage of progress to start regularization. Default is 0.66.
+        reg_full_pct : float, optional
+            Percentage of progress to fully apply regularization. Default is 1.0.
+
+        Returns
+        -------
+        float
+            Regularization delay weight.
+        """
         # Ignore type warning of epochs possibly being None (does not work with dataclasses)
         if reg_start_pct == reg_full_pct:
             reg_progress = float(progress > reg_start_pct)
@@ -330,4 +492,12 @@ class Train:
         return delay_weight
 
     def set_batches_per_epoch(self, batches_per_epoch: int):
+        """
+        Set the number of batches per epoch.
+
+        Parameters
+        ----------
+        batches_per_epoch : int
+            Number of batches per epoch.
+        """
         self.batches_per_epoch = batches_per_epoch
