@@ -150,7 +150,7 @@ def plot(
         log.warning("Legend is available only for the ten first handles")
     else:
         ax.legend(handles, labels)
-    fig = fig.tight_layout()
+    fig.tight_layout()
     return fig
 
 
@@ -239,7 +239,7 @@ def plot_components(
         elif "auto-regression" in name or "lagged regressor" in name:
             plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
 
-    fig = fig.tight_layout()
+    fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)

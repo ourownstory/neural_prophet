@@ -137,7 +137,7 @@ def plot_parameters(
                 multiplicative_axes.append(ax)
                 weights = multiplicative_events
             plot_scalar_weights(weights=weights, plot_name=comp["plot_name"], focus=forecast_in_focus, ax=ax)
-    fig = fig.tight_layout()
+    fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
