@@ -47,7 +47,7 @@ jobs:
         run: poetry run pytest tests/test_model_performance.py -n 1 --durations=0
       
       - name: Download metrics from main
-        uses: dawidd6/action-download-artifact@v2
+        uses: dawidd6/action-download-artifact@v6
         with:
           repo: ourownstory/neural_prophet
           branch: main
