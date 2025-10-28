@@ -656,7 +656,7 @@ def test_infer_frequency():
     m.fit(df_global)
     log.debug("freq is set for list of dataframes")
     # Check if freq is set for list with different freq for n_lags=0
-    time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq="M")
+    time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq="ME")
     df1["ds"] = time_range
     df_global = pd.concat((df1, df2))
     m = NeuralProphet(
@@ -677,7 +677,7 @@ def test_infer_frequency():
     with pytest.raises(ValueError):
         m.fit(df_global)
     # Exceptions
-    frequencies = ["M", "MS", "Y", "YS", "Q", "QS", "B", "BH"]
+    frequencies = ["ME", "MS", "YE", "YS", "QE", "QS", "B", "bh"]
     df = df.iloc[:200, :]
     for freq in frequencies:
         df1 = df.copy(deep=True)

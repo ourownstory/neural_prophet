@@ -18,7 +18,7 @@ Homepage = "https://github.com/ourownstory/neural_prophet"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
-numpy = ">=1.25.0,<2.0.0"
+numpy = ">=2.0.0"
 pandas = ">=2.0.0"
 torch = ">=2.0.0,<2.4.0"
 # Note: torch defaults to already installed version or installs CUDA version
@@ -47,7 +47,7 @@ nbformat = ">=5.8.0"
 [tool.poetry.group.pytest] # pytest dev setup and CI
 optional = true
 
-[tool.poetry.group.pytest.dependencies] 
+[tool.poetry.group.pytest.dependencies]
 pytest = "^8.0.0"
 pytest-xdist = "^3.1.0"
 pytest-cov = "^4.1.0"

@@ -430,7 +430,7 @@ def check_dataframe(
     if df["ds"].isnull().any():
         raise ValueError("Found NaN in column ds.")
     if not np.issubdtype(df["ds"].to_numpy().dtype, np.datetime64):
-        df["ds"] = pd.to_datetime(df.loc[:, "ds"], utc=True).dt.tz_convert(None)
+        df["ds"] = pd.to_datetime(df["ds"]).dt.tz_localize(None)
     if df.groupby("ID").apply(lambda x: x.duplicated("ds").any()).any():
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
 
@@ -1117,7 +1117,7 @@ def get_freq_dist(ds_col):
         tuple
             numeric delta values (``ms``) and distribution of frequency counts
     """
-    converted_ds = pd.to_datetime(ds_col, utc=True).view(dtype=np.int64)
+    converted_ds = pd.to_datetime(ds_col, utc=True).astype(np.int64)
     diff_ds = np.unique(converted_ds.diff(), return_counts=True)
     return diff_ds
 
@@ -1171,7 +1171,7 @@ def get_dist_considering_two_freqs(dist):
 
     Note
     ----
-    Useful for the frequency exceptions (i.e. ``M``, ``Y``, ``Q``, ``B``, and ``BH``).
+    Useful for the frequency exceptions (i.e. ``ME``, ``YE``, ``QE``, ``B``, and ``bh``).
 
     Parameters
     ----------
@@ -1252,18 +1252,18 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     if argmax_frequency in MONTHLY_FREQUENCIES:
         dominant_freq_percentage = _get_dominant_frequency_percentage(frequencies, distribution, MONTHLY_FREQUENCIES)
         num_freq = 2.6784e15
-        inferred_freq = "MS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "M"
+        inferred_freq = "MS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "ME"
     # exception - yearly df (365 days freq or 366 days freq)
     elif argmax_frequency == 3.1536e16 or argmax_frequency == 3.16224e16:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 3.1536e16
-        inferred_freq = "YS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "Y"
+        inferred_freq = "YS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "YE"
     # exception - quarterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter
     # and 1st quarter in leap year)
     elif argmax_frequency == 7.9488e15 and frequencies[np.argsort(distribution, axis=0)[-2]] == 7.8624e15:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 7.9488e15
-        inferred_freq = "QS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "Q"
+        inferred_freq = "QS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "QE"
     # exception - Business day (most common == day delta and second most common == 3 days delta and second most common
     # is at least 12% of the deltas)
     elif (
@@ -1283,7 +1283,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     ):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 3.6e12
-        inferred_freq = "BH"
+        inferred_freq = "bh"
     else:
         dominant_freq_percentage = distribution.max() / len(df["ds"])
         num_freq = argmax_frequency  # get value of most common diff
