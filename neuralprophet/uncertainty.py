@@ -193,7 +193,7 @@ class Conformal:
                 noncon_scores_lo.sort()
                 noncon_scores_hi.sort()
                 # return dict of nonconformity scores
-                return {"noncon_scores_hi": noncon_scores_lo, "noncon_scores_lo": noncon_scores_hi}
+                return {"noncon_scores_lo": noncon_scores_lo, "noncon_scores_hi": noncon_scores_hi}
         else:  # self.method == "naive"
             # Naive nonconformity scoring function
             noncon_scores = abs(df_cal["y"] - df_cal[y_hat_col]).values

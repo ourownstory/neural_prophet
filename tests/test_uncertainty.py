@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from neuralprophet import NeuralProphet, uncertainty_evaluate
+from neuralprophet.uncertainty import Conformal
 
 log = logging.getLogger("NP.test")
 log.setLevel("ERROR")
@@ -241,3 +242,20 @@ def test_asymmetrical_quantiles():
         decompose=decompose,
     )
     uncertainty_evaluate(forecast)
+
+
+def test_asymmetrical_scores_keep_their_side():
+    # the lower bound misses by 3 and 4 on two rows, the upper bound by 1 on one row,
+    # and each side's scores must come back under its own key
+    df_cal = pd.DataFrame(
+        {
+            "y": [7.0, 6.0, 21.0, 15.0],
+            "yhat1": [12.0, 12.0, 12.0, 12.0],
+            "yhat1 5.0%": [10.0, 10.0, 10.0, 10.0],
+            "yhat1 95.0%": [20.0, 20.0, 20.0, 20.0],
+        }
+    )
+    c = Conformal(alpha=(0.05, 0.05), method="cqr", n_forecasts=1, quantiles=[0.05, 0.95])
+    scores = c._get_nonconformity_scores(df_cal, 1)
+    assert list(scores["noncon_scores_lo"]) == [-11.0, -5.0, 3.0, 4.0]
+    assert list(scores["noncon_scores_hi"]) == [-14.0, -13.0, -5.0, 1.0]
