@@ -1,3 +1,4 @@
+import math
 import re
 from dataclasses import dataclass
 from typing import Any, List, Tuple, Union
@@ -220,20 +221,21 @@ class Conformal:
                     upper and lower q_hat value, or the one-sided prediction interval width
 
         """
-        # Get the q-hat index and value
         if self.method == "cqr" and self.symmetrical is False:
-            noncon_scores_lo = noncon_scores["noncon_scores_lo"]
-            noncon_scores_hi = noncon_scores["noncon_scores_hi"]
-            q_hat_idx_lo = int(len(noncon_scores_lo) * self.alpha_lo)
-            q_hat_idx_hi = int(len(noncon_scores_hi) * self.alpha_hi)
-            q_hat_lo = noncon_scores_lo[-q_hat_idx_lo]
-            q_hat_hi = noncon_scores_hi[-q_hat_idx_hi]
-            return {"q_hat_lo": q_hat_lo, "q_hat_hi": q_hat_hi}
+            return {
+                "q_hat_lo": self._conformal_quantile(noncon_scores["noncon_scores_lo"], self.alpha_lo),
+                "q_hat_hi": self._conformal_quantile(noncon_scores["noncon_scores_hi"], self.alpha_hi),
+            }
         else:
-            noncon_scores = noncon_scores["noncon_scores"]
-            q_hat_idx = int(len(noncon_scores) * self.alpha)
-            q_hat = noncon_scores[-q_hat_idx]
-            return {"q_hat_sym": q_hat}
+            return {"q_hat_sym": self._conformal_quantile(noncon_scores["noncon_scores"], self.alpha)}
+
+    @staticmethod
+    def _conformal_quantile(sorted_scores, alpha: float):
+        """The ceil((n + 1)(1 - alpha))-th smallest score, the finite-sample quantile of split conformal
+        prediction. Capped at the largest score when the calibration set is too small for the rank."""
+        n = len(sorted_scores)
+        rank = min(n, math.ceil((n + 1) * (1 - alpha)))
+        return sorted_scores[rank - 1]
 
     def plot(self, plotting_backend=None):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).

@@ -4,10 +4,12 @@ import logging
 import os
 import pathlib
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from neuralprophet import NeuralProphet, uncertainty_evaluate
+from neuralprophet.uncertainty import Conformal
 
 log = logging.getLogger("NP.test")
 log.setLevel("ERROR")
@@ -241,3 +243,11 @@ def test_asymmetrical_quantiles():
         decompose=decompose,
     )
     uncertainty_evaluate(forecast)
+
+
+def test_q_hat_is_the_finite_sample_quantile():
+    c = Conformal(alpha=0.1, method="naive", n_forecasts=1, quantiles=[])
+    # ceil(21 * 0.9) = 19th smallest of 1..20
+    assert c._get_q_hat(None, {"noncon_scores": np.arange(1.0, 21.0)})["q_hat_sym"] == 19.0
+    # a calibration set too small for the rank widens to its largest score instead of its smallest
+    assert c._get_q_hat(None, {"noncon_scores": np.arange(1.0, 6.0)})["q_hat_sym"] == 5.0
